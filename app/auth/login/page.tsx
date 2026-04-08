@@ -2,10 +2,82 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { API_BASE_URL } from "@/utils/api";
 
 export default function LoginPage() {
+  const router = useRouter();
+
+  // State Bawaan
   const [role, setRole] = useState("pembeli");
   const [showPassword, setShowPassword] = useState(false);
+
+  // State untuk Form Integrasi
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg("");
+    setLoading(true);
+
+    try {
+      // 1. Melakukan request login ke backend
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const result = await response.json(); 
+
+      if (!response.ok) {
+        throw new Error(result.message || "Terjadi kesalahan saat login");
+      }
+
+      // 2. Ambil data dari result.data yang dikirim oleh backend
+      const userData = result.data.user;
+      const token = result.data.token;
+
+      // 3. Simpan kredensial ke localStorage
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(userData));
+
+      // 4. Logika Redirect Berdasarkan Role & Status Store (SESUAI DATA BACKEND KAMU)
+      const userRole = userData.role;
+
+      if (userRole === "admin") {
+        router.push("/admin/dashboard");
+      } 
+      else if (userRole === "seller" || userRole === "penjual") {
+        /** * PERBAIKAN LOGIKA:
+         * Menggunakan userData.store sesuai struktur JSON backend
+         */
+        const store = userData.store;
+        
+        if (store && store.status === "approved") {
+          // Jika toko ada dan sudah disetujui
+          router.push("/penjual/dashboard");
+        } else {
+          // Jika toko belum ada atau masih pending
+          router.push("/penjual/Toko");
+        }
+      } 
+      else if (userRole === "buyer" || userRole === "pembeli") {
+        router.push("/pembeli/dashboard");
+      } 
+      else {
+        router.push("/");
+      }
+      
+    } catch (error: any) {
+      setErrorMsg(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 font-sans selection:bg-[#ef3333] flex flex-col">
@@ -30,8 +102,16 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <form className="space-y-5 text-left" onSubmit={(e) => e.preventDefault()}>
-              {/* Role Selection */}
+            <form className="space-y-5 text-left" onSubmit={handleLogin}>
+              
+              {/* Alert Error Message */}
+              {errorMsg && (
+                <div className="bg-red-900/30 border border-red-500/50 text-[#ef3333] px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider">
+                  {errorMsg}
+                </div>
+              )}
+
+              {/* Role Selection (Hanya Visual UI) */}
               <div>
                 <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1 mb-2 block font-bold">Masuk Sebagai</label>
                 <div className="grid grid-cols-3 gap-2">
@@ -57,8 +137,11 @@ export default function LoginPage() {
                 <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1 mb-1 block font-bold">Email Address</label>
                 <input 
                   type="email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="Masukkan email Anda" 
-                  className="w-full bg-[#1a1a1e] border border-zinc-800 rounded-xl px-5 py-4 text-sm focus:border-[#ef3333] outline-none transition-all placeholder:text-zinc-800 font-medium" 
+                  className="w-full bg-[#1a1a1e] border border-zinc-800 rounded-xl px-5 py-4 text-sm focus:border-[#ef3333] outline-none transition-all placeholder:text-zinc-800 font-medium text-white" 
+                  required
                 />
               </div>
 
@@ -71,8 +154,11 @@ export default function LoginPage() {
                 <div className="relative">
                   <input 
                     type={showPassword ? "text" : "password"} 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="Masukkan password Anda" 
-                    className="w-full bg-[#1a1a1e] border border-zinc-800 rounded-xl px-5 py-4 pr-14 text-sm focus:border-[#ef3333] outline-none transition-all placeholder:text-zinc-800 font-medium" 
+                    className="w-full bg-[#1a1a1e] border border-zinc-800 rounded-xl px-5 py-4 pr-14 text-sm focus:border-[#ef3333] outline-none transition-all placeholder:text-zinc-800 font-medium text-white" 
+                    required
                   />
                   <button 
                     type="button"
@@ -84,8 +170,16 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <button className="w-full bg-[#ef3333] hover:bg-red-700 text-white font-black py-5 rounded-2xl text-xs uppercase tracking-[0.25em] shadow-lg shadow-red-900/30 transition-all mt-6 active:scale-95">
-                Masuk Sekarang
+              <button 
+                type="submit" 
+                disabled={loading}
+                className={`w-full font-black py-5 rounded-2xl text-xs uppercase tracking-[0.25em] shadow-lg transition-all mt-6 active:scale-95 ${
+                  loading 
+                    ? "bg-zinc-800 text-zinc-500 cursor-not-allowed" 
+                    : "bg-[#ef3333] hover:bg-red-700 text-white shadow-red-900/30"
+                }`}
+              >
+                {loading ? "Memproses..." : "Masuk Sekarang"}
               </button>
             </form>
 
@@ -97,14 +191,11 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: VISUAL CONTENT (STATIC - ORDERED LAST) */}
+        {/* RIGHT COLUMN: VISUAL CONTENT */}
         <div className="hidden lg:flex flex-1 flex-col items-center text-center order-1 lg:order-2 animate-fade-in">
           <div className="relative w-[400px] h-[350px] mb-8 flex items-center justify-center">
-            {/* Dekorasi Piringan Hitam Besar (Statis) */}
             <div className="absolute w-72 h-72 rounded-full border-[25px] border-zinc-800 opacity-30"></div>
             <div className="text-[140px] z-10 filter drop-shadow-[0_0_30px_rgba(239,51,51,0.3)]">📀</div>
-            
-            {/* Elemen Tambahan (Statis) */}
             <div className="absolute top-0 left-4 text-7xl opacity-40">📼</div>
             <div className="absolute bottom-4 right-4 text-5xl opacity-20">🎧</div>
           </div>
