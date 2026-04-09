@@ -31,7 +31,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      const result = await response.json(); 
+      const result = await response.json();
 
       if (!response.ok) {
         throw new Error(result.message || "Terjadi kesalahan saat login");
@@ -50,13 +50,13 @@ export default function LoginPage() {
 
       if (userRole === "admin") {
         router.push("/admin/dashboard");
-      } 
+      }
       else if (userRole === "seller" || userRole === "penjual") {
         /** * PERBAIKAN LOGIKA:
          * Menggunakan userData.store sesuai struktur JSON backend
          */
         const store = userData.store;
-        
+
         if (store && store.status === "approved") {
           // Jika toko ada dan sudah disetujui
           router.push("/penjual/dashboard");
@@ -64,14 +64,14 @@ export default function LoginPage() {
           // Jika toko belum ada atau masih pending
           router.push("/penjual/Toko");
         }
-      } 
+      }
       else if (userRole === "buyer" || userRole === "pembeli") {
         router.push("/pembeli/dashboard");
-      } 
+      }
       else {
         router.push("/");
       }
-      
+
     } catch (error: any) {
       setErrorMsg(error.message);
     } finally {
@@ -81,7 +81,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 font-sans selection:bg-[#ef3333] flex flex-col">
-      
+
       {/* 1. NAVBAR (LOGO CENTERED) */}
       <nav className="w-full py-8 flex justify-center border-b border-zinc-900 bg-[#0a0a0b] shrink-0">
         <Link href="/" className="text-3xl font-black text-[#ef3333] tracking-tighter uppercase transition-transform hover:scale-105">
@@ -91,7 +91,7 @@ export default function LoginPage() {
 
       {/* 2. MAIN CONTENT (TWO COLUMNS - FORM ON LEFT) */}
       <main className="flex-1 flex items-center justify-center max-w-7xl mx-auto w-full px-6 py-12 gap-10 lg:gap-24">
-        
+
         {/* LEFT COLUMN: LOGIN CARD */}
         <div className="w-full max-w-[450px] animate-fade-in order-2 lg:order-1">
           <div className="bg-[#111114] border border-zinc-800 p-8 md:p-10 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
@@ -103,7 +103,7 @@ export default function LoginPage() {
             </div>
 
             <form className="space-y-5 text-left" onSubmit={handleLogin}>
-              
+
               {/* Alert Error Message */}
               {errorMsg && (
                 <div className="bg-red-900/30 border border-red-500/50 text-[#ef3333] px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider">
@@ -120,11 +120,10 @@ export default function LoginPage() {
                       key={r}
                       type="button"
                       onClick={() => setRole(r)}
-                      className={`py-2.5 text-[10px] font-black uppercase tracking-wider rounded-lg border transition-all ${
-                        role === r 
-                        ? "bg-[#ef3333] border-[#ef3333] text-white shadow-[0_0_15px_rgba(239,51,51,0.3)]" 
-                        : "bg-[#1a1a1e] border-zinc-800 text-zinc-500 hover:border-zinc-700"
-                      }`}
+                      className={`py-2.5 text-[10px] font-black uppercase tracking-wider rounded-lg border transition-all ${role === r
+                          ? "bg-[#ef3333] border-[#ef3333] text-white shadow-[0_0_15px_rgba(239,51,51,0.3)]"
+                          : "bg-[#1a1a1e] border-zinc-800 text-zinc-500 hover:border-zinc-700"
+                        }`}
                     >
                       {r}
                     </button>
@@ -135,12 +134,12 @@ export default function LoginPage() {
               {/* Email */}
               <div>
                 <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1 mb-1 block font-bold">Email Address</label>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Masukkan email Anda" 
-                  className="w-full bg-[#1a1a1e] border border-zinc-800 rounded-xl px-5 py-4 text-sm focus:border-[#ef3333] outline-none transition-all placeholder:text-zinc-800 font-medium text-white" 
+                  placeholder="Masukkan email Anda"
+                  className="w-full bg-[#1a1a1e] border border-zinc-800 rounded-xl px-5 py-4 text-sm focus:border-[#ef3333] outline-none transition-all placeholder:text-zinc-800 font-medium text-white"
                   required
                 />
               </div>
@@ -148,19 +147,19 @@ export default function LoginPage() {
               {/* Password */}
               <div>
                 <div className="flex justify-between items-center ml-1 mb-1">
-                    <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest font-bold">Password</label>
-                    <a href="#" className="text-[9px] font-bold text-zinc-500 hover:text-[#ef3333] uppercase tracking-tighter">Lupa Password?</a>
+                  <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest font-bold">Password</label>
+                  <a href="#" className="text-[9px] font-bold text-zinc-500 hover:text-[#ef3333] uppercase tracking-tighter">Lupa Password?</a>
                 </div>
                 <div className="relative">
-                  <input 
-                    type={showPassword ? "text" : "password"} 
+                  <input
+                    type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Masukkan password Anda" 
-                    className="w-full bg-[#1a1a1e] border border-zinc-800 rounded-xl px-5 py-4 pr-14 text-sm focus:border-[#ef3333] outline-none transition-all placeholder:text-zinc-800 font-medium text-white" 
+                    placeholder="Masukkan password Anda"
+                    className="w-full bg-[#1a1a1e] border border-zinc-800 rounded-xl px-5 py-4 pr-14 text-sm focus:border-[#ef3333] outline-none transition-all placeholder:text-zinc-800 font-medium text-white"
                     required
                   />
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-5 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-[#ef3333] transition-colors font-bold text-[10px] uppercase tracking-tighter"
@@ -170,14 +169,13 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={loading}
-                className={`w-full font-black py-5 rounded-2xl text-xs uppercase tracking-[0.25em] shadow-lg transition-all mt-6 active:scale-95 ${
-                  loading 
-                    ? "bg-zinc-800 text-zinc-500 cursor-not-allowed" 
+                className={`w-full font-black py-5 rounded-2xl text-xs uppercase tracking-[0.25em] shadow-lg transition-all mt-6 active:scale-95 ${loading
+                    ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                     : "bg-[#ef3333] hover:bg-red-700 text-white shadow-red-900/30"
-                }`}
+                  }`}
               >
                 {loading ? "Memproses..." : "Masuk Sekarang"}
               </button>
