@@ -20,8 +20,13 @@ export interface User {
     role: UserRole;
     status: UserStatus;
     avatar_url?: string | null;
-    created_at: string; // ISO 8601 Date String
+    created_at: string;
     updated_at: string;
+    // TAMBAHKAN INI:
+    store?: {
+        id: string;
+        status: 'pending' | 'approved' | 'rejected' | 'suspended';
+    } | null;
 }
 
 /**

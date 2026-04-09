@@ -15,7 +15,7 @@ interface AuthState {
     isInitialized: boolean; // Flag untuk mengecek apakah aplikasi sudah mencoba memvalidasi sesi awal
 
     // Actions
-    login: (payload: LoginPayload) => Promise<void>;
+   login: (payload: LoginPayload) => Promise<User>;
     register: (payload: RegisterPayload) => Promise<void>;
     logout: () => void;
     fetchMe: () => Promise<void>;
@@ -43,6 +43,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 isAuthenticated: true,
                 isLoading: false,
             });
+            return user;
         } catch (error: any) {
             const apiErr = error as ApiError;
             set({

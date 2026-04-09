@@ -67,7 +67,7 @@ export default function TambahProduk() {
     }
   };
 
-  // 2. Proses Submit yang sudah di-refactor
+  // 2. Proses Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -77,8 +77,7 @@ export default function TambahProduk() {
     }
 
     try {
-      // 3. Delegasikan ke Zustand!
-      // Kita cukup melempar objek mentah. Urusan FormData & Token diurus di layer Services.
+      // 3. Delegasikan ke Zustand (Hanya mengirim Object mentah sesuai Aturan Mutlak)
       await createProduct({
         ...formData,
         photos: {
@@ -90,13 +89,16 @@ export default function TambahProduk() {
         }
       });
 
-      // Jika berhasil melewati 'await' tanpa masuk ke catch, berarti sukses.
       alert("Produk berhasil ditambahkan ke katalog!");
-      router.push("/penjual/produk");
+      router.push("/penjual/kelola_produk");
 
-    } catch (err: any) {
-      // Error tertangkap dari Interceptor -> Store -> Komponen
-      console.error("Gagal menyimpan produk:", err);
+    } catch (err: unknown) {
+      // PERBAIKAN: Menggunakan unknown dan mengecek instance Error
+      if (err instanceof Error) {
+        console.error("Gagal menyimpan produk:", err.message);
+      } else {
+        console.error("Gagal menyimpan produk:", err);
+      }
     }
   };
 
@@ -118,7 +120,8 @@ export default function TambahProduk() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        {/* Tambahkan encType="multipart/form-data" sebagai best practice HTML Form */}
+        <form onSubmit={handleSubmit} className="space-y-8" encType="multipart/form-data">
 
           <AlbumInfoSection formData={formData} onChange={handleInputChange} />
 

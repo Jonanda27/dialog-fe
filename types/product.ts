@@ -73,4 +73,35 @@ export interface CreateProductPayload {
         extra1?: File | null;
         extra2?: File | null;
     };
+
+    
+}
+
+/**
+ * Payload untuk Edit Produk. 
+ * Mirip dengan Create, tapi field bisa opsional dan backend membatasi maksimal 3 foto untuk update.
+ */
+export interface UpdateProductPayload extends Partial<Omit<CreateProductPayload, 'photos'>> {
+    photos?: {
+        front?: File | null;
+        back?: File | null;
+        physical?: File | null;
+    };
+}
+
+/**
+ * Payload untuk Bulk Create.
+ * Backend mengekspektasikan array of object JSON (bukan FormData).
+ */
+export interface BulkCreateProductPayload {
+    name: string;
+    artist: string;
+    release_year: number | string;
+    format: ProductFormat;
+    label?: string;
+    catalog_number?: string;
+    grading: ProductGrading;
+    price: number | string;
+    stock: number | string;
+    condition_notes?: string;
 }
