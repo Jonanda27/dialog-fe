@@ -1,19 +1,8 @@
-// File: dialog-fe/services/api/axiosClient.ts
-
 import axios, { AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import { ApiError, ValidationErrorField } from '../../types/api';
 
 // Ekstraksi Base URL dari Environment Variable
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-
-/**
- * Helper: Mengambil cookie di sisi klien (Browser) dengan aman
- */
-const getClientCookie = (name: string): string | null => {
-    if (typeof document === 'undefined') return null; // Cegah error saat SSR di Next.js
-    const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
-    return match ? match[2] : null;
-};
 
 // 1. Inisialisasi Master Axios Instance
 const axiosClient = axios.create({
@@ -25,11 +14,11 @@ const axiosClient = axios.create({
     timeout: 30000,
 });
 
-// 2. Request Interceptor: Otomatis menyuntikkan Bearer Token
+// 2. Request Interceptor: Otomatis menyuntikkan Bearer Token dari localStorage
 axiosClient.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-        // Asumsi nama cookie tempat menyimpan token adalah 'token'
-        const token = getClientCookie('token');
+        // MIGRASI: Ambil token dari localStorage secara aman (hanya dieksekusi di sisi client/browser)
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
         if (token && config.headers) {
             config.headers.Authorization = `Bearer ${token}`;
