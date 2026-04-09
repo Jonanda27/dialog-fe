@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { API_BASE_URL } from "@/utils/api";
-import Cookies from "js-cookie"; // PERBAIKAN: Gunakan js-cookie
 import {
   LayoutDashboard, Package, PlusCircle, UploadCloud,
   Inbox, History, Wallet, Star, Settings, LogOut, X,
@@ -34,9 +33,7 @@ export default function Sidebar({ children }: SidebarProps) {
   // 1. Integrasi API /me untuk Validasi Sesi dan Role
   useEffect(() => {
     const fetchUser = async () => {
-      // PERBAIKAN: Baca token dari Cookies untuk sinkronisasi dengan Middleware
-      const token = Cookies.get("token");
-
+      const token = localStorage.getItem("token");
       if (!token) {
         router.push("/auth/login");
         return;
@@ -56,9 +53,8 @@ export default function Sidebar({ children }: SidebarProps) {
         if (response.ok) {
           setUser(data.data);
         } else {
-          // PERBAIKAN: Hapus token dari Cookies jika sesi tidak valid
-          Cookies.remove("token", { path: '/' });
-          localStorage.removeItem("user"); // Membersihkan sisa storage lama (jika ada)
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
           router.push("/auth/login");
         }
       } catch (error) {
@@ -115,32 +111,32 @@ export default function Sidebar({ children }: SidebarProps) {
         },
         {
           name: "Seller Management",
-          icon: UserCog,
+          icon: UserCog, // Lebih cocok untuk manajemen user/seller
           href: "/admin/seller-management"
         },
         {
           name: "Verifikasi Toko",
-          icon: ClipboardCheck,
+          icon: ClipboardCheck, // Icon list dengan centang untuk proses verifikasi
           href: "/admin/verifikasi"
         },
         {
           name: "Semua Transaksi",
-          icon: Receipt,
+          icon: Receipt, // Icon struk/nota untuk transaksi
           href: "/admin/all-transaksi"
         },
         {
           name: "Dispute & Escrow",
-          icon: Gavel,
+          icon: Gavel, // Icon palu hakim untuk sengketa (dispute)
           href: "/admin/dispute"
         },
         {
           name: "Katalog Rilisan",
-          icon: Disc,
+          icon: Disc, // Karena ini marketplace musik (Vinyl/CD), icon piringan hitam sangat ikonik
           href: "/admin/katalog"
         },
         {
           name: "Laporan & Export",
-          icon: FileBarChart,
+          icon: FileBarChart, // Icon grafik untuk laporan
           href: "/admin/laporan"
         },
       ]
@@ -150,7 +146,7 @@ export default function Sidebar({ children }: SidebarProps) {
       items: [
         {
           name: "Platform Setting",
-          icon: Settings,
+          icon: Settings, // Icon gir standar untuk pengaturan
           href: "/admin/setting"
         },
       ]
@@ -169,8 +165,7 @@ export default function Sidebar({ children }: SidebarProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
-      // PERBAIKAN: Eksekusi penghapusan token di tingkat Cookie
-      Cookies.remove("token", { path: '/' });
+      localStorage.removeItem("token");
       localStorage.removeItem("user");
       router.push("/auth/login");
     } catch (error) {
@@ -217,8 +212,8 @@ export default function Sidebar({ children }: SidebarProps) {
                     href={item.href}
                     onClick={() => setIsMobileOpen(false)}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all font-bold text-xs uppercase tracking-wider border ${isActive
-                      ? "bg-[#ef3333]/10 text-[#ef3333] border-[#ef3333]/20 shadow-[0_0_15px_rgba(239,51,51,0.05)]"
-                      : "text-zinc-500 border-transparent hover:bg-[#1a1a1e] hover:text-zinc-300"
+                        ? "bg-[#ef3333]/10 text-[#ef3333] border-[#ef3333]/20 shadow-[0_0_15px_rgba(239,51,51,0.05)]"
+                        : "text-zinc-500 border-transparent hover:bg-[#1a1a1e] hover:text-zinc-300"
                       }`}
                   >
                     <Icon size={18} className={isActive ? "text-[#ef3333]" : "text-zinc-500"} />
