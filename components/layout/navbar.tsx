@@ -28,10 +28,6 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
         <button className="lg:hidden text-zinc-400 hover:text-white transition-colors" onClick={onMenuClick}>
           <Menu size={24} />
         </button>
-        {/* Menampilkan Nama Toko / Brand */}
-        <h1 className="text-lg font-black uppercase tracking-tight text-white hidden sm:block">
-          Toko Kaset Retro
-        </h1>
       </div>
 
       <div className="flex items-center gap-4 sm:gap-6">
