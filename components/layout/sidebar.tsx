@@ -4,8 +4,9 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { API_BASE_URL } from "@/utils/api";
-import { 
-  LayoutDashboard, Package, PlusCircle, UploadCloud, 
+import Cookies from "js-cookie"; // PERBAIKAN: Gunakan js-cookie
+import {
+  LayoutDashboard, Package, PlusCircle, UploadCloud,
   Inbox, History, Wallet, Star, Settings, LogOut, X,
   Users, ShieldCheck, Store,
   Disc,
@@ -15,7 +16,7 @@ import {
   UserCog,
   ClipboardCheck
 } from "lucide-react";
-import Navbar from "./navbar"; 
+import Navbar from "./navbar";
 
 interface SidebarProps {
   children: React.ReactNode;
@@ -24,7 +25,7 @@ interface SidebarProps {
 export default function Sidebar({ children }: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [user, setUser] = useState<any>(null); 
+  const [user, setUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const pathname = usePathname();
@@ -33,7 +34,9 @@ export default function Sidebar({ children }: SidebarProps) {
   // 1. Integrasi API /me untuk Validasi Sesi dan Role
   useEffect(() => {
     const fetchUser = async () => {
-      const token = localStorage.getItem("token");
+      // PERBAIKAN: Baca token dari Cookies untuk sinkronisasi dengan Middleware
+      const token = Cookies.get("token");
+
       if (!token) {
         router.push("/auth/login");
         return;
@@ -42,19 +45,20 @@ export default function Sidebar({ children }: SidebarProps) {
       try {
         const response = await fetch(`${API_BASE_URL}/auth/me`, {
           method: 'GET',
-          headers: { 
+          headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json' 
+            'Content-Type': 'application/json'
           }
         });
 
         const data = await response.json();
 
         if (response.ok) {
-          setUser(data.data); 
+          setUser(data.data);
         } else {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
+          // PERBAIKAN: Hapus token dari Cookies jika sesi tidak valid
+          Cookies.remove("token", { path: '/' });
+          localStorage.removeItem("user"); // Membersihkan sisa storage lama (jika ada)
           router.push("/auth/login");
         }
       } catch (error) {
@@ -100,58 +104,58 @@ export default function Sidebar({ children }: SidebarProps) {
     }
   ];
 
- const adminMenu = [
-  {
-    title: "MAIN MENU",
-    items: [
-      { 
-        name: "Dashboard", 
-        icon: LayoutDashboard, 
-        href: "/admin/dashboard" 
-      },
-      { 
-        name: "Seller Management", 
-        icon: UserCog, // Lebih cocok untuk manajemen user/seller
-        href: "/admin/seller-management" 
-      },
-      { 
-        name: "Verifikasi Toko", 
-        icon: ClipboardCheck, // Icon list dengan centang untuk proses verifikasi
-        href: "/admin/verifikasi" 
-      },
-      { 
-        name: "Semua Transaksi", 
-        icon: Receipt, // Icon struk/nota untuk transaksi
-        href: "/admin/all-transaksi" 
-      },
-      { 
-        name: "Dispute & Escrow", 
-        icon: Gavel, // Icon palu hakim untuk sengketa (dispute)
-        href: "/admin/dispute" 
-      },
-      { 
-        name: "Katalog Rilisan", 
-        icon: Disc, // Karena ini marketplace musik (Vinyl/CD), icon piringan hitam sangat ikonik
-        href: "/admin/katalog" 
-      },
-      { 
-        name: "Laporan & Export", 
-        icon: FileBarChart, // Icon grafik untuk laporan
-        href: "/admin/laporan" 
-      },
-    ]
-  }, 
-  {
-    title: "SETTINGS",
-    items: [
-      { 
-        name: "Platform Setting", 
-        icon: Settings, // Icon gir standar untuk pengaturan
-        href: "/admin/setting" 
-      },
-    ]
-  }
-];
+  const adminMenu = [
+    {
+      title: "MAIN MENU",
+      items: [
+        {
+          name: "Dashboard",
+          icon: LayoutDashboard,
+          href: "/admin/dashboard"
+        },
+        {
+          name: "Seller Management",
+          icon: UserCog,
+          href: "/admin/seller-management"
+        },
+        {
+          name: "Verifikasi Toko",
+          icon: ClipboardCheck,
+          href: "/admin/verifikasi"
+        },
+        {
+          name: "Semua Transaksi",
+          icon: Receipt,
+          href: "/admin/all-transaksi"
+        },
+        {
+          name: "Dispute & Escrow",
+          icon: Gavel,
+          href: "/admin/dispute"
+        },
+        {
+          name: "Katalog Rilisan",
+          icon: Disc,
+          href: "/admin/katalog"
+        },
+        {
+          name: "Laporan & Export",
+          icon: FileBarChart,
+          href: "/admin/laporan"
+        },
+      ]
+    },
+    {
+      title: "SETTINGS",
+      items: [
+        {
+          name: "Platform Setting",
+          icon: Settings,
+          href: "/admin/setting"
+        },
+      ]
+    }
+  ];
 
   // Pilih menu berdasarkan role dari API /me
   const menuGroups = user?.role === "admin" ? adminMenu : sellerMenu;
@@ -161,11 +165,12 @@ export default function Sidebar({ children }: SidebarProps) {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
     try {
-      await fetch(`${API_BASE_URL}/auth/logout`, { 
+      await fetch(`${API_BASE_URL}/auth/logout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
-      localStorage.removeItem("token");
+      // PERBAIKAN: Eksekusi penghapusan token di tingkat Cookie
+      Cookies.remove("token", { path: '/' });
       localStorage.removeItem("user");
       router.push("/auth/login");
     } catch (error) {
@@ -207,15 +212,14 @@ export default function Sidebar({ children }: SidebarProps) {
                 const Icon = item.icon;
                 const isActive = pathname === item.href;
                 return (
-                  <Link 
-                    key={item.name} 
+                  <Link
+                    key={item.name}
                     href={item.href}
                     onClick={() => setIsMobileOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all font-bold text-xs uppercase tracking-wider border ${
-                      isActive 
-                        ? "bg-[#ef3333]/10 text-[#ef3333] border-[#ef3333]/20 shadow-[0_0_15px_rgba(239,51,51,0.05)]" 
-                        : "text-zinc-500 border-transparent hover:bg-[#1a1a1e] hover:text-zinc-300"
-                    }`}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all font-bold text-xs uppercase tracking-wider border ${isActive
+                      ? "bg-[#ef3333]/10 text-[#ef3333] border-[#ef3333]/20 shadow-[0_0_15px_rgba(239,51,51,0.05)]"
+                      : "text-zinc-500 border-transparent hover:bg-[#1a1a1e] hover:text-zinc-300"
+                      }`}
                   >
                     <Icon size={18} className={isActive ? "text-[#ef3333]" : "text-zinc-500"} />
                     {item.name}

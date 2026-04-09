@@ -4,15 +4,13 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
+import { toast } from "sonner"; // Impor Sonner untuk Toast Notification
 
 export default function LoginPage() {
   const router = useRouter();
-
-  // Ekstraksi fungsi dan state dari Zustand Store
   const { login, isLoading } = useAuthStore();
 
-  // State Bawaan (Visual & Input)
-  const [role, setRole] = useState("seller"); // Default value diubah menyesuaikan role backend
+  const [role, setRole] = useState("seller");
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,56 +21,58 @@ export default function LoginPage() {
     setErrorMsg("");
 
     try {
-      // Delegasikan ke Zustand!
-      await login({ email, password });
+      // Tangkap secara langsung object user yang dikembalikan oleh Zustand
+      const userData = await login({ email, password });
 
-      // Ambil data user terbaru langsung dari memori Store
-      const userData = useAuthStore.getState().user;
+      // Jika karena alasan tertentu data tidak ada, lempar error
+      if (!userData) {
+        throw new Error("Gagal mendapatkan data user dari server.");
+      }
 
-      if (!userData) return;
+      // Tampilkan Toast Berhasil
+      toast.success("Login Berhasil!");
 
       const userRole = userData.role;
 
-      // Logika Redirect Berdasarkan Role (Diperbaiki Type Safety-nya)
+      // Logika Redirect Berdasarkan Role
       if (userRole === "admin") {
         router.push("/admin/dashboard");
       }
       else if (userRole === "seller") {
-        // Cast as any sementara untuk mem-bypass TS jika property store belum didefinisikan secara eksplisit di interface User
         const store = (userData as any).store;
 
+        // Pengecekan status toko
         if (store && store.status === "approved") {
           router.push("/penjual/dashboard");
         } else {
-          router.push("/penjual/Toko");
+          // Sesuai requirement: belum punya toko -> redirect pendaftaran
+          router.push("/penjual/toko");
         }
       }
       else if (userRole === "buyer") {
-        router.push("/pembeli/dashboard");
+        // Sesuai requirement: Buyer -> /dashboard
+        router.push("/dashboard");
       }
       else {
         router.push("/");
       }
 
     } catch (error: any) {
-      setErrorMsg(error.message || "Terjadi kesalahan saat login");
+      const errMsg = error.message || "Terjadi kesalahan saat login";
+      setErrorMsg(errMsg);
+      toast.error(errMsg); // Tampilkan Toast Error
     }
   };
 
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 font-sans selection:bg-[#ef3333] flex flex-col">
-
-      {/* 1. NAVBAR */}
       <nav className="w-full py-8 flex justify-center border-b border-zinc-900 bg-[#0a0a0b] shrink-0">
         <Link href="/" className="text-3xl font-black text-[#ef3333] tracking-tighter uppercase transition-transform hover:scale-105">
           Analog<span className="text-white">.id</span>
         </Link>
       </nav>
 
-      {/* 2. MAIN CONTENT */}
       <main className="flex-1 flex items-center justify-center max-w-7xl mx-auto w-full px-6 py-12 gap-10 lg:gap-24">
-
-        {/* LEFT COLUMN: LOGIN CARD */}
         <div className="w-full max-w-md animate-fade-in order-2 lg:order-1">
           <div className="bg-[#111114] border border-zinc-800 p-8 md:p-10 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
             <div className="text-left mb-10">
@@ -83,15 +83,12 @@ export default function LoginPage() {
             </div>
 
             <form className="space-y-5 text-left" onSubmit={handleLogin}>
-
-              {/* Alert Error Message */}
               {errorMsg && (
                 <div className="bg-red-900/30 border border-red-500/50 text-[#ef3333] px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider">
                   {errorMsg}
                 </div>
               )}
 
-              {/* Role Selection (Hanya Visual UI) */}
               <div>
                 <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1 mb-2 block">Masuk Sebagai</label>
                 <div className="grid grid-cols-3 gap-2">
@@ -111,7 +108,6 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Email */}
               <div>
                 <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1 mb-1 block">Email Address</label>
                 <input
@@ -124,7 +120,6 @@ export default function LoginPage() {
                 />
               </div>
 
-              {/* Password */}
               <div>
                 <div className="flex justify-between items-center ml-1 mb-1">
                   <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest">Password</label>
@@ -169,11 +164,8 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: VISUAL CONTENT */}
         <div className="hidden lg:flex flex-1 flex-col items-center text-center order-1 lg:order-2 animate-fade-in">
-          {/* Diganti dengan class w-100 dan h-87.5 agar linter tidak protes */}
           <div className="relative w-100 h-87.5 mb-8 flex items-center justify-center">
-            {/* border-[25px] diganti dengan border-25 (membutuhkan tailwind config yang diperbarui atau biarkan arbitrary value jika linter merekomendasikannya) */}
             <div className="absolute w-72 h-72 rounded-full border-[25px] border-zinc-800 opacity-30"></div>
             <div className="text-[140px] z-10 filter drop-shadow-[0_0_30px_rgba(239,51,51,0.3)]">📀</div>
             <div className="absolute top-0 left-4 text-7xl opacity-40">📼</div>
@@ -188,10 +180,8 @@ export default function LoginPage() {
             Masuk untuk melanjutkan kurasi musik analog terbaik dan kelola koleksi fisikmu dengan mudah.
           </p>
         </div>
-
       </main>
 
-      {/* 3. FOOTER */}
       <footer className="w-full py-10 border-t border-zinc-900 bg-[#0a0a0b] text-center shrink-0">
         <p className="text-zinc-800 text-[11px] font-bold uppercase tracking-[0.4em]">
           © 2009-2026, PT Analog Indonesia • <span className="text-zinc-600 hover:text-[#ef3333] transition-colors cursor-pointer">Analog Care</span>

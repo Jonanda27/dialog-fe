@@ -1,21 +1,17 @@
-// File: dialog-fe/store/authStore.ts
-
 import { create } from 'zustand';
-import Cookies from 'js-cookie';
 import { User, LoginPayload, RegisterPayload } from '../types/auth';
 import { AuthService } from '../services/api/auth.service';
 import { ApiError } from '../types/api';
 
 interface AuthState {
-    // State
     user: User | null;
     isAuthenticated: boolean;
     isLoading: boolean;
     error: string | null;
-    isInitialized: boolean; // Flag untuk mengecek apakah aplikasi sudah mencoba memvalidasi sesi awal
+    isInitialized: boolean;
 
-    // Actions
-   login: (payload: LoginPayload) => Promise<User>;
+    // Return Promise<User> agar component bisa langsung menangkap datanya untuk routing dinamis
+    login: (payload: LoginPayload) => Promise<User>;
     register: (payload: RegisterPayload) => Promise<void>;
     logout: () => void;
     fetchMe: () => Promise<void>;
@@ -33,24 +29,38 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: true, error: null });
         try {
             const response = await AuthService.login(payload);
+
+            // Pengamanan Lapis 1: Pastikan struktur data valid sebelum diproses
+            if (!response || !response.data) {
+                throw new Error("Respons dari server tidak valid atau kosong.");
+            }
+
             const { user, token } = response.data;
 
-            // Simpan token ke dalam Cookie (Masa aktif 7 hari, aman untuk seluruh rute FE)
-            Cookies.set('token', token, { expires: 7, path: '/' });
+            // Pengamanan Lapis 2: Cegah penulisan token 'undefined'
+            if (!token) {
+                throw new Error("Sistem gagal mengamankan token otorisasi.");
+            }
+
+            // MIGRASI: Simpan token ke dalam localStorage (Aman dari middleware server)
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('token', token);
+            }
 
             set({
                 user,
                 isAuthenticated: true,
                 isLoading: false,
             });
+
             return user;
         } catch (error: any) {
             const apiErr = error as ApiError;
             set({
-                error: apiErr.message || 'Gagal melakukan login.',
+                error: apiErr.message || 'Kredensial tidak valid atau terjadi kegagalan sistem.',
                 isLoading: false
             });
-            throw apiErr; // Lempar kembali agar UI bisa bergetar/menampilkan toast
+            throw apiErr;
         }
     },
 
@@ -59,12 +69,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
             await AuthService.register(payload);
             set({ isLoading: false });
-            // Setelah register, kita tidak otomatis set user karena belum ada token.
-            // UI akan me-redirect user ke halaman login.
+            // Setelah register sukses, user tetap harus login manual untuk mendapatkan token
         } catch (error: any) {
             const apiErr = error as ApiError;
             set({
-                error: apiErr.message || 'Gagal mendaftar.',
+                error: apiErr.message || 'Gagal melakukan pendaftaran akun.',
                 isLoading: false
             });
             throw apiErr;
@@ -72,22 +81,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     },
 
     logout: () => {
-        // Hapus token dari browser dan bersihkan memori
-        Cookies.remove('token', { path: '/' });
+        // 1. MIGRASI: Hapus token dari localStorage
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('token');
+        }
 
-        // Opsional: Panggil AuthService.logout() jika BE butuh blacklist token
-        // AuthService.logout().catch(console.error);
-
+        // 2. Bersihkan state memori
         set({
             user: null,
             isAuthenticated: false,
             error: null,
         });
+
+        // 3. Hard Cleanup: Paksa peramban untuk memuat ulang ke halaman login
+        if (typeof window !== 'undefined') {
+            window.location.href = '/auth/login';
+        }
     },
 
     fetchMe: async () => {
-        // Jika tidak ada token, jangan buang-buang bandwidth memanggil API
-        const token = Cookies.get('token');
+        // MIGRASI: Lakukan pengecekan token dari localStorage dengan aman
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+
         if (!token) {
             set({ isInitialized: true, isAuthenticated: false, user: null });
             return;
@@ -96,6 +111,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: true, error: null });
         try {
             const response = await AuthService.getMe();
+
             set({
                 user: response.data,
                 isAuthenticated: true,
@@ -103,12 +119,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 isInitialized: true,
             });
         } catch (error: any) {
-            // Jika token expired/tidak valid (401), bersihkan sesi
             const apiErr = error as ApiError;
+
+            // Evaluasi presisi: Hanya hapus token jika backend memberikan vonis 401 Unauthorized
             if (apiErr.isAuthError) {
-                Cookies.remove('token', { path: '/' });
+                if (typeof window !== 'undefined') {
+                    localStorage.removeItem('token');
+                }
                 set({ user: null, isAuthenticated: false });
             }
+
             set({
                 isLoading: false,
                 isInitialized: true,
