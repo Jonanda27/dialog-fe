@@ -1,203 +1,156 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/layout/sidebar";
-import { 
-  Search, 
-  Filter, 
-  Truck, 
-  Clock, 
-  CheckCircle2, 
-  XCircle, 
-  ExternalLink,
-  ChevronRight,
-  MessageSquare,
-  PackageCheck
-} from "lucide-react";
+import SellerOrderTable from "@/components/order/SellerOrderTable";
+import { Loader2, X } from "lucide-react";
 
-export default function TransaksiMasuk() {
-  const [activeTab, setActiveTab] = useState("perlu-diproses");
+export default function ManajemenPesanan() {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("processing"); // processing, shipped, completed
 
-  // Data Dummy Transaksi
-  const transactions = [
-    {
-      id: "ORD-2026-001",
-      customer: "Rizky Ramadhan",
-      date: "08 Apr 2026, 09:15",
-      product: "Pink Floyd - The Dark Side of The Moon",
-      total: "Rp 965.000",
-      payment: "VA BCA",
-      shipping: "JNE Reguler",
-      status: "perlu-diproses",
-      note: "Tolong packing kayu & bubble wrap tebal ya gan."
-    },
-    {
-      id: "ORD-2026-002",
-      customer: "Siska Amelia",
-      date: "07 Apr 2026, 14:20",
-      product: "Daft Punk - Discovery (2LP)",
-      total: "Rp 1.100.000",
-      payment: "GoPay",
-      shipping: "SiCepat Best",
-      status: "dikirim",
-      noResi: "JP982133441"
-    },
-    {
-      id: "ORD-2026-003",
-      customer: "Budi Pratama",
-      date: "06 Apr 2026, 10:00",
-      product: "The Beatles - Abbey Road",
-      total: "Rp 850.000",
-      payment: "Transfer Bank",
-      shipping: "Grab Express",
-      status: "selesai"
+  // Modal State
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const TABS = [
+    { id: "processing", label: "Perlu Diproses" },
+    { id: "shipped", label: "Sudah Dikirim" },
+    { id: "completed", label: "Selesai" },
+  ];
+
+  const getCookie = (name: string) => {
+    if (typeof document === "undefined") return null;
+    const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
+    return match ? match[2] : null;
+  };
+
+  const fetchOrders = async (statusFilter: string) => {
+    setLoading(true);
+    try {
+      const token = getCookie("token");
+      // Menyesuaikan mapping status (di DB statusnya 'paid' saat baru dibayar)
+      let queryStatus = statusFilter;
+      if (statusFilter === "processing") queryStatus = "paid";
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/store?status=${queryStatus}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) setOrders(data.data);
+    } catch (error) {
+      console.error("Gagal memuat pesanan:", error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const tabs = [
-    { id: "perlu-diproses", label: "Perlu Diproses", icon: Clock },
-    { id: "dikirim", label: "Dalam Pengiriman", icon: Truck },
-    { id: "selesai", label: "Selesai", icon: CheckCircle2 },
-    { id: "dibatalkan", label: "Dibatalkan", icon: XCircle },
-  ];
+  useEffect(() => {
+    fetchOrders(activeTab);
+  }, [activeTab]);
+
+  const handleShipSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trackingNumber || !selectedOrderId) return;
+
+    setSubmitting(true);
+    try {
+      const token = getCookie("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/${selectedOrderId}/ship`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ tracking_number: trackingNumber }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert("Resi berhasil diinput. Pesanan dipindahkan ke tab 'Sudah Dikirim'.");
+        setSelectedOrderId(null);
+        setTrackingNumber("");
+        fetchOrders(activeTab); // Refresh data
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (error: any) {
+      alert(error.message || "Gagal menginput resi.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <Sidebar>
-      <div className="pb-10">
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div>
-            <h2 className="text-2xl font-black uppercase tracking-tight text-white">Transaksi Masuk</h2>
-            <p className="text-sm text-zinc-500 font-medium mt-1">
-              Pantau dan kelola pesanan koleksi analog dari pembeli Anda.
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <button className="flex items-center gap-2 bg-[#1a1a1e] border border-zinc-900 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white transition-all">
-              <Search size={14} />
-              Cari No. Pesanan
-            </button>
-          </div>
+      <div className="max-w-5xl mx-auto pb-20">
+        <div className="mb-10">
+          <h2 className="text-2xl font-black uppercase tracking-tight text-white">Manajemen Pesanan</h2>
+          <p className="text-sm text-zinc-500 font-medium mt-1">
+            Pantau pesanan masuk, input resi, dan selesaikan transaksi.
+          </p>
         </div>
 
-        {/* TABS FILTER */}
-        <div className="flex overflow-x-auto gap-2 mb-8 no-scrollbar">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-3 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${
-                  activeTab === tab.id 
-                  ? "bg-[#ef3333] border-[#ef3333] text-white shadow-lg shadow-red-900/20" 
-                  : "bg-[#111114] border-zinc-900 text-zinc-500 hover:border-zinc-700"
+        {/* Custom Tabs */}
+        <div className="flex items-center gap-4 mb-8 border-b border-zinc-900 pb-px">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`pb-4 px-2 text-[11px] font-black uppercase tracking-widest transition-all border-b-2 ${activeTab === tab.id ? "text-white border-[#ef3333]" : "text-zinc-500 border-transparent hover:text-zinc-300"
                 }`}
-              >
-                <Icon size={16} />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* LIST TRANSAKSI */}
-        <div className="space-y-6">
-          {transactions
-            .filter(t => t.status === activeTab || activeTab === "all")
-            .map((trx) => (
-            <div key={trx.id} className="bg-[#111114] border border-zinc-900 rounded-[2.5rem] overflow-hidden group hover:border-zinc-700 transition-all">
-              {/* Card Header */}
-              <div className="p-6 lg:px-8 border-b border-zinc-900 flex flex-wrap items-center justify-between gap-4 bg-white/[0.01]">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-[#0a0a0b] border border-zinc-800">
-                    <PackageCheck size={20} className="text-[#ef3333]" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">{trx.date}</p>
-                    <h3 className="text-sm font-black text-white uppercase tracking-tight">{trx.id}</h3>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                   <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1a1a1e] text-[10px] font-black text-zinc-400 uppercase tracking-widest hover:text-white transition-colors">
-                      <MessageSquare size={14} />
-                      Chat Pembeli
-                   </button>
-                   <button className="p-2 rounded-xl bg-[#1a1a1e] text-zinc-500 hover:text-white transition-colors">
-                      <ExternalLink size={16} />
-                   </button>
-                </div>
-              </div>
-
-              {/* Card Body */}
-              <div className="p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Produk Info */}
-                <div className="lg:col-span-2 flex gap-6">
-                  <div className="w-20 h-20 bg-[#0a0a0b] rounded-2xl border border-zinc-800 flex items-center justify-center text-3xl shadow-inner">
-                    📀
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-[10px] font-black text-[#ef3333] uppercase tracking-widest mb-1">{trx.customer}</p>
-                    <h4 className="text-base font-black text-white uppercase tracking-tight mb-2 leading-tight">
-                      {trx.product}
-                    </h4>
-                    <div className="flex flex-wrap gap-4">
-                      <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                        <Truck size={14} />
-                        {trx.shipping}
-                      </div>
-                      <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                        <div className="w-1 h-1 rounded-full bg-zinc-700"></div>
-                        {trx.payment}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Harga & Action */}
-                <div className="flex flex-col justify-center items-start lg:items-end border-t lg:border-t-0 lg:border-l border-zinc-900 pt-6 lg:pt-0 lg:pl-8">
-                   <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Total Transaksi</p>
-                   <p className="text-xl font-black text-white tracking-tight mb-4">{trx.total}</p>
-                   
-                   {trx.status === "perlu-diproses" && (
-                     <button className="w-full lg:w-auto bg-white text-black hover:bg-[#ef3333] hover:text-white font-black px-8 py-3 rounded-xl text-[10px] uppercase tracking-[0.2em] transition-all active:scale-95 shadow-lg">
-                        Proses Sekarang
-                     </button>
-                   )}
-                   {trx.status === "dikirim" && (
-                     <div className="text-right">
-                       <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Nomor Resi</p>
-                       <p className="text-xs font-black text-zinc-300">{trx.noResi}</p>
-                     </div>
-                   )}
-                </div>
-              </div>
-
-              {/* Catatan Pembeli (Hanya Muncul Jika Ada) */}
-              {trx.note && (
-                <div className="px-8 pb-6">
-                  <div className="flex items-start gap-3 bg-[#0a0a0b] border border-zinc-900 p-4 rounded-2xl">
-                    <div className="text-amber-500 shrink-0 mt-0.5 italic font-black text-xs">!</div>
-                    <p className="text-[10px] text-zinc-500 font-medium leading-relaxed italic">
-                      " {trx.note} "
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
+            >
+              {tab.label}
+            </button>
           ))}
-
-          {/* EMPTY STATE (Contoh Jika Tidak Ada Data) */}
-          {transactions.filter(t => t.status === activeTab).length === 0 && (
-            <div className="py-20 text-center bg-[#111114] border border-zinc-900 border-dashed rounded-[3rem]">
-              <div className="w-16 h-16 bg-zinc-900/50 rounded-full flex items-center justify-center mx-auto mb-4 text-zinc-700">
-                <PackageCheck size={32} />
-              </div>
-              <h3 className="text-sm font-black text-zinc-400 uppercase tracking-widest">Tidak ada pesanan</h3>
-              <p className="text-[10px] text-zinc-600 font-bold uppercase mt-2">Semua transaksi di tab ini telah selesai diproses.</p>
-            </div>
-          )}
         </div>
+
+        {/* Data Tabel */}
+        {loading ? (
+          <div className="flex justify-center py-20"><Loader2 className="animate-spin text-[#ef3333]" size={32} /></div>
+        ) : (
+          <SellerOrderTable orders={orders} onShipClick={(id) => setSelectedOrderId(id)} />
+        )}
+
+        {/* Modal Input Resi */}
+        {selectedOrderId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+            <div className="bg-[#111114] border border-zinc-900 rounded-[2.5rem] p-8 max-w-md w-full relative shadow-2xl">
+              <button
+                onClick={() => { setSelectedOrderId(null); setTrackingNumber(""); }}
+                className="absolute top-6 right-6 text-zinc-500 hover:text-white"
+              >
+                <X size={24} />
+              </button>
+
+              <h3 className="text-lg font-black text-white uppercase tracking-widest mb-2">Input Resi Pengiriman</h3>
+              <p className="text-xs text-zinc-500 mb-8">Masukkan nomor resi yang valid agar dana Anda segera diamankan oleh sistem Escrow.</p>
+
+              <form onSubmit={handleShipSubmit}>
+                <div className="mb-8 space-y-2">
+                  <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest ml-1">Nomor Resi / Tracking Number *</label>
+                  <input
+                    type="text"
+                    value={trackingNumber}
+                    onChange={(e) => setTrackingNumber(e.target.value)}
+                    placeholder="Contoh: JNT1234567890"
+                    required
+                    className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-2xl px-5 py-4 text-sm focus:border-blue-500 outline-none transition-all text-white font-mono"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={submitting || !trackingNumber}
+                  className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {submitting ? <Loader2 className="animate-spin" size={16} /> : "Kirim Resi"}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </Sidebar>
   );
