@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import Sidebar from "@/components/layout/sidebar";
 import { Save, Loader2, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -31,16 +31,10 @@ export default function TambahProduk() {
     grading: "" as ProductGrading | "",
     price: "",
     stock: "1",
+    condition_notes: "",
   });
 
-  // 2. State untuk file gambar & preview
-  const [files, setFiles] = useState<{ [key: string]: File | null }>({
-    front: null,
-    back: null,
-    physical: null,
-  });
-
-  const [previews, setPreviews] = useState<{ [key: string]: string | null }>({
+  const [photos, setPhotos] = useState<{ [key: string]: File | null }>({
     front: null,
     back: null,
     physical: null,
@@ -109,7 +103,6 @@ export default function TambahProduk() {
   return (
     <Sidebar>
       <div className="max-w-5xl mx-auto pb-20">
-        {/* HEADER */}
         <div className="mb-10">
           <h2 className="text-2xl font-black uppercase tracking-tight text-white">Tambah Koleksi Baru</h2>
           <p className="text-sm text-zinc-500 font-medium mt-1">
