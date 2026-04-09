@@ -46,7 +46,7 @@ export default function ProductCard({ id, name, artist, price, grading, mediaUrl
             </div>
 
             {/* Content */}
-            <div className="p-4 flex flex-col flex-grow">
+            <div className="p-4 flex flex-col grow">
                 <h3 className="text-zinc-100 font-medium truncate group-hover:text-red-400 transition-colors">{name}</h3>
                 <p className="text-zinc-500 text-sm truncate">{artist}</p>
                 <div className="mt-auto pt-4 flex items-center justify-between">

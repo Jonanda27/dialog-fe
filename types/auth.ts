@@ -1,0 +1,51 @@
+// File: dialog-fe/types/auth.ts
+
+/**
+ * Enum untuk Role User, memastikan tidak ada typo saat pengecekan role di FE.
+ */
+export type UserRole = 'buyer' | 'seller' | 'admin';
+
+/**
+ * Enum untuk Status Akun User.
+ */
+export type UserStatus = 'active' | 'suspended' | 'banned';
+
+/**
+ * Representasi tabel Users di Database
+ */
+export interface User {
+    id: string;
+    email: string;
+    name: string;
+    role: UserRole;
+    status: UserStatus;
+    avatar_url?: string | null;
+    created_at: string; // ISO 8601 Date String
+    updated_at: string;
+}
+
+/**
+ * Payload yang dikirim FE saat submit form Login
+ */
+export interface LoginPayload {
+    email: string;
+    password: string;
+}
+
+/**
+ * Payload yang dikirim FE saat submit form Register
+ */
+export interface RegisterPayload {
+    name: string;
+    email: string;
+    password: string;
+    role: UserRole;
+}
+
+/**
+ * Balasan dari BE ketika Login sukses
+ */
+export interface AuthResponse {
+    user: User;
+    token: string;
+}

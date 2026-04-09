@@ -55,7 +55,7 @@ export default function SaldoToko() {
           <div className="space-y-8">
 
             {/* WIDGET SALDO AKTIF */}
-            <div className="bg-gradient-to-br from-[#ef3333] to-[#801010] border border-red-900/50 rounded-[2.5rem] p-8 lg:p-12 relative overflow-hidden shadow-2xl shadow-red-900/20">
+            <div className="bg-linear-to-br from-[#ef3333] to-[#801010] border border-red-900/50 rounded-[2.5rem] p-8 lg:p-12 relative overflow-hidden shadow-2xl shadow-red-900/20">
               {/* Ornamen Grafis */}
               <div className="absolute top-0 right-0 p-8 opacity-10">
                 <Wallet size={160} />

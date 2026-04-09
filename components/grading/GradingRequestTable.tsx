@@ -44,7 +44,7 @@ export default function GradingRequestTable({ requests, onUploadClick }: Props) 
                     {requests.map((req) => (
                         <tr key={req.id} className="hover:bg-[#1a1a1f] transition-colors">
                             <td className="px-6 py-5 flex items-center gap-4">
-                                <div className="w-12 h-12 bg-zinc-800 rounded-lg overflow-hidden flex-shrink-0">
+                                <div className="w-12 h-12 bg-zinc-800 rounded-lg overflow-hidden shrink-0">
                                     {req.product.media?.[0]?.media_url ? (
                                         <img
                                             src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}${req.product.media[0].media_url}`}

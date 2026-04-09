@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Sidebar from "@/components/layout/sidebar";
-import { Save, Loader2 } from "lucide-react";
+import { Save, Loader2, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 // Import Presentational Components
@@ -11,18 +11,24 @@ import IdentificationSection from "@/components/product/form/IdentificationSecti
 import PricingSection from "@/components/product/form/PricingSection";
 import PhotoUploadSection from "@/components/product/form/PhotoUploadSection";
 
+// Import Zustand Store & Types (KABEL UTAMA)
+import { useProductStore } from "@/store/productStore";
+import { ProductFormat, ProductGrading } from "@/types/product";
+
 export default function TambahProduk() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+
+  // 1. Ekstraksi fungsi dan state dari Zustand Store
+  const { createProduct, isLoading, error: apiError, clearError } = useProductStore();
 
   const [formData, setFormData] = useState({
     name: "",
     artist: "",
     release_year: "",
-    format: "",
+    format: "" as ProductFormat | "",
     label: "",
     catalog_number: "",
-    grading: "",
+    grading: "" as ProductGrading | "",
     price: "",
     stock: "1",
     condition_notes: "",
@@ -39,12 +45,13 @@ export default function TambahProduk() {
   const [previews, setPreviews] = useState<{ [key: string]: string }>({});
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    clearError(); // Bersihkan error API jika user mulai mengetik ulang untuk memperbaiki data
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleGradeSelect = (grade: string) => {
-    setFormData((prev) => ({ ...prev, grading: grade }));
+    setFormData((prev) => ({ ...prev, grading: grade as ProductGrading }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
@@ -60,6 +67,7 @@ export default function TambahProduk() {
     }
   };
 
+  // 2. Proses Submit yang sudah di-refactor
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -68,59 +76,27 @@ export default function TambahProduk() {
       return;
     }
 
-    setLoading(true);
-
     try {
-      const getCookie = (name: string) => {
-        if (typeof document === "undefined") return null;
-        const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
-        return match ? match[2] : null;
-      };
-
-      const token = getCookie("token");
-
-      if (!token) {
-        setLoading(false);
-        alert("Sesi Anda berakhir. Silakan login kembali.");
-        router.push("/login");
-        return;
-      }
-
-      const data = new FormData();
-
-      Object.entries(formData).forEach(([key, value]) => {
-        if (value) data.append(key, value as string);
-      });
-
-      const fileKeys = ["front", "back", "physical", "extra1", "extra2"];
-      fileKeys.forEach((key) => {
-        if (photos[key]) {
-          data.append("photos", photos[key] as File);
+      // 3. Delegasikan ke Zustand!
+      // Kita cukup melempar objek mentah. Urusan FormData & Token diurus di layer Services.
+      await createProduct({
+        ...formData,
+        photos: {
+          front: photos.front,
+          back: photos.back,
+          physical: photos.physical,
+          extra1: photos.extra1,
+          extra2: photos.extra2,
         }
       });
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"}/products`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          // Sesuai kesepakatan Fase B: TIDAK ADA Content-Type agar browser mengatur boundary multipart
-        },
-        body: data,
-      });
+      // Jika berhasil melewati 'await' tanpa masuk ke catch, berarti sukses.
+      alert("Produk berhasil ditambahkan ke katalog!");
+      router.push("/penjual/produk");
 
-      const result = await response.json();
-
-      if (response.ok) {
-        alert("Produk berhasil ditambahkan ke katalog!");
-        router.push("/penjual/produk");
-      } else {
-        throw new Error(result.message || "Gagal menambahkan produk");
-      }
-    } catch (error: any) {
-      console.error("Upload Error:", error);
-      alert(error.message);
-    } finally {
-      setLoading(false);
+    } catch (err: any) {
+      // Error tertangkap dari Interceptor -> Store -> Komponen
+      console.error("Gagal menyimpan produk:", err);
     }
   };
 
@@ -134,6 +110,14 @@ export default function TambahProduk() {
           </p>
         </div>
 
+        {/* Global Error Alert dari Zustand (Jika Backend menolak data) */}
+        {apiError && (
+          <div className="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center gap-3 animate-fade-in">
+            <AlertCircle className="text-red-500" size={20} />
+            <p className="text-sm text-red-500 font-medium">{apiError}</p>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-8">
 
           <AlbumInfoSection formData={formData} onChange={handleInputChange} />
@@ -145,12 +129,20 @@ export default function TambahProduk() {
           <PhotoUploadSection previews={previews} onFileChange={handleFileChange} />
 
           <div className="flex items-center justify-end gap-4 pt-6">
-            <button type="button" onClick={() => router.back()} className="px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-white transition-all">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-white transition-all"
+            >
               Batalkan
             </button>
-            <button type="submit" disabled={loading} className="flex items-center gap-3 bg-[#ef3333] hover:bg-red-700 text-white font-black px-10 py-4 rounded-2xl text-[10px] uppercase tracking-[0.2em] transition-all active:scale-95 shadow-xl shadow-red-900/40 disabled:opacity-50">
-              {loading ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-              {loading ? "Memproses..." : "Publikasikan Produk"}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="flex items-center gap-3 bg-[#ef3333] hover:bg-red-700 text-white font-black px-10 py-4 rounded-2xl text-[10px] uppercase tracking-[0.2em] transition-all active:scale-95 shadow-xl shadow-red-900/40 disabled:opacity-50"
+            >
+              {isLoading ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+              {isLoading ? "Memproses..." : "Publikasikan Produk"}
             </button>
           </div>
         </form>

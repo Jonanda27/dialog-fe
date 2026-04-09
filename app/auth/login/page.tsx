@@ -3,69 +3,51 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { API_BASE_URL } from "@/utils/api";
+import { useAuthStore } from "@/store/authStore";
 
 export default function LoginPage() {
   const router = useRouter();
 
-  // State Bawaan
-  const [role, setRole] = useState("pembeli");
-  const [showPassword, setShowPassword] = useState(false);
+  // Ekstraksi fungsi dan state dari Zustand Store
+  const { login, isLoading } = useAuthStore();
 
-  // State untuk Form Integrasi
+  // State Bawaan (Visual & Input)
+  const [role, setRole] = useState("seller"); // Default value diubah menyesuaikan role backend
+  const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
-    setLoading(true);
 
     try {
-      // 1. Melakukan request login ke backend
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      // Delegasikan ke Zustand!
+      await login({ email, password });
 
-      const result = await response.json();
+      // Ambil data user terbaru langsung dari memori Store
+      const userData = useAuthStore.getState().user;
 
-      if (!response.ok) {
-        throw new Error(result.message || "Terjadi kesalahan saat login");
-      }
+      if (!userData) return;
 
-      // 2. Ambil data dari result.data yang dikirim oleh backend
-      const userData = result.data.user;
-      const token = result.data.token;
-
-      // 3. Simpan kredensial ke localStorage
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(userData));
-
-      // 4. Logika Redirect Berdasarkan Role & Status Store (SESUAI DATA BACKEND KAMU)
       const userRole = userData.role;
 
+      // Logika Redirect Berdasarkan Role (Diperbaiki Type Safety-nya)
       if (userRole === "admin") {
         router.push("/admin/dashboard");
       }
-      else if (userRole === "seller" || userRole === "penjual") {
-        /** * PERBAIKAN LOGIKA:
-         * Menggunakan userData.store sesuai struktur JSON backend
-         */
-        const store = userData.store;
+      else if (userRole === "seller") {
+        // Cast as any sementara untuk mem-bypass TS jika property store belum didefinisikan secara eksplisit di interface User
+        const store = (userData as any).store;
 
         if (store && store.status === "approved") {
-          // Jika toko ada dan sudah disetujui
           router.push("/penjual/dashboard");
         } else {
-          // Jika toko belum ada atau masih pending
           router.push("/penjual/Toko");
         }
       }
-      else if (userRole === "buyer" || userRole === "pembeli") {
+      else if (userRole === "buyer") {
         router.push("/pembeli/dashboard");
       }
       else {
@@ -73,27 +55,25 @@ export default function LoginPage() {
       }
 
     } catch (error: any) {
-      setErrorMsg(error.message);
-    } finally {
-      setLoading(false);
+      setErrorMsg(error.message || "Terjadi kesalahan saat login");
     }
   };
 
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 font-sans selection:bg-[#ef3333] flex flex-col">
 
-      {/* 1. NAVBAR (LOGO CENTERED) */}
+      {/* 1. NAVBAR */}
       <nav className="w-full py-8 flex justify-center border-b border-zinc-900 bg-[#0a0a0b] shrink-0">
         <Link href="/" className="text-3xl font-black text-[#ef3333] tracking-tighter uppercase transition-transform hover:scale-105">
           Analog<span className="text-white">.id</span>
         </Link>
       </nav>
 
-      {/* 2. MAIN CONTENT (TWO COLUMNS - FORM ON LEFT) */}
+      {/* 2. MAIN CONTENT */}
       <main className="flex-1 flex items-center justify-center max-w-7xl mx-auto w-full px-6 py-12 gap-10 lg:gap-24">
 
         {/* LEFT COLUMN: LOGIN CARD */}
-        <div className="w-full max-w-[450px] animate-fade-in order-2 lg:order-1">
+        <div className="w-full max-w-md animate-fade-in order-2 lg:order-1">
           <div className="bg-[#111114] border border-zinc-800 p-8 md:p-10 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
             <div className="text-left mb-10">
               <h3 className="text-2xl font-black uppercase tracking-tighter text-white">Selamat Datang</h3>
@@ -113,19 +93,19 @@ export default function LoginPage() {
 
               {/* Role Selection (Hanya Visual UI) */}
               <div>
-                <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1 mb-2 block font-bold">Masuk Sebagai</label>
+                <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1 mb-2 block">Masuk Sebagai</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {["admin", "penjual", "pembeli"].map((r) => (
+                  {["admin", "seller", "buyer"].map((r) => (
                     <button
                       key={r}
                       type="button"
                       onClick={() => setRole(r)}
                       className={`py-2.5 text-[10px] font-black uppercase tracking-wider rounded-lg border transition-all ${role === r
-                          ? "bg-[#ef3333] border-[#ef3333] text-white shadow-[0_0_15px_rgba(239,51,51,0.3)]"
-                          : "bg-[#1a1a1e] border-zinc-800 text-zinc-500 hover:border-zinc-700"
+                        ? "bg-[#ef3333] border-[#ef3333] text-white shadow-[0_0_15px_rgba(239,51,51,0.3)]"
+                        : "bg-[#1a1a1e] border-zinc-800 text-zinc-500 hover:border-zinc-700"
                         }`}
                     >
-                      {r}
+                      {r === 'seller' ? 'penjual' : r === 'buyer' ? 'pembeli' : r}
                     </button>
                   ))}
                 </div>
@@ -133,7 +113,7 @@ export default function LoginPage() {
 
               {/* Email */}
               <div>
-                <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1 mb-1 block font-bold">Email Address</label>
+                <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-1 mb-1 block">Email Address</label>
                 <input
                   type="email"
                   value={email}
@@ -147,7 +127,7 @@ export default function LoginPage() {
               {/* Password */}
               <div>
                 <div className="flex justify-between items-center ml-1 mb-1">
-                  <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest font-bold">Password</label>
+                  <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest">Password</label>
                   <a href="#" className="text-[9px] font-bold text-zinc-500 hover:text-[#ef3333] uppercase tracking-tighter">Lupa Password?</a>
                 </div>
                 <div className="relative">
@@ -171,13 +151,13 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                disabled={loading}
-                className={`w-full font-black py-5 rounded-2xl text-xs uppercase tracking-[0.25em] shadow-lg transition-all mt-6 active:scale-95 ${loading
-                    ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                    : "bg-[#ef3333] hover:bg-red-700 text-white shadow-red-900/30"
+                disabled={isLoading}
+                className={`w-full font-black py-5 rounded-2xl text-xs uppercase tracking-[0.25em] shadow-lg transition-all mt-6 active:scale-95 ${isLoading
+                  ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                  : "bg-[#ef3333] hover:bg-red-700 text-white shadow-red-900/30"
                   }`}
               >
-                {loading ? "Memproses..." : "Masuk Sekarang"}
+                {isLoading ? "Memproses..." : "Masuk Sekarang"}
               </button>
             </form>
 
@@ -191,7 +171,9 @@ export default function LoginPage() {
 
         {/* RIGHT COLUMN: VISUAL CONTENT */}
         <div className="hidden lg:flex flex-1 flex-col items-center text-center order-1 lg:order-2 animate-fade-in">
-          <div className="relative w-[400px] h-[350px] mb-8 flex items-center justify-center">
+          {/* Diganti dengan class w-100 dan h-87.5 agar linter tidak protes */}
+          <div className="relative w-100 h-87.5 mb-8 flex items-center justify-center">
+            {/* border-[25px] diganti dengan border-25 (membutuhkan tailwind config yang diperbarui atau biarkan arbitrary value jika linter merekomendasikannya) */}
             <div className="absolute w-72 h-72 rounded-full border-[25px] border-zinc-800 opacity-30"></div>
             <div className="text-[140px] z-10 filter drop-shadow-[0_0_30px_rgba(239,51,51,0.3)]">📀</div>
             <div className="absolute top-0 left-4 text-7xl opacity-40">📼</div>
