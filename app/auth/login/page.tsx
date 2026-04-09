@@ -46,7 +46,7 @@ export default function LoginPage() {
           router.push("/penjual/dashboard");
         } else {
           // Sesuai requirement: belum punya toko -> redirect pendaftaran
-          router.push("/penjual/toko/");
+          router.push("/penjual/toko");
         }
       }
       else if (userRole === "buyer") {
