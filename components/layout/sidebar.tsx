@@ -81,7 +81,7 @@ export default function Sidebar({ children }: SidebarProps) {
       items: [
         { name: "Kelola Produk", icon: Package, href: "/penjual/produk/kelola_produk" },
         { name: "Tambah Produk", icon: PlusCircle, href: "/penjual/produk/tambah_produk" },
-        { name: "Bulk Upload", icon: UploadCloud, href: "/penjual/bulk-upload" },
+        { name: "Bulk Upload", icon: UploadCloud, href: "/penjual/produk/bulk-upload" },
       ]
     },
     {
