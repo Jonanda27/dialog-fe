@@ -1,5 +1,3 @@
-// File: dialog-fe/store/authStore.ts
-
 import { create } from 'zustand';
 import Cookies from 'js-cookie';
 import { User, LoginPayload, RegisterPayload } from '../types/auth';
@@ -7,15 +5,14 @@ import { AuthService } from '../services/api/auth.service';
 import { ApiError } from '../types/api';
 
 interface AuthState {
-    // State
     user: User | null;
     isAuthenticated: boolean;
     isLoading: boolean;
     error: string | null;
-    isInitialized: boolean; // Flag untuk mengecek apakah aplikasi sudah mencoba memvalidasi sesi awal
+    isInitialized: boolean;
 
-    // Actions
-    login: (payload: LoginPayload) => Promise<void>;
+    // UBAH: Return Promise<User> agar component bisa langsung menangkap datanya
+    login: (payload: LoginPayload) => Promise<User>;
     register: (payload: RegisterPayload) => Promise<void>;
     logout: () => void;
     fetchMe: () => Promise<void>;
@@ -35,7 +32,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             const response = await AuthService.login(payload);
             const { user, token } = response.data;
 
-            // Simpan token ke dalam Cookie (Masa aktif 7 hari, aman untuk seluruh rute FE)
+            // Simpan token ke dalam Cookie
             Cookies.set('token', token, { expires: 7, path: '/' });
 
             set({
@@ -43,13 +40,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 isAuthenticated: true,
                 isLoading: false,
             });
+
+            // TAMBAHAN: Kembalikan data user agar bisa ditangkap oleh UI Controller
+            return user;
         } catch (error: any) {
             const apiErr = error as ApiError;
             set({
                 error: apiErr.message || 'Gagal melakukan login.',
                 isLoading: false
             });
-            throw apiErr; // Lempar kembali agar UI bisa bergetar/menampilkan toast
+            throw apiErr;
         }
     },
 
