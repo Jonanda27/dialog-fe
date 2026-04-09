@@ -7,7 +7,13 @@ import { API_BASE_URL } from "@/utils/api";
 import { 
   LayoutDashboard, Package, PlusCircle, UploadCloud, 
   Inbox, History, Wallet, Star, Settings, LogOut, X,
-  Users, ShieldCheck, Store
+  Users, ShieldCheck, Store,
+  Disc,
+  FileBarChart,
+  Gavel,
+  Receipt,
+  UserCog,
+  ClipboardCheck
 } from "lucide-react";
 import Navbar from "./navbar"; 
 
@@ -94,29 +100,58 @@ export default function Sidebar({ children }: SidebarProps) {
     }
   ];
 
-  const adminMenu = [
-    {
-      title: "Administrator",
-      items: [
-        { name: "Main Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
-        { name: "Kelola Toko", icon: Users, href: "/admin/verifikasi" },
-      ]
-    },
-    {
-      title: "Moderasi",
-      items: [
-        { name: "Verifikasi Toko", icon: Store, href: "/admin/stores/pending" },
-        { name: "Kelola Produk", icon: Package, href: "/admin/products" },
-      ]
-    },
-    {
-      title: "Sistem",
-      items: [
-        { name: "Security Log", icon: ShieldCheck, href: "/admin/logs" },
-        { name: "Pengaturan Site", icon: Settings, href: "/admin/settings" },
-      ]
-    }
-  ];
+ const adminMenu = [
+  {
+    title: "MAIN MENU",
+    items: [
+      { 
+        name: "Dashboard", 
+        icon: LayoutDashboard, 
+        href: "/admin/dashboard" 
+      },
+      { 
+        name: "Seller Management", 
+        icon: UserCog, // Lebih cocok untuk manajemen user/seller
+        href: "/admin/seller-management" 
+      },
+      { 
+        name: "Verifikasi Toko", 
+        icon: ClipboardCheck, // Icon list dengan centang untuk proses verifikasi
+        href: "/admin/verifikasi" 
+      },
+      { 
+        name: "Semua Transaksi", 
+        icon: Receipt, // Icon struk/nota untuk transaksi
+        href: "/admin/all-transaksi" 
+      },
+      { 
+        name: "Dispute & Escrow", 
+        icon: Gavel, // Icon palu hakim untuk sengketa (dispute)
+        href: "/admin/dispute" 
+      },
+      { 
+        name: "Katalog Rilisan", 
+        icon: Disc, // Karena ini marketplace musik (Vinyl/CD), icon piringan hitam sangat ikonik
+        href: "/admin/katalog" 
+      },
+      { 
+        name: "Laporan & Export", 
+        icon: FileBarChart, // Icon grafik untuk laporan
+        href: "/admin/laporan" 
+      },
+    ]
+  }, 
+  {
+    title: "SETTINGS",
+    items: [
+      { 
+        name: "Platform Setting", 
+        icon: Settings, // Icon gir standar untuk pengaturan
+        href: "/admin/setting" 
+      },
+    ]
+  }
+];
 
   // Pilih menu berdasarkan role dari API /me
   const menuGroups = user?.role === "admin" ? adminMenu : sellerMenu;
