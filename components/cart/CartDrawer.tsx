@@ -1,117 +1,121 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useCartStore } from '@/store/cartStore';
-import CartItemCard from './CartItemCard';
+import { toIDR } from '@/utils/format';
+import { Trash2, Plus, Minus, X, Store } from 'lucide-react';
+import { toast } from 'sonner';
+import Image from 'next/image';
+import Link from 'next/link';
 
 export default function CartDrawer() {
-    const router = useRouter();
-    const { isOpen, closeCart, items } = useCartStore();
+    const { isOpen, closeCart, items, updateQuantity, removeItem } = useCartStore();
 
-    // Mencegah Hydration Mismatch (Karena Zustand Persist menggunakan localStorage)
-    const [isMounted, setIsMounted] = useState(false);
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
-
-    if (!isMounted) return null;
-
-    // Kalkulasi Subtotal Keranjang
-    const subtotal = items.reduce((total, item) => {
-        return total + (Number(item.product.price) * item.quantity);
-    }, 0);
-
-    const formattedSubtotal = new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0,
-    }).format(subtotal);
-
-    const handleCheckout = () => {
-        closeCart();
-        router.push('/checkout');
-    };
+    const subtotal = items.reduce((acc, item) => acc + (Number(item.product.price) * item.quantity), 0);
 
     return (
-        <>
-            {/* Overlay Hitam Transparan */}
+        <AnimatePresence>
             {isOpen && (
-                <div
-                    className="fixed inset-0 bg-black/40 z-40 transition-opacity"
-                    onClick={closeCart}
-                />
-            )}
-
-            {/* Panel Drawer Kanan */}
-            <div
-                className={`fixed top-0 right-0 h-full w-full sm:w-100 bg-white border-l border-gray-200 z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'
-                    }`}
-            >
-                {/* Header Drawer */}
-                <div className="flex items-center justify-between p-5 border-b border-gray-200 bg-white">
-                    <h2 className="text-lg font-bold text-gray-900 tracking-tight flex items-center gap-2">
-                        Keranjang Belanja
-                        {items.length > 0 && (
-                            <span className="bg-black text-white text-xs py-0.5 px-2 rounded-none">
-                                {items.length}
-                            </span>
-                        )}
-                    </h2>
-                    <button
+                <>
+                    {/* Overlay */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
                         onClick={closeCart}
-                        className="text-gray-400 hover:text-black transition-colors"
-                    >
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
+                        className="fixed inset-0 bg-black/40 z-[100] backdrop-blur-sm"
+                    />
 
-                {/* Body Drawer (List Item) */}
-                <div className="flex-1 overflow-y-auto p-5">
-                    {items.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
-                            <svg className="w-16 h-16 mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                            </svg>
-                            <p className="text-base font-medium">Keranjang Anda masih kosong.</p>
-                            <p className="text-sm mt-1">Mulai cari rilisan fisik incaran Anda!</p>
-                            <button
-                                onClick={closeCart}
-                                className="mt-6 border border-black text-black px-6 py-2 text-sm font-bold hover:bg-black hover:text-white transition-colors"
-                            >
-                                Lanjut Belanja
+                    {/* Drawer */}
+                    <motion.div
+                        initial={{ x: '100%' }}
+                        animate={{ x: 0 }}
+                        exit={{ x: '100%' }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                        className="fixed right-0 top-0 h-full w-full max-w-md bg-white z-[101] shadow-2xl flex flex-col"
+                    >
+                        {/* Header */}
+                        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                            <h2 className="text-xl font-bold tracking-tighter uppercase">Keranjang Belanja</h2>
+                            <button onClick={closeCart} className="p-2 hover:bg-gray-100 transition-colors">
+                                <X size={20} />
                             </button>
                         </div>
-                    ) : (
-                        <div className="space-y-1">
-                            {items.map((item) => (
-                                <CartItemCard key={item.cart_item_id} item={item} />
-                            ))}
-                        </div>
-                    )}
-                </div>
 
-                {/* Footer Drawer (Total & Checkout) */}
-                {items.length > 0 && (
-                    <div className="border-t border-gray-200 p-5 bg-gray-50">
-                        <div className="flex justify-between items-center mb-4">
-                            <span className="text-sm font-bold text-gray-600">Subtotal</span>
-                            <span className="text-xl font-extrabold text-gray-900">{formattedSubtotal}</span>
+                        {/* List Items */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                            {items.length === 0 ? (
+                                <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                                    <p>Keranjang masih kosong</p>
+                                </div>
+                            ) : (
+                                items.map((item) => (
+                                    <div key={item.cart_item_id} className="flex gap-4">
+                                        <div className="relative w-20 h-20 flex-shrink-0 bg-gray-50 border border-gray-100">
+                                            <Image
+                                                src={item.product.media?.[0]?.media_url || '/vynil.png'}
+                                                alt={item.product.name}
+                                                fill
+                                                className="object-cover"
+                                            />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-1 text-[10px] text-gray-500 uppercase font-bold mb-1">
+                                                <Store size={10} />
+                                                <span className="truncate">{item.product.store?.name}</span>
+                                            </div>
+                                            <h4 className="text-sm font-bold text-gray-900 truncate uppercase">{item.product.name}</h4>
+                                            <p className="text-sm font-black text-black mt-1">{toIDR(item.product.price)}</p>
+
+                                            <div className="flex items-center justify-between mt-3">
+                                                {/* Qty Controls */}
+                                                <div className="flex items-center border border-gray-200">
+                                                    <button
+                                                        onClick={() => updateQuantity(item.cart_item_id, item.quantity - 1)}
+                                                        className="p-1 hover:bg-gray-50"
+                                                    >
+                                                        <Minus size={14} />
+                                                    </button>
+                                                    <span className="px-3 text-xs font-bold">{item.quantity}</span>
+                                                    <button
+                                                        onClick={() => updateQuantity(item.cart_item_id, item.quantity + 1)}
+                                                        className="p-1 hover:bg-gray-50"
+                                                    >
+                                                        <Plus size={14} />
+                                                    </button>
+                                                </div>
+                                                <button
+                                                    onClick={() => removeItem(item.cart_item_id)}
+                                                    className="text-gray-400 hover:text-red-600 transition-colors"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
-                        <p className="text-xs text-gray-500 mb-4 text-center">
-                            Ongkos kirim akan dikalkulasi pada halaman checkout.
-                        </p>
-                        <button
-                            onClick={handleCheckout}
-                            className="w-full bg-black text-white font-bold py-4 text-sm hover:bg-gray-800 transition-colors uppercase tracking-widest"
-                        >
-                            Checkout Sekarang
-                        </button>
-                    </div>
-                )}
-            </div>
-        </>
+
+                        {/* Footer */}
+                        {items.length > 0 && (
+                            <div className="p-6 border-t border-gray-100 space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm font-bold text-gray-500 uppercase">Subtotal</span>
+                                    <span className="text-xl font-black">{toIDR(subtotal)}</span>
+                                </div>
+                                <Link
+                                    href="/checkout"
+                                    onClick={closeCart}
+                                    className="block w-full bg-black text-white text-center py-4 text-sm font-bold uppercase tracking-widest hover:bg-gray-800 transition-colors"
+                                >
+                                    Checkout
+                                </Link>
+                            </div>
+                        )}
+                    </motion.div>
+                </>
+            )}
+        </AnimatePresence>
     );
 }

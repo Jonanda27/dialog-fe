@@ -1,68 +1,46 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// 1. Definisikan Zona Akses (Route Mapping)
-// Rute yang dilarang jika user SUDAH login
-const authRoutes = ['/auth/login', '/auth/register'];
-
-// Rute yang dilarang jika user BELUM login
-const protectedRoutes = [
-    '/checkout',
-    '/pembayaran',
-    '/pesanan',
-    '/dashboard' // Tambahkan rute khusus seller/buyer lainnya di sini
-];
+/**
+ * PROTOKOL MIDDLEWARE (REVISED FOR LOCAL SESSION)
+ * Karena Anda menggunakan LocalStorage murni, Middleware ini hanya bertugas:
+ * 1. Melindungi rute sensitif yang WAJIB menggunakan Cookie (jika ada).
+ * 2. Mengatur optimasi routing statis.
+ * 3. Tidak memblokir rute Buyer agar tidak terjadi Infinite Loop.
+ */
 
 export function middleware(request: NextRequest) {
-    const { pathname, search } = request.nextUrl;
+    const { pathname } = request.nextUrl;
 
-    // 2. Ekstraksi Token dari Cookies (Satu-satunya cara yang valid di Edge Runtime)
+    // 1. Ekstraksi Token dari Cookies (Opsional, hanya untuk pengecekan server-side)
     const token = request.cookies.get('token')?.value;
 
-    // 3. Skenario A: Mengakses Halaman Otentikasi
-    const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
-    if (isAuthRoute) {
-        if (token) {
-            // Jika sudah punya token tapi mencoba buka /login, tendang kembali ke Beranda
-            return NextResponse.redirect(new URL('/', request.url));
-        }
-        // Jika belum login, silakan masuk ke halaman auth
-        return NextResponse.next();
+    // 2. PROTEKSI KHUSUS (Contoh: Admin atau Penjual yang butuh keamanan ekstra)
+    // Jika Anda ingin rute /admin atau /penjual tetap dijaga Middleware, biarkan ini.
+    // Tapi jika rute Buyer (/dashboard, /checkout) ingin pakai LocalStorage, 
+    // pastikan rute tersebut TIDAK ADA di dalam logika pengecekan di bawah ini.
+
+    const serverProtectedRoutes = ['/admin', '/penjual/dashboard-internal'];
+    const isServerProtectedRoute = serverProtectedRoutes.some((route) => pathname.startsWith(route));
+
+    if (isServerProtectedRoute && !token) {
+        // Hanya tendang jika memang rute ini didesain wajib Cookie
+        return NextResponse.redirect(new URL('/auth/login', request.url));
     }
 
-    // 4. Skenario B: Mengakses Halaman Terproteksi (Checkout, Pesanan, dll)
-    const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
-    if (isProtectedRoute) {
-        if (!token) {
-            // Catat URL tujuan mereka saat ini agar bisa dikembalikan setelah berhasil login
-            const currentUrl = encodeURIComponent(pathname + search);
-            const redirectUrl = new URL(`/auth/login?redirect_to=${currentUrl}`, request.url);
-
-            // Tendang ke halaman login dengan status 302 (Temporary Redirect)
-            return NextResponse.redirect(redirectUrl);
-        }
-
-        // Catatan Arsitektur: 
-        // Jika Anda butuh validasi Role (misal: Cegah Buyer masuk ke /dashboard-seller), 
-        // Anda bisa men-decode JWT Token di sini menggunakan library 'jwt-decode' atau 'jose'.
-        // Untuk saat ini, asalkan punya token, biarkan lewat.
-    }
-
-    // 5. Skenario C: Loloskan semua request ke rute publik (/katalog, /, /tentang-kami)
+    // 3. LOLOSKAN RUTE BUYER (/dashboard, /checkout, /pesanan)
+    // Biarkan ditangani oleh AuthGuard di sisi Client (React) karena bisa baca LocalStorage.
     return NextResponse.next();
 }
 
-// 6. Konfigurasi Matcher (Optimasi Performa)
-// Mencegah middleware dieksekusi pada file statis atau API bawaan Next.js
+// 4. Konfigurasi Matcher (Sangat Penting untuk Performa)
 export const config = {
     matcher: [
         /*
-         * Cocokkan semua request paths KECUALI untuk:
-         * - api (rute backend lokal jika ada)
-         * - _next/static (file javascript/css statis)
-         * - _next/image (optimasi gambar)
-         * - favicon.ico, sitemap.xml, robots.txt
+         * Mencocokkan rute selain file statis.
+         * Kita tetap jalankan middleware untuk optimasi header, 
+         * tapi tidak melakukan pengalihan paksa pada rute buyer.
          */
-        '/((?!api|_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg).*)',
+        '/((?!api|_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg|.*\\.svg).*)',
     ],
 };

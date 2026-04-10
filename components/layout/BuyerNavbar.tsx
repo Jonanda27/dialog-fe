@@ -1,58 +1,55 @@
-import Link from 'next/link';
-import { getMe } from '@/utils/serverAuth';
+'use client';
 
-export default async function BuyerNavbar() {
-    // Fetch data user secara asinkron di Server Component
-    const user = await getMe();
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { ShoppingCart, Search, User, Menu } from 'lucide-react';
+import { useCartStore } from '@/store/cartStore';
+
+export default function BuyerNavbar() {
+    const [isMounted, setIsMounted] = useState(false);
+    const { items, openCart } = useCartStore();
+
+    // Menangani Hydration Persistence
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    const cartCount = items.reduce((acc, item) => acc + item.quantity, 0);
 
     return (
-        <nav className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center h-16">
-                    {/* Logo */}
-                    <Link href="/dashboard" className="flex items-center gap-2">
-                        <span className="text-xl font-bold tracking-tighter text-white">
-                            ANALOG<span className="text-red-500">.ID</span>
-                        </span>
+        <nav className="sticky top-0 z-40 w-full bg-white border-b border-gray-200">
+            <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+                {/* Logo */}
+                <Link href="/" className="text-2xl font-black tracking-tighter italic">
+                    ANALOG<span className="text-gray-400">.ID</span>
+                </Link>
+
+                {/* Icons Area */}
+                <div className="flex items-center gap-5">
+                    <button className="text-gray-600 hover:text-black transition-colors">
+                        <Search size={22} />
+                    </button>
+
+                    {/* Cart Badge with Safe Client Rendering */}
+                    <button
+                        onClick={openCart}
+                        className="text-gray-600 hover:text-black transition-colors relative"
+                    >
+                        <ShoppingCart size={22} />
+                        {isMounted && cartCount > 0 && (
+                            <span className="absolute -top-2 -right-2 bg-black text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-none border-2 border-white">
+                                {cartCount}
+                            </span>
+                        )}
+                    </button>
+
+                    <Link href="/dashboard" className="text-gray-600 hover:text-black transition-colors">
+                        <User size={22} />
                     </Link>
 
-                    {/* Search Bar (Tengah) */}
-                    <div className="hidden md:flex flex-1 max-w-md mx-8">
-                        <div className="relative w-full">
-                            <input
-                                type="text"
-                                placeholder="Cari kaset, vinyl, atau artist..."
-                                className="w-full bg-zinc-900 border border-zinc-800 rounded-full py-2 pl-4 pr-10 text-sm text-zinc-100 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/50 transition-all"
-                            />
-                            <svg className="absolute right-3 top-2.5 h-4 w-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                        </div>
-                    </div>
-
-                    {/* Right Menu */}
-                    <div className="flex items-center gap-6">
-                        {/* Cart Icon */}
-                        <Link href="/cart" className="relative text-zinc-400 hover:text-white transition-colors">
-                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                            </svg>
-                            <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                                2
-                            </span>
-                        </Link>
-
-                        {/* Profile Menu */}
-                        <div className="flex items-center gap-3 border-l border-zinc-800 pl-6">
-                            <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-300 font-bold border border-zinc-700">
-                                {user?.full_name?.charAt(0).toUpperCase() || 'U'}
-                            </div>
-                            <div className="hidden sm:block text-sm">
-                                <p className="text-zinc-200 font-medium leading-none">{user?.full_name || 'Guest'}</p>
-                                <p className="text-zinc-500 text-xs mt-1 capitalize">{user?.role || 'Buyer'}</p>
-                            </div>
-                        </div>
-                    </div>
+                    <button className="md:hidden text-gray-600">
+                        <Menu size={22} />
+                    </button>
                 </div>
             </div>
         </nav>

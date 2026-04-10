@@ -54,7 +54,7 @@ export default function AnalogLandingPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 font-sans selection:bg-[#ef3333]">
-      
+
       {/* 1. NAVBAR */}
       <nav className={`fixed top-0 w-full z-[100] transition-all duration-300 px-6 ${scrolled ? "bg-[#111114] shadow-xl py-2 border-b border-zinc-800" : "bg-[#0a0a0b] py-4"}`}>
         <div className="w-full flex items-center justify-between">
@@ -65,22 +65,22 @@ export default function AnalogLandingPage() {
           <div className="hidden md:flex flex-1 max-w-xl mx-10 relative">
             <input type="text" placeholder="Cari piringan hitam atau kaset..." className="w-full bg-[#1a1a1e] border border-zinc-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-[#ef3333] transition-all" />
             <div className="absolute right-3 top-2 text-zinc-500">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
             </div>
           </div>
 
           <div className="flex items-center gap-6 shrink-0">
             <div className="relative group/cart py-2">
-                <button className="text-zinc-400 hover:text-[#ef3333] transition-colors mt-1 outline-none">
-                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-                </button>
-                <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover/cart:opacity-100 group-hover/cart:visible transition-all z-[110]">
-                    <div className="bg-[#1a1a1e] border border-zinc-800 w-64 p-6 rounded-xl shadow-2xl text-center">
-                        <div className="text-4xl mb-3 opacity-20">🛒</div>
-                        <p className="text-sm font-bold text-zinc-300 mb-4">Wah, keranjangmu kosong!</p>
-                        <button className="w-full bg-[#ef3333] text-white text-xs font-black py-2 rounded-lg hover:bg-red-700 transition-colors uppercase tracking-widest">Mulai Belanja</button>
-                    </div>
+              <button className="text-zinc-400 hover:text-[#ef3333] transition-colors mt-1 outline-none">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" /></svg>
+              </button>
+              <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover/cart:opacity-100 group-hover/cart:visible transition-all z-[110]">
+                <div className="bg-[#1a1a1e] border border-zinc-800 w-64 p-6 rounded-xl shadow-2xl text-center">
+                  <div className="text-4xl mb-3 opacity-20">🛒</div>
+                  <p className="text-sm font-bold text-zinc-300 mb-4">Wah, keranjangmu kosong!</p>
+                  <button className="w-full bg-[#ef3333] text-white text-xs font-black py-2 rounded-lg hover:bg-red-700 transition-colors uppercase tracking-widest">Mulai Belanja</button>
                 </div>
+              </div>
             </div>
 
             <div className="h-6 w-[1px] bg-zinc-800"></div>
@@ -92,13 +92,13 @@ export default function AnalogLandingPage() {
 
       {/* 2. MAIN CONTENT */}
       <main className="pt-28 pb-20 max-w-[1200px] mx-auto px-4">
-        
+
         {/* HERO */}
         <section className="w-full h-[300px] bg-[#1a1a1a] rounded-xl overflow-hidden mb-12 border border-zinc-800 relative group cursor-pointer shadow-2xl">
           <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent z-10 flex flex-col justify-center px-12 text-left">
-             <h2 className="text-[#ef3333] font-black text-sm uppercase tracking-widest mb-2">Exclusively Drops</h2>
-             <h1 className="text-white text-5xl font-black uppercase leading-none">VINTAGE <br/> COLLECTION 2026</h1>
-             <p className="text-zinc-400 mt-4 max-w-sm">Dapatkan diskon kolektor hingga 30% untuk kaset pita klasik pilihan.</p>
+            <h2 className="text-[#ef3333] font-black text-sm uppercase tracking-widest mb-2">Exclusively Drops</h2>
+            <h1 className="text-white text-5xl font-black uppercase leading-none">VINTAGE <br /> COLLECTION 2026</h1>
+            <p className="text-zinc-400 mt-4 max-w-sm">Dapatkan diskon kolektor hingga 30% untuk kaset pita klasik pilihan.</p>
           </div>
           <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1603048297172-c92544798d5e?q=80&w=1200')] bg-cover bg-center opacity-50 group-hover:scale-105 transition-transform duration-700"></div>
         </section>
@@ -124,8 +124,8 @@ export default function AnalogLandingPage() {
         {/* PRODUCTS */}
         <section>
           <div className="flex items-center gap-3 mb-6 text-left">
-             <h2 className="text-xl font-black uppercase tracking-tighter shrink-0 text-white">Terpopuler Untukmu</h2>
-             <div className="h-[1px] flex-1 bg-zinc-900"></div>
+            <h2 className="text-xl font-black uppercase tracking-tighter shrink-0 text-white">Terpopuler Untukmu</h2>
+            <div className="h-[1px] flex-1 bg-zinc-900"></div>
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-8 no-scrollbar">
@@ -133,13 +133,13 @@ export default function AnalogLandingPage() {
               <button key={cat} onClick={() => setActiveFilter(cat)} className={`px-5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${activeFilter === cat ? "bg-[#ef3333] border-[#ef3333] text-white shadow-[0_0_15px_rgba(239,51,51,0.3)]" : "bg-[#1a1a1e] border-zinc-800 text-zinc-500 hover:border-zinc-600"}`}>{cat}</button>
             ))}
           </div>
-          
+
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-left">
             {products.map((product) => (
               <div key={product.id} onClick={() => setSelectedProduct(product)} className="bg-[#111114] rounded-2xl border border-zinc-800 overflow-hidden cursor-pointer hover:shadow-2xl hover:border-[#ef3333]/50 transition-all flex flex-col h-full group shadow-lg">
                 <div className="aspect-square relative overflow-hidden bg-black">
-                   <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500" />
-                   <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-black text-white border border-white/10 uppercase tracking-widest">{product.grade}</div>
+                  <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500" />
+                  <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-black text-white border border-white/10 uppercase tracking-widest">{product.grade}</div>
                 </div>
                 <div className="p-5 flex flex-col flex-1">
                   <h3 className="text-sm font-bold line-clamp-2 leading-snug text-zinc-100 group-hover:text-[#ef3333] transition-colors h-10">{product.name} - {product.artist}</h3>
@@ -196,8 +196,8 @@ export default function AnalogLandingPage() {
       )}
 
       <footer className="bg-[#121212] border-t border-zinc-800 py-12 text-center mt-20">
-         <div className="text-2xl font-black text-[#ef3333] mb-4 uppercase tracking-tighter">Analog.id</div>
-         <p className="text-zinc-600 text-xs font-bold uppercase tracking-[0.3em]">Surga Kolektor Analog Sejak 2026</p>
+        <div className="text-2xl font-black text-[#ef3333] mb-4 uppercase tracking-tighter">Analog.id</div>
+        <p className="text-zinc-600 text-xs font-bold uppercase tracking-[0.3em]">Surga Kolektor Analog Sejak 2026</p>
       </footer>
 
       <style>{`
