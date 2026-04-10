@@ -10,19 +10,23 @@ const axiosClient = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    // Timeout opsional untuk mencegah request menggantung terlalu lama
+    // Timeout presisi untuk mencegah request menggantung dan membebani server
     timeout: 30000,
 });
 
-// 2. Request Interceptor: Otomatis menyuntikkan Bearer Token dari localStorage
+// 2. Request Interceptor: Injeksi Keamanan & Token
 axiosClient.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-        // MIGRASI: Ambil token dari localStorage secara aman (hanya dieksekusi di sisi client/browser)
+        // Implementasi Protokol: Mitigasi CSRF Dasar
+        config.headers['X-Requested-With'] = 'XMLHttpRequest';
+
+        // Ambil token dari localStorage secara aman (hanya dieksekusi di sisi client)
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
-        if (token && config.headers) {
+        if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+
         return config;
     },
     (error) => {
@@ -30,17 +34,17 @@ axiosClient.interceptors.request.use(
     }
 );
 
-// 3. Response Interceptor: Standarisasi Error Handling
+// 3. Response Interceptor: Centralized Error Parser & Gatekeeper
 axiosClient.interceptors.response.use(
     (response: AxiosResponse) => {
-        // Jika sukses (2xx), langsung kembalikan data (sudah sesuai tipe ApiResponse)
+        // Passthrough respons sukses (2xx) langsung ke layer Service
         return response.data;
     },
     (error: AxiosError<any>) => {
-        // Objek ApiError bawaan yang akan dilempar ke UI
+        // Blueprint ApiError standar
         const customError: ApiError = {
             status: error.response?.status || 500,
-            message: 'Terjadi kesalahan pada server. Silakan coba lagi.',
+            message: 'Terjadi kesalahan pada server. Silakan coba lagi nanti.',
             errors: null,
             isAuthError: false,
         };
@@ -48,37 +52,49 @@ axiosClient.interceptors.response.use(
         if (error.response) {
             const { status, data } = error.response;
 
-            // Map pesan error utama dari Backend (utils/apiResponse.js)
+            // Map pesan error utama dari Backend (Standar utils/apiResponse.js)
             if (data && data.message) {
                 customError.message = data.message;
             }
 
-            // Map Error 400 (Zod Validation)
+            // Map Error 400 (Zod Validation / Business Rule Violation)
             if (status === 400 && data.errors) {
                 customError.errors = data.errors as ValidationErrorField[];
             }
 
-            // Map Error 401 (Unauthorized / Token Expired)
+            // ⚡ PROTOKOL GATEKEEPER 401 (Unauthorized) ⚡
             if (status === 401) {
                 customError.isAuthError = true;
                 customError.message = data.message || 'Sesi Anda telah berakhir. Silakan login kembali.';
 
-                // PENTING: Jangan lakukan window.location.href = '/login' di sini.
-                // Biarkan Zustand AuthStore yang mendengarkan flag isAuthError ini 
-                // dan melakukan logout/redirect secara elegan.
+                if (typeof window !== 'undefined') {
+                    // 1. Hapus kredensial lokal
+                    localStorage.removeItem('token');
+                    // Hapus juga persist state Zustand (sesuaikan dengan nama key di authStore Anda)
+                    localStorage.removeItem('auth-storage');
+
+                    // 2. Cegah Infinite Loop (jangan redirect jika sudah di halaman login)
+                    if (!window.location.pathname.includes('/auth/login')) {
+                        // 3. Ambil rute saat ini beserta parameter URL-nya
+                        const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
+
+                        // 4. Force Redirect (Membuang memori state React yang korup/kadaluarsa)
+                        window.location.href = `/auth/login?redirect_to=${currentPath}`;
+                    }
+                }
             }
 
             // Map Error 403 (Forbidden / Akses Ditolak)
             if (status === 403) {
-                customError.message = data.message || 'Anda tidak memiliki akses untuk tindakan ini.';
+                customError.message = data.message || 'Anda tidak memiliki otorisasi untuk tindakan ini.';
             }
         } else if (error.request) {
-            // Kasus di mana request terkirim tapi server mati / tidak merespon
+            // Kasus Network Error: Server mati, timeout, atau koneksi terputus
             customError.status = 0;
             customError.message = 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
         }
 
-        // Kembalikan customError agar di komponen UI cukup menggunakan: catch (err: ApiError)
+        // Kembalikan customError ke level Store/UI
         return Promise.reject(customError);
     }
 );

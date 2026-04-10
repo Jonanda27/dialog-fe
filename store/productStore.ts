@@ -1,7 +1,4 @@
-// File: dialog-fe/store/productStore.ts
-
 import { create } from 'zustand';
-// Hapus UpdateProductPayload karena kita pakai Partial<CreateProductPayload> dari arsitektur JSONB
 import { Product, CreateProductPayload, BulkCreateProductPayload } from '../types/product';
 import { ProductService } from '../services/api/product.service';
 import { ApiError } from '../types/api';
@@ -16,8 +13,9 @@ interface ProductState {
     error: string | null;
 
     // Actions
-    fetchProducts: (filters?: Record<string, string>) => Promise<void>;
-    fetchMyProducts: (filters?: Record<string, string>) => Promise<void>;
+    setInitialProducts: (products: Product[]) => void; // <-- BARU: Untuk Next.js Server-to-Client Handoff
+    fetchProducts: (filters?: Record<string, any>) => Promise<void>;
+    fetchMyProducts: (filters?: Record<string, any>) => Promise<void>;
     fetchProductById: (id: string) => Promise<void>;
     createProduct: (payload: CreateProductPayload) => Promise<Product>;
     updateProduct: (id: string, payload: Partial<CreateProductPayload>) => Promise<Product>;
@@ -34,6 +32,11 @@ export const useProductStore = create<ProductState>((set, get) => ({
     isLoading: false,
     isSubmitting: false,
     error: null,
+
+    // Fungsi untuk menyuntikkan data dari Server Component (SEO Friendly)
+    setInitialProducts: (products) => {
+        set({ products, error: null });
+    },
 
     fetchProducts: async (filters) => {
         set({ isLoading: true, error: null });
@@ -166,7 +169,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
 
             set((state) => ({
                 myProducts: [...newProducts, ...state.myProducts],
-                // Kita tidak memasukkan ke 'products' (katalog utama) di sini, asumsi agar seller refresh manual jika ingin melihat di katalog
                 isSubmitting: false,
             }));
         } catch (error: unknown) {

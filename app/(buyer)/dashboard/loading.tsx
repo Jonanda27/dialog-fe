@@ -23,9 +23,9 @@ export default function DashboardLoading() {
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
                     {[1, 2, 3, 4].map((i) => (
-                        <div key={i} className="flex flex-col bg-zinc-900/40 border border-zinc-800/50 rounded-xl overflow-hidden h-[340px]">
+                        <div key={i} className="flex flex-col bg-zinc-900/40 border border-zinc-800/50 rounded-xl overflow-hidden h-85">
                             <div className="w-full aspect-square bg-zinc-800/50"></div>
-                            <div className="p-4 flex flex-col flex-grow gap-3">
+                            <div className="p-4 flex flex-col grow gap-3">
                                 <div className="h-5 w-3/4 bg-zinc-800 rounded"></div>
                                 <div className="h-4 w-1/2 bg-zinc-800/50 rounded"></div>
                                 <div className="mt-auto h-6 w-1/3 bg-zinc-800 rounded"></div>

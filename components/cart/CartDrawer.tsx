@@ -1,85 +1,117 @@
 'use client';
 
-import { useCartStore } from '@/store/cartStore';
-import Image from 'next/image';
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCartStore } from '@/store/cartStore';
+import CartItemCard from './CartItemCard';
 
 export default function CartDrawer() {
-    const { items, isOpen, toggleCart, removeItem, getTotal } = useCartStore();
-    const [mounted, setMounted] = useState(false);
+    const router = useRouter();
+    const { isOpen, closeCart, items } = useCartStore();
 
-    // Menghindari Hydration Mismatch dari Zustand Persist
-    useEffect(() => setMounted(true), []);
-    if (!mounted) return null;
+    // Mencegah Hydration Mismatch (Karena Zustand Persist menggunakan localStorage)
+    const [isMounted, setIsMounted] = useState(false);
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
-    if (!isOpen) return null;
+    if (!isMounted) return null;
 
-    const formatPrice = (price: number) =>
-        new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(price);
+    // Kalkulasi Subtotal Keranjang
+    const subtotal = items.reduce((total, item) => {
+        return total + (Number(item.product.price) * item.quantity);
+    }, 0);
+
+    const formattedSubtotal = new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+    }).format(subtotal);
+
+    const handleCheckout = () => {
+        closeCart();
+        router.push('/checkout');
+    };
 
     return (
-        <div className="fixed inset-0 z-50 flex justify-end">
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={toggleCart}></div>
+        <>
+            {/* Overlay Hitam Transparan */}
+            {isOpen && (
+                <div
+                    className="fixed inset-0 bg-black/40 z-40 transition-opacity"
+                    onClick={closeCart}
+                />
+            )}
 
-            {/* Sidebar */}
-            <div className="relative w-full max-w-md bg-zinc-950 border-l border-zinc-800 shadow-2xl h-full flex flex-col animate-in slide-in-from-right">
-
-                {/* Header */}
-                <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
-                    <h2 className="text-xl font-bold text-white">Keranjang Belanja</h2>
-                    <button onClick={toggleCart} className="text-zinc-500 hover:text-white transition">
-                        ✕
+            {/* Panel Drawer Kanan */}
+            <div
+                className={`fixed top-0 right-0 h-full w-full sm:w-100 bg-white border-l border-gray-200 z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'
+                    }`}
+            >
+                {/* Header Drawer */}
+                <div className="flex items-center justify-between p-5 border-b border-gray-200 bg-white">
+                    <h2 className="text-lg font-bold text-gray-900 tracking-tight flex items-center gap-2">
+                        Keranjang Belanja
+                        {items.length > 0 && (
+                            <span className="bg-black text-white text-xs py-0.5 px-2 rounded-none">
+                                {items.length}
+                            </span>
+                        )}
+                    </h2>
+                    <button
+                        onClick={closeCart}
+                        className="text-gray-400 hover:text-black transition-colors"
+                    >
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
                     </button>
                 </div>
 
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Body Drawer (List Item) */}
+                <div className="flex-1 overflow-y-auto p-5">
                     {items.length === 0 ? (
-                        <div className="text-center py-10 text-zinc-500">Keranjang masih kosong.</div>
+                        <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
+                            <svg className="w-16 h-16 mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                            </svg>
+                            <p className="text-base font-medium">Keranjang Anda masih kosong.</p>
+                            <p className="text-sm mt-1">Mulai cari rilisan fisik incaran Anda!</p>
+                            <button
+                                onClick={closeCart}
+                                className="mt-6 border border-black text-black px-6 py-2 text-sm font-bold hover:bg-black hover:text-white transition-colors"
+                            >
+                                Lanjut Belanja
+                            </button>
+                        </div>
                     ) : (
-                        <div className="space-y-6">
-                            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                                Dari Toko: <span className="text-zinc-300">{items[0].store_name}</span>
-                            </p>
-
+                        <div className="space-y-1">
                             {items.map((item) => (
-                                <div key={item.id} className="flex gap-4 items-center">
-                                    <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-zinc-800 bg-zinc-900 shrink-0">
-                                        <Image src={item.mediaUrl} alt={item.name} fill className="object-cover" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="text-sm font-semibold text-white truncate">{item.name}</h3>
-                                        <p className="text-xs text-zinc-400">{item.artist}</p>
-                                        <p className="text-sm font-medium text-red-400 mt-1">{formatPrice(item.price)} <span className="text-zinc-600 text-xs font-normal">x{item.qty}</span></p>
-                                    </div>
-                                    <button onClick={() => removeItem(item.id)} className="text-zinc-600 hover:text-red-500 transition px-2">
-                                        Hapus
-                                    </button>
-                                </div>
+                                <CartItemCard key={item.cart_item_id} item={item} />
                             ))}
                         </div>
                     )}
                 </div>
 
-                {/* Footer */}
+                {/* Footer Drawer (Total & Checkout) */}
                 {items.length > 0 && (
-                    <div className="p-6 border-t border-zinc-800 bg-zinc-950">
-                        <div className="flex justify-between items-center mb-6">
-                            <span className="text-zinc-400">Total</span>
-                            <span className="text-2xl font-bold text-white">{formatPrice(getTotal())}</span>
+                    <div className="border-t border-gray-200 p-5 bg-gray-50">
+                        <div className="flex justify-between items-center mb-4">
+                            <span className="text-sm font-bold text-gray-600">Subtotal</span>
+                            <span className="text-xl font-extrabold text-gray-900">{formattedSubtotal}</span>
                         </div>
-                        <Link
-                            href="/checkout"
-                            onClick={toggleCart}
-                            className="block w-full text-center bg-red-600 hover:bg-red-700 text-white py-4 rounded-xl font-bold transition shadow-lg shadow-red-500/20"
+                        <p className="text-xs text-gray-500 mb-4 text-center">
+                            Ongkos kirim akan dikalkulasi pada halaman checkout.
+                        </p>
+                        <button
+                            onClick={handleCheckout}
+                            className="w-full bg-black text-white font-bold py-4 text-sm hover:bg-gray-800 transition-colors uppercase tracking-widest"
                         >
-                            Lanjutkan ke Checkout
-                        </Link>
+                            Checkout Sekarang
+                        </button>
                     </div>
                 )}
             </div>
-        </div>
+        </>
     );
 }

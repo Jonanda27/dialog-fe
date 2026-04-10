@@ -1,66 +1,116 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-
-export interface CartItem {
-    id: string;
-    name: string;
-    artist: string;
-    price: number;
-    mediaUrl: string;
-    store_id: string;
-    store_name: string;
-    qty: number;
-    stock: number;
-}
+import { Product } from '../types/product';
+import { CartItem } from '../types/cart';
 
 interface CartState {
+    // State
     items: CartItem[];
     isOpen: boolean;
-    toggleCart: () => void;
-    addItem: (item: Omit<CartItem, 'qty'>) => { success: boolean; message: string };
-    removeItem: (id: string) => void;
+
+    // Actions
+    openCart: () => void;
+    closeCart: () => void;
+    addItem: (product: Product, quantity?: number) => void;
+    removeItem: (cartItemId: string) => void;
+    updateQuantity: (cartItemId: string, quantity: number) => void;
     clearCart: () => void;
-    getTotal: () => number;
 }
 
 export const useCartStore = create<CartState>()(
+    // Menggunakan middleware 'persist' untuk auto-save ke localStorage
     persist(
         (set, get) => ({
             items: [],
             isOpen: false,
-            toggleCart: () => set({ isOpen: !get().isOpen }),
 
-            addItem: (newItem) => {
-                const currentItems = get().items;
+            openCart: () => set({ isOpen: true }),
 
-                // SINGLE STORE RULE VALIDATION
-                if (currentItems.length > 0 && currentItems[0].store_id !== newItem.store_id) {
-                    return {
-                        success: false,
-                        message: `Keranjang Anda berisi barang dari toko ${currentItems[0].store_name}. Anda tidak bisa menggabung barang dari toko berbeda.`
-                    };
+            closeCart: () => set({ isOpen: false }),
+
+            addItem: (product, quantity = 1) => {
+                const { items } = get();
+
+                // ⚡ VALIDASI KRUSIAL 1: Aturan Single-Store (1 Pesanan = 1 Toko)
+                if (items.length > 0) {
+                    const currentStoreId = items[0].product.store_id;
+                    if (currentStoreId !== product.store_id) {
+                        // Melempar error agar bisa ditangkap & ditampilkan oleh Toast di UI
+                        throw new Error('Anda hanya bisa membeli barang dari satu toko yang sama dalam satu checkout. Selesaikan pesanan sebelumnya atau kosongkan keranjang.');
+                    }
                 }
 
-                const existingItem = currentItems.find((i) => i.id === newItem.id);
+                // Cek apakah item sudah ada di dalam keranjang
+                const existingItem = items.find((item) => item.product.id === product.id);
 
                 if (existingItem) {
-                    if (existingItem.qty >= newItem.stock) {
-                        return { success: false, message: 'Stok maksimum telah tercapai.' };
+                    // ⚡ VALIDASI KRUSIAL 2: Cek Limit Stok (Mencegah Overselling di Frontend)
+                    const newQuantity = existingItem.quantity + quantity;
+                    if (newQuantity > product.stock) {
+                        throw new Error(`Stok tidak mencukupi. Tersisa ${product.stock} pcs.`);
                     }
+
                     set({
-                        items: currentItems.map(i => i.id === newItem.id ? { ...i, qty: i.qty + 1 } : i)
+                        items: items.map((item) =>
+                            item.product.id === product.id
+                                ? { ...item, quantity: newQuantity }
+                                : item
+                        ),
+                        isOpen: true, // Otomatis membuka Drawer Keranjang saat ditambah
                     });
                 } else {
-                    set({ items: [...currentItems, { ...newItem, qty: 1 }] });
-                }
+                    // Validasi limit stok untuk item baru
+                    if (quantity > product.stock) {
+                        throw new Error(`Stok tidak mencukupi. Tersisa ${product.stock} pcs.`);
+                    }
 
-                return { success: true, message: 'Produk ditambahkan ke keranjang!' };
+                    const newItem: CartItem = {
+                        cart_item_id: product.id, // Kita gunakan ID produk sebagai ID unik keranjang
+                        product,
+                        quantity,
+                    };
+
+                    set({
+                        items: [newItem, ...items], // Item terbaru muncul di atas
+                        isOpen: true,
+                    });
+                }
             },
 
-            removeItem: (id) => set({ items: get().items.filter((i) => i.id !== id) }),
+            removeItem: (cartItemId) => {
+                set((state) => ({
+                    items: state.items.filter((item) => item.cart_item_id !== cartItemId),
+                }));
+            },
+
+            updateQuantity: (cartItemId, quantity) => {
+                const { items } = get();
+                const itemToUpdate = items.find((item) => item.cart_item_id === cartItemId);
+
+                // Mencegah penambahan jika melebihi batas stok via tombol '+'
+                if (itemToUpdate && quantity > itemToUpdate.product.stock) {
+                    return;
+                }
+
+                // Jika qty menjadi 0, hapus item dari keranjang
+                if (quantity <= 0) {
+                    get().removeItem(cartItemId);
+                    return;
+                }
+
+                set((state) => ({
+                    items: state.items.map((item) =>
+                        item.cart_item_id === cartItemId
+                            ? { ...item, quantity }
+                            : item
+                    ),
+                }));
+            },
+
             clearCart: () => set({ items: [] }),
-            getTotal: () => get().items.reduce((total, item) => total + (item.price * item.qty), 0),
         }),
-        { name: 'analog-cart-storage' } // Key untuk localStorage
+        {
+            name: 'analog-cart-storage', // Nama Key yang akan muncul di Application > Local Storage Browser
+        }
     )
 );
