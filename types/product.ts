@@ -65,6 +65,7 @@ export interface ProductMedia {
  * Menggunakan arsitektur relasional baru (sub_category_id) dan JSONB (metadata)
  */
 export interface Product {
+    image_url: string;
     id: string;
     store_id: string;
     sub_category_id: string;

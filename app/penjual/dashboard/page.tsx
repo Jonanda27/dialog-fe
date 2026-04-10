@@ -54,42 +54,49 @@ export default function SellerDashboard() {
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        // Concurrent API Fetching: Eksekusi 3 Request secara bersamaan untuk mencegah Waterfall
-        const [storeRes, walletRes, ordersRes] = await Promise.all([
-          StoreService.getMyStore(),
-          StoreService.getWallet(),
-          OrderService.getStoreOrders()
-        ]);
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      
+      // Concurrent API Fetching
+      const [storeRes, walletRes, ordersRes] = await Promise.all([
+        StoreService.getMyStore(),
+        StoreService.getWallet(),
+        OrderService.getStoreOrders()
+      ]);
 
-        if (storeRes.data) setStoreName(storeRes.data.name);
+      // 1. Set Nama Toko
+      if (storeRes.data) setStoreName(storeRes.data.name);
 
-        const orders = ordersRes.data || [];
+      const orders = ordersRes.data || [];
+      const walletData = walletRes.data;
 
-        // Kalkulasi Pesanan Aktif (Paid, Processing, Shipped)
-        const activeCount = orders.filter(o => ['paid', 'processing', 'shipped'].includes(o.status)).length;
+      // 2. Kalkulasi Pesanan Aktif (Paid, Processing, Shipped)
+      const activeCount = orders.filter(o => 
+        ['paid', 'processing', 'shipped'].includes(o.status)
+      ).length;
 
-        setStats(prev => ({
-          ...prev,
-          revenue: walletRes.data?.balance || 0,
-          totalOrders: orders.length,
-          activeOrders: activeCount
-        }));
+      // 3. Update State Stats
+      setStats(prev => ({
+        ...prev,
+        // Konversi string "2000000.00" menjadi number
+        revenue: walletData?.balance ? parseFloat(walletData.balance.toString()) : 0,
+        totalOrders: orders.length,
+        activeOrders: activeCount
+      }));
 
-        // Ambil 5 pesanan teratas untuk preview tabel
-        setRecentOrders(orders.slice(0, 5));
+      // 4. Ambil 5 pesanan teratas
+      setRecentOrders(orders.slice(0, 5));
 
-      } catch (error) {
-        console.error("Gagal memuat data dashboard:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    } catch (error) {
+      console.error("Gagal memuat data dashboard:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchDashboardData();
-  }, []);
+  fetchDashboardData();
+}, []);
 
   return (
     <Sidebar>
