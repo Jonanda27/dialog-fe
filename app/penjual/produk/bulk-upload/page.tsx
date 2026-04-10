@@ -2,8 +2,6 @@
 
 import React, { useState } from "react";
 import Sidebar from "@/components/layout/sidebar";
-import { API_BASE_URL } from "@/utils/api"; 
-import axios from "axios"; // Menggunakan axios langsung seperti di TambahProduk
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { 
@@ -14,19 +12,30 @@ import {
   CheckCircle2, 
   X,
   ArrowRight,
-  Loader2
+  Loader2,
+  Table as TableIcon
 } from "lucide-react";
+
+// --- IMPORT SESUAI ATURAN MUTLAK ---
+import { useProductStore } from "@/store/productStore";
+import { BulkCreateProductPayload } from "@/types/product";
 
 export default function BulkUpload() {
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [previewData, setPreviewData] = useState<any[]>([]); 
-  const [loading, setLoading] = useState(false);
+  
+  // ATURAN 4: Ganti any[] dengan interface payload yang benar
+  const [previewData, setPreviewData] = useState<BulkCreateProductPayload[]>([]); 
+  
   const [isParsing, setIsParsing] = useState(false);
+
+  // ATURAN 1 & 3: Ambil loading state dan fungsi dari Store (Token diurus otomatis oleh interceptor)
+  const { bulkCreateProducts, isLoading: loading, clearError } = useProductStore();
 
   // --- 1. LOGIKA PARSING FILE (CSV & XLSX) ---
   const processFile = (selectedFile: File) => {
     setIsParsing(true);
+    clearError();
     const reader = new FileReader();
 
     if (selectedFile.name.endsWith(".csv")) {
@@ -34,7 +43,8 @@ export default function BulkUpload() {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
-          setPreviewData(results.data);
+          // Type casting ke interface yang benar
+          setPreviewData(results.data as BulkCreateProductPayload[]);
           setIsParsing(false);
         },
         error: () => {
@@ -49,7 +59,7 @@ export default function BulkUpload() {
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const parsedData = XLSX.utils.sheet_to_json(sheet);
-        setPreviewData(parsedData);
+        setPreviewData(parsedData as BulkCreateProductPayload[]);
         setIsParsing(false);
       };
       reader.readAsBinaryString(selectedFile);
@@ -59,43 +69,27 @@ export default function BulkUpload() {
     }
   };
 
-  // --- 2. LOGIKA KIRIM DATA (Mencari Token dari LocalStorage) ---
+  // --- 2. LOGIKA KIRIM DATA (ATURAN 1, 2, 3 dipenuhi di sini) ---
   const handleImportNow = async () => {
     if (previewData.length === 0) {
       alert("Tidak ada data untuk diimport.");
       return;
     }
 
-    // Ambil token dari localStorage (Pastikan key-nya "token" sesuai di TambahProduk)
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      alert("Sesi Anda berakhir. Silakan login kembali untuk mendapatkan token.");
-      return;
-    }
-
-    setLoading(true);
     try {
-      // Menggunakan axios langsung dengan penyuntikan token manual di Header
-      const response = await axios.post(`${API_BASE_URL}/products/bulk`, previewData, {
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` // Suntikkan token ke sini
-        }
-      });
+      // Panggil fungsi store. Tidak ada axios manual, tidak ada FormData manual, tidak ada Token manual.
+      await bulkCreateProducts(previewData);
 
-      if (response.data.success) {
-        alert(`BERHASIL! ${response.data.message}`);
-        setFile(null);
-        setPreviewData([]);
+      alert(`BERHASIL! Produk telah diimport ke katalog Anda.`);
+      setFile(null);
+      setPreviewData([]);
+    } catch (err: unknown) {
+      // ATURAN 4: Penanganan error tanpa tipe 'any'
+      if (err instanceof Error) {
+        alert(`Gagal Import: ${err.message}`);
+      } else {
+        alert("Terjadi kesalahan sistem saat melakukan bulk upload.");
       }
-    } catch (err: any) {
-      // Mengambil pesan error dari backend
-      const errorMessage = err.response?.data?.message || "Gagal mengunggah data bulk.";
-      alert(`Gagal Import: ${errorMessage}`);
-      console.error("Bulk Upload Error:", err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -239,45 +233,76 @@ export default function BulkUpload() {
               )}
             </div>
 
-            {/* PREVIEW STATUS / SUMMARY */}
-            {file && !isParsing && (
-              <div className="bg-[#111114] border border-zinc-900 rounded-[2.5rem] p-8 animate-fade-in">
-                <div className="flex items-center justify-between mb-8">
-                   <div className="flex items-center gap-3">
-                      <CheckCircle2 size={20} className="text-emerald-500" />
-                      <p className="text-xs font-black text-white uppercase tracking-widest">File Terverifikasi</p>
-                   </div>
+            {/* PREVIEW TABLE SECTION */}
+            {previewData.length > 0 && !isParsing && (
+              <div className="bg-[#111114] border border-zinc-900 rounded-[2.5rem] p-8 animate-fade-in space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <TableIcon size={20} className="text-[#ef3333]" />
+                    <h3 className="text-xs font-black uppercase tracking-widest text-white">Preview Isi File</h3>
+                  </div>
+                  <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest bg-zinc-900 px-3 py-1 rounded-lg border border-zinc-800">
+                    {previewData.length} Baris ditemukan
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-8">
-                   <div className="bg-[#0a0a0b] p-4 rounded-2xl border border-zinc-900">
-                      <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1">Total Data</p>
-                      <p className="text-xl font-black text-white tracking-tight">
-                        {previewData.length} <span className="text-[10px] text-zinc-500 uppercase font-bold">Produk</span>
-                      </p>
-                   </div>
+                <div className="overflow-x-auto rounded-2xl border border-zinc-900">
+                  <table className="w-full text-left border-collapse min-w-[600px]">
+                    <thead>
+                      <tr className="bg-[#0a0a0b] border-b border-zinc-900">
+                        <th className="px-4 py-3 text-[9px] font-black text-zinc-500 uppercase tracking-widest">Nama Album</th>
+                        <th className="px-4 py-3 text-[9px] font-black text-zinc-500 uppercase tracking-widest">Artis</th>
+                        <th className="px-4 py-3 text-[9px] font-black text-zinc-500 uppercase tracking-widest">Grading</th>
+                        <th className="px-4 py-3 text-[9px] font-black text-zinc-500 uppercase tracking-widest">Harga</th>
+                        <th className="px-4 py-3 text-[9px] font-black text-zinc-500 uppercase tracking-widest text-right">Stok</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-900/50">
+                      {previewData.slice(0, 10).map((row, idx) => (
+                        <tr key={idx} className="hover:bg-zinc-900/30 transition-colors">
+                          <td className="px-4 py-3 text-[11px] font-bold text-zinc-300 truncate max-w-[150px]">{row.name}</td>
+                          <td className="px-4 py-3 text-[11px] text-zinc-400 font-medium">{row.artist}</td>
+                          <td className="px-4 py-3 text-[11px]">
+                            <span className="bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded text-[9px] font-black uppercase border border-zinc-700">
+                              {row.grading}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-[11px] font-black text-white">Rp {Number(row.price).toLocaleString('id-ID')}</td>
+                          <td className="px-4 py-3 text-[11px] font-bold text-zinc-500 text-right">{row.stock}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                {previewData.length > 10 && (
+                  <p className="text-[9px] text-center text-zinc-600 font-bold uppercase tracking-widest italic">
+                    + Menampilkan 10 dari {previewData.length} baris...
+                  </p>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                    <div className="bg-[#0a0a0b] p-4 rounded-2xl border border-zinc-900">
                       <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1">Status Keamanan</p>
                       <p className="text-xl font-black text-emerald-500 tracking-tight text-xs uppercase">
                         {previewData.length > 0 ? "Siap Import" : "Data Kosong"}
                       </p>
                    </div>
+                   <button 
+                    onClick={handleImportNow}
+                    disabled={loading || previewData.length === 0}
+                    className="w-full bg-[#ef3333] hover:bg-red-700 text-white font-black py-5 rounded-2xl text-[10px] uppercase tracking-[0.3em] transition-all shadow-xl shadow-red-900/30 flex items-center justify-center gap-3 group disabled:bg-zinc-800 disabled:text-zinc-600 disabled:shadow-none"
+                  >
+                    {loading ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <>
+                        Konfirmasi & Bulk Import
+                        <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                      </>
+                    )}
+                  </button>
                 </div>
-
-                <button 
-                  onClick={handleImportNow}
-                  disabled={loading || previewData.length === 0}
-                  className="w-full bg-[#ef3333] hover:bg-red-700 text-white font-black py-5 rounded-2xl text-[10px] uppercase tracking-[0.3em] transition-all shadow-xl shadow-red-900/30 flex items-center justify-center gap-3 group disabled:bg-zinc-800 disabled:text-zinc-600 disabled:shadow-none"
-                >
-                  {loading ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <>
-                      Eksekusi Bulk Import
-                      <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                    </>
-                  )}
-                </button>
               </div>
             )}
           </div>

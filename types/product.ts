@@ -1,3 +1,5 @@
+// File: dialog-fe/types/product.ts
+
 import { Store } from './store'; // Pastikan path import sesuai dengan project Anda
 import { SubCategory } from './category';
 
@@ -13,7 +15,7 @@ export type ProductStatus = 'active' | 'inactive' | 'draft' | 'sold';
  */
 export interface ProductMetadata {
     // Atribut Umum (Berlaku untuk semua)
-    description: string;
+    description?: string;
     status: ProductStatus;
 
     // Atribut Khusus: Audio (Vinyl, Kaset, CD)
@@ -41,8 +43,6 @@ export interface ProductMetadata {
     size?: string;               // cth: 'S', 'M', 'L', 'XL'
     brand_tag?: string;          // cth: 'Brockum', 'Giant'
     certificate_of_authenticity?: string; // cth: 'Ada', 'Tidak Ada'
-
-    // [key: string]: any; // Opsional: Buka komentar ini jika ingin mengizinkan field arbitrary (bebas)
 }
 
 /**
@@ -80,7 +80,7 @@ export interface Product {
 }
 
 /**
- * Payload spesifik untuk State Form React (Saat Penjual Tambah/Edit Produk).
+ * Payload spesifik untuk State Form React (Saat Penjual Tambah Produk).
  * Kawan Frontend akan menyimpan input di sini sebelum dikirim ke API sebagai FormData.
  */
 export interface CreateProductPayload {
@@ -101,4 +101,29 @@ export interface CreateProductPayload {
         extra1?: File | null;
         extra2?: File | null;
     };
+}
+
+/**
+ * Payload untuk Edit Produk. 
+ * Mirip dengan Create, tapi field bisa opsional dan backend membatasi maksimal 3 foto untuk update.
+ */
+export interface UpdateProductPayload extends Partial<Omit<CreateProductPayload, 'photos'>> {
+    photos?: {
+        front?: File | null;
+        back?: File | null;
+        physical?: File | null;
+    };
+}
+
+/**
+ * Payload untuk Bulk Create.
+ * Backend mengekspektasikan array of object JSON (bukan FormData).
+ * Diperbarui agar sesuai dengan skema JSONB.
+ */
+export interface BulkCreateProductPayload {
+    name: string;
+    price: number | string;
+    stock: number | string;
+    sub_category_id: string; // Kawan Anda harus memetakan kategori CSV ke ID ini
+    metadata: Partial<ProductMetadata>; // Seluruh kolom dinamis dari CSV masuk ke sini
 }

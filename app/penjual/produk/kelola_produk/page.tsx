@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Sidebar from "@/components/layout/sidebar";
 import { API_BASE_URL } from "@/utils/api"; 
-import axios from "axios"; 
 import { 
   Search, 
   Plus, 
@@ -16,46 +15,28 @@ import {
   X, 
   Save,
   Camera,
-  Image as ImageIcon,
-  Disc
+  Disc,
+  Info,
+  Calendar,
+  Tag,
+  Package
 } from "lucide-react";
 
-// --- 1. INTERFACES ---
-interface ProductMedia {
-  id: string;
-  media_url: string;
-  is_primary: boolean;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  artist: string;
-  format: string;
-  grading: string;
-  price: string | number;
-  stock: number;
-  release_year: number;
-  label: string;
-  matrix_number: string;
-  media?: ProductMedia[];
-}
-
-interface ApiResponse<T> {
-  success: boolean;
-  message: string;
-  data: T;
-}
+// --- 1. IMPORT DARI LAYER TYPES, STORE, & SERVICES ---
+import { Product, ProductFormat, ProductGrading, UpdateProductPayload } from "@/types/product";
+import { useProductStore } from "@/store/productStore";
+import { ProductService } from "@/services/api/product.service";
 
 export default function KelolaProdukPage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  // Ekstraksi State dan Actions dari Zustand Store
+  const { myProducts: products, isLoading: loading, fetchMyProducts, updateProduct, deleteProduct } = useProductStore();
 
   // --- STATE MODAL & FORM ---
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false); // State untuk Modal Detail
   const [isUpdating, setIsUpdating] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null); // State penyimpan data detail
   
   // --- STATE UNTUK MEDIA (UPLOAD BARU) ---
   const [selectedFiles, setSelectedFiles] = useState<{ [key: string]: File | null }>({
@@ -77,35 +58,14 @@ export default function KelolaProdukPage() {
 
   const IMAGE_ROOT = API_BASE_URL.replace('/api', '');
 
-  // --- 2. FETCH DATA PRODUK TOKO ---
-  const fetchMyStoreProducts = async (filters: Record<string, any> = {}) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await axios.get<ApiResponse<Product[]>>(`${API_BASE_URL}/products/my-products`, {
-        params: filters,
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`, 
-        },
-      });
-      if (response.data.success) {
-        setProducts(response.data.data);
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Gagal memuat katalog toko Anda.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // --- 2. FETCH DATA PRODUK TOKO (VIA ZUSTAND) ---
   useEffect(() => {
-    fetchMyStoreProducts();
+    fetchMyProducts();
   }, []);
 
   // --- 3. LOGIKA MODAL EDIT & UPDATE ---
   const openEditModal = (product: Product) => {
     setEditForm({ ...product });
-    // Reset file selection & previews setiap kali buka modal baru
     setSelectedFiles({ front: null, back: null, physical: null });
     setPreviews({ front: null, back: null, physical: null });
     setIsModalOpen(true);
@@ -121,10 +81,6 @@ export default function KelolaProdukPage() {
 
   const handleUpdateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // DEBUG: Pastikan ID tidak undefined di console browser
-    console.log("Updating Product ID:", editForm.id); 
-
     if (!editForm.id) {
         alert("ID Produk tidak ditemukan!");
         return;
@@ -132,52 +88,44 @@ export default function KelolaProdukPage() {
 
     setIsUpdating(true);
     try {
-      const data = new FormData();
-      
-      // Masukkan data teks
-      Object.entries(editForm).forEach(([key, value]) => {
-        // Jangan masukkan object media atau tanggal ke form data teks
-        if (value !== null && key !== 'media' && key !== 'createdAt' && key !== 'updatedAt') {
-          data.append(key, String(value));
+      const payload: UpdateProductPayload = {
+        name: editForm.name,
+        artist: editForm.artist,
+        release_year: editForm.release_year,
+        format: editForm.format as ProductFormat,
+        label: editForm.label || "",
+        catalog_number: editForm.catalog_number || "",
+        grading: editForm.grading as ProductGrading,
+        price: editForm.price,
+        stock: editForm.stock,
+        photos: {
+          front: selectedFiles.front,
+          back: selectedFiles.back,
+          physical: selectedFiles.physical
         }
-      });
+      };
 
-      // Masukkan file gambar baru jika ada
-      if (selectedFiles.front) data.append("photos", selectedFiles.front);
-      if (selectedFiles.back) data.append("photos", selectedFiles.back);
-      if (selectedFiles.physical) data.append("photos", selectedFiles.physical);
-
-      const response = await axios.put(`${API_BASE_URL}/products/${editForm.id}`, data, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-
-      if (response.data.success) {
-        alert("Berhasil diperbarui!");
-        setIsModalOpen(false);
-        fetchMyStoreProducts();
+      await updateProduct(editForm.id, payload);
+      alert("Berhasil diperbarui!");
+      setIsModalOpen(false);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        alert(err.message || "Gagal simpan.");
+      } else {
+        alert("Gagal simpan.");
       }
-    } catch (err: any) {
-      // Jika error 401/403, biasanya req.store di backend jadi undefined
-      alert(err.response?.data?.message || "Gagal simpan.");
     } finally {
       setIsUpdating(false);
     }
-};
+  };
 
-  // --- 4. LOGIKA DELETE & VIEW DETAIL ---
+  // --- 4. LOGIKA DELETE & VIEW DETAIL (MODAL) ---
   const handleViewDetail = async (id: string) => {
     try {
-      const response = await axios.get<ApiResponse<Product>>(`${API_BASE_URL}/products/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-      });
-      if (response.data.success) {
-        const p = response.data.data;
-        alert(`DETAIL PRODUK\n----------\nNama: ${p.name}\nArtis: ${p.artist}\nStok: ${p.stock}\nLabel: ${p.label}\nTahun: ${p.release_year}`);
-      }
-    } catch (err) {
+      const response = await ProductService.getById(id);
+      setSelectedProduct(response.data);
+      setIsDetailOpen(true);
+    } catch (err: unknown) {
       alert("Gagal mengambil detail produk.");
     }
   };
@@ -185,12 +133,9 @@ export default function KelolaProdukPage() {
   const handleDelete = async (id: string) => {
     if (!window.confirm("Apakah Anda yakin ingin menghapus produk ini dari katalog?")) return;
     try {
-      await axios.delete(`${API_BASE_URL}/products/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-      });
+      await deleteProduct(id);
       alert("Produk berhasil dihapus.");
-      fetchMyStoreProducts();
-    } catch (err) {
+    } catch (err: unknown) {
       alert("Gagal menghapus produk.");
     }
   };
@@ -338,6 +283,104 @@ export default function KelolaProdukPage() {
         </div>
       </div>
 
+      {/* --- MODAL DETAIL PRODUK --- */}
+      {isDetailOpen && selectedProduct && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-md" onClick={() => setIsDetailOpen(false)} />
+          <div className="relative w-full max-w-4xl bg-[#111114] border border-zinc-900 rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col md:flex-row h-full max-h-[85vh]">
+              {/* Image Gallery (Kiri) */}
+              <div className="md:w-2/5 bg-[#0a0a0b] p-8 border-r border-zinc-900 overflow-y-auto">
+                <div className="space-y-4">
+                  {selectedProduct.media && selectedProduct.media.length > 0 ? (
+                    selectedProduct.media.map((m, idx) => (
+                      <div key={idx} className="rounded-3xl overflow-hidden border border-zinc-800 bg-zinc-900 shadow-xl">
+                        <img src={`${IMAGE_ROOT}${m.media_url}`} className="w-full h-auto object-cover" alt="Detail" />
+                      </div>
+                    ))
+                  ) : (
+                    <div className="aspect-square rounded-3xl bg-zinc-900 flex items-center justify-center border border-zinc-800">
+                      <Disc size={64} className="text-zinc-800" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Information (Kanan) */}
+              <div className="md:w-3/5 p-10 overflow-y-auto custom-scrollbar">
+                <button onClick={() => setIsDetailOpen(false)} className="absolute top-8 right-8 p-2 bg-[#1a1a1e] rounded-full text-zinc-500 hover:text-white transition-colors">
+                  <X size={20} />
+                </button>
+
+                <div className="space-y-8">
+                  <div>
+                    <span className="bg-[#ef3333]/10 text-[#ef3333] border border-[#ef3333]/20 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest mb-4 inline-block">
+                      Katalog Rilisan
+                    </span>
+                    <h2 className="text-3xl font-black text-white uppercase tracking-tighter leading-none mb-2">{selectedProduct.name}</h2>
+                    <p className="text-xl font-bold text-zinc-500 uppercase tracking-widest">{selectedProduct.artist}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-[#0a0a0b] p-5 rounded-3xl border border-zinc-900">
+                      <div className="flex items-center gap-2 text-zinc-500 mb-1">
+                        <Tag size={12} />
+                        <span className="text-[9px] font-black uppercase tracking-widest">Harga Jual</span>
+                      </div>
+                      <p className="text-xl font-black text-[#ef3333]">{formatPrice(selectedProduct.price)}</p>
+                    </div>
+                    <div className="bg-[#0a0a0b] p-5 rounded-3xl border border-zinc-900">
+                      <div className="flex items-center gap-2 text-zinc-500 mb-1">
+                        <Package size={12} />
+                        <span className="text-[9px] font-black uppercase tracking-widest">Persediaan</span>
+                      </div>
+                      <p className="text-xl font-black text-white">{selectedProduct.stock} <span className="text-xs text-zinc-600">Unit</span></p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 border-b border-zinc-900 pb-2">
+                      <Info size={14} className="text-blue-500" />
+                      <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Detail Spesifikasi</h4>
+                    </div>
+                    <div className="grid grid-cols-2 gap-y-4">
+                      {[
+                        { label: 'Format', val: selectedProduct.format },
+                        { label: 'Grading', val: selectedProduct.grading },
+                        { label: 'Label', val: selectedProduct.label || '-' },
+                        { label: 'Release', val: selectedProduct.release_year || '-' },
+                        { label: 'Catalog #', val: selectedProduct.catalog_number || '-' },
+                      ].map((item, idx) => (
+                        <div key={idx}>
+                          <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">{item.label}</p>
+                          <p className="text-sm font-black text-zinc-300 uppercase">{item.val}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {selectedProduct.condition_notes && (
+                    <div className="bg-[#1a1a1e] p-6 rounded-3xl border border-zinc-800">
+                      <h4 className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-2 italic">Catatan Kondisi</h4>
+                      <p className="text-xs text-zinc-300 leading-relaxed font-medium">"{selectedProduct.condition_notes}"</p>
+                    </div>
+                  )}
+
+                  <div className="pt-6 flex gap-4">
+                    <button onClick={() => { setIsDetailOpen(false); openEditModal(selectedProduct); }} className="flex-1 bg-white text-black font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest shadow-xl hover:bg-zinc-200 transition-all active:scale-95">
+                      Edit Produk
+                    </button>
+                    <button onClick={() => setIsDetailOpen(false)} className="px-8 border border-zinc-800 text-zinc-500 font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest hover:text-white transition-all">
+                      Tutup
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --- MODAL EDIT LENGKAP --- */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
@@ -381,13 +424,13 @@ export default function KelolaProdukPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase text-zinc-500 ml-1">Matrix Number</label>
-                    <input type="text" value={editForm.matrix_number || ""} onChange={(e) => setEditForm({...editForm, matrix_number: e.target.value})} className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-2xl px-5 py-4 text-sm text-white focus:border-[#ef3333] outline-none" />
+                    <label className="text-[10px] font-black uppercase text-zinc-500 ml-1">Catalog Number</label>
+                    <input type="text" value={editForm.catalog_number || ""} onChange={(e) => setEditForm({...editForm, catalog_number: e.target.value})} className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-2xl px-5 py-4 text-sm text-white focus:border-[#ef3333] outline-none" />
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase text-zinc-500 ml-1">Format</label>
-                    <select value={editForm.format} onChange={(e) => setEditForm({...editForm, format: e.target.value})} className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-2xl px-5 py-4 text-sm text-white focus:border-[#ef3333] outline-none">
+                    <select value={editForm.format} onChange={(e) => setEditForm({...editForm, format: e.target.value as ProductFormat})} className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-2xl px-5 py-4 text-sm text-white focus:border-[#ef3333] outline-none">
                       <option value="Vinyl">Vinyl</option>
                       <option value="CD">CD</option>
                       <option value="Cassette">Cassette</option>
@@ -397,9 +440,9 @@ export default function KelolaProdukPage() {
 
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase text-zinc-500 ml-1">Grading</label>
-                    <select value={editForm.grading} onChange={(e) => setEditForm({...editForm, grading: e.target.value})} className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-2xl px-5 py-4 text-sm text-white focus:border-[#ef3333] outline-none">
+                    <select value={editForm.grading} onChange={(e) => setEditForm({...editForm, grading: e.target.value as ProductGrading})} className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-2xl px-5 py-4 text-sm text-white focus:border-[#ef3333] outline-none">
                       <option value="Mint">Mint</option>
-                      <option value="Near Mint">Near Mint</option>
+                      <option value="NM">Near Mint (NM)</option>
                       <option value="VG+">VG+</option>
                       <option value="VG">VG</option>
                       <option value="Good">Good</option>
@@ -436,7 +479,6 @@ export default function KelolaProdukPage() {
                           onClick={() => fileInputRefs[item.id as keyof typeof fileInputRefs].current?.click()}
                           className="w-full h-32 bg-[#0a0a0b] border-2 border-dashed border-zinc-800 rounded-3xl flex items-center justify-center cursor-pointer hover:border-[#ef3333]/50 transition-all overflow-hidden"
                         >
-                          {/* Prioritas: Preview Baru > Gambar Lama > Icon */}
                           {previews[item.id] ? (
                             <img src={previews[item.id]!} className="w-full h-full object-cover" alt="New" />
                           ) : editForm.media?.[item.idx] ? (

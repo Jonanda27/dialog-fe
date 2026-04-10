@@ -1,6 +1,9 @@
+// File: dialog-fe/services/api/product.service.ts
+
 import axiosClient from './axiosClient';
 import { ApiResponse } from '../../types/api';
-import { Product, CreateProductPayload } from '../../types/product';
+// Hapus UpdateProductPayload dari import, kita gunakan Partial<CreateProductPayload> yang lebih aman dengan skema baru
+import { Product, CreateProductPayload, BulkCreateProductPayload } from '../../types/product';
 
 export const ProductService = {
     /**
@@ -21,45 +24,41 @@ export const ProductService = {
 
     /**
      * Menambahkan produk baru ke etalase toko.
-     * Fungsi ini secara otomatis mengonversi payload menjadi FormData dan melakukan stringify pada JSONB metadata.
-     * @param payload Objek data teks, metadata dinamis, dan file foto
+     * Menggunakan arsitektur JSONB Metadata.
      */
     create: async (payload: CreateProductPayload): Promise<ApiResponse<Product>> => {
-        // 1. Inisialisasi FormData API
         const formData = new FormData();
 
-        // 2. Append Data Utama (Tabel Products)
+        // 1. Append Data Utama (Tabel Products)
         formData.append('name', payload.name);
         formData.append('price', String(payload.price));
         formData.append('stock', String(payload.stock));
         formData.append('sub_category_id', payload.sub_category_id);
 
-        // 3. ⚡ GAME CHANGER: Append Metadata Dinamis ⚡
-        // FormData hanya menerima string atau Blob. Oleh karena itu, object metadata 
-        // harus diubah menjadi string. Zod di backend akan otomatis mem-parse ini.
+        // 2. ⚡ Append Metadata Dinamis ⚡
         if (payload.metadata) {
             formData.append('metadata', JSON.stringify(payload.metadata));
         }
 
-        // 4. Append Data File (Sesuai dengan multer .array('photos') di Backend)
+        // 3. Append Data File
         const { photos } = payload;
         const fileKeys: (keyof typeof photos)[] = ['front', 'back', 'physical', 'extra1', 'extra2'];
 
         fileKeys.forEach((key) => {
             if (photos[key]) {
-                // Melampirkan file dengan key yang konsisten yaitu 'photos' 
-                // agar ditangkap oleh Multer array di backend
+                // Backend Multer mencari req.files dengan field name 'photos'
                 formData.append('photos', photos[key] as File);
             }
         });
 
-        // 5. Eksekusi HTTP Request
-        // axiosClient akan mendeteksi FormData dan otomatis mengatur Content-Type multipart/form-data
+        // 4. Eksekusi Request
+        // Catatan: Axios otomatis mengenali objek FormData dan mengatur header multipart beserta boundary-nya
         return await axiosClient.post<any, ApiResponse<Product>>('/products', formData);
     },
 
     /**
      * Memperbarui produk yang sudah ada (Parsial)
+     * Menggunakan arsitektur JSONB Metadata.
      */
     update: async (id: string, payload: Partial<CreateProductPayload>): Promise<ApiResponse<Product>> => {
         const formData = new FormData();
@@ -77,6 +76,7 @@ export const ProductService = {
         if (payload.photos) {
             const { photos } = payload;
             const fileKeys: (keyof typeof photos)[] = ['front', 'back', 'physical', 'extra1', 'extra2'];
+
             fileKeys.forEach((key) => {
                 if (photos[key]) {
                     formData.append('photos', photos[key] as File);
@@ -85,5 +85,29 @@ export const ProductService = {
         }
 
         return await axiosClient.patch<any, ApiResponse<Product>>(`/products/${id}`, formData);
+    },
+
+    /**
+     * Menghapus produk
+     * (Fitur dari kawan Anda)
+     */
+    delete: async (id: string): Promise<ApiResponse<null>> => {
+        return await axiosClient.delete<any, ApiResponse<null>>(`/products/${id}`);
+    },
+
+    /**
+     * Mengambil daftar produk spesifik milik seller yang sedang login
+     * (Fitur dari kawan Anda)
+     */
+    getMyProducts: async (params?: Record<string, string>): Promise<ApiResponse<Product[]>> => {
+        return await axiosClient.get<any, ApiResponse<Product[]>>('/products/my-products', { params });
+    },
+
+    /**
+     * Import produk massal (Kirim array JSON)
+     * (Fitur dari kawan Anda)
+     */
+    bulkCreate: async (payload: BulkCreateProductPayload[]): Promise<ApiResponse<Product[]>> => {
+        return await axiosClient.post<any, ApiResponse<Product[]>>('/products/bulk', payload);
     }
 };
