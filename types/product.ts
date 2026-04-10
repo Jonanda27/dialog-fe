@@ -1,13 +1,49 @@
-// File: dialog-fe/types/product.ts
-
-import { Store } from './store'; // Asumsi store.ts akan dibuat nanti
+import { Store } from './store'; // Pastikan path import sesuai dengan project Anda
+import { SubCategory } from './category';
 
 /**
- * Tipe Enum / Literal berdasarkan validasi Zod dan Form Tambah Produk
+ * Tipe Status Produk (sekarang disimpan di dalam metadata)
  */
-export type ProductFormat = 'Vinyl' | 'Cassette' | 'CD' | 'Gear';
-export type ProductGrading = 'Mint' | 'NM' | 'VG+' | 'VG' | 'Good' | 'Fair';
-export type ProductCondition = 'new' | 'used';
+export type ProductStatus = 'active' | 'inactive' | 'draft' | 'sold';
+
+/**
+ * Representasi struktur kolom JSONB 'metadata' dari Backend.
+ * Semua field dibuat opsional (?) karena isinya bergantung pada Kategori produk.
+ * Kawan Frontend Anda bisa menggunakan interface ini untuk auto-complete.
+ */
+export interface ProductMetadata {
+    // Atribut Umum (Berlaku untuk semua)
+    description: string;
+    status: ProductStatus;
+
+    // Atribut Khusus: Audio (Vinyl, Kaset, CD)
+    artist?: string;
+    release_year?: number | string;
+    record_label?: string;
+    media_grading?: string;  // cth: 'NM', 'VG+'
+    sleeve_grading?: string; // cth: 'VG', 'Mint'
+    matrix_number?: string;
+
+    // Atribut Khusus: Audio Gear
+    brand?: string;
+    physical_condition?: string; // cth: 'Mulus 90%'
+    functional_status?: string;  // cth: 'Normal Total'
+    voltage?: string;            // cth: '110V', '220V'
+    completeness?: string;       // cth: 'Unit Only', 'Fullset'
+
+    // Atribut Khusus: Printing & Media (Buku, Poster)
+    dimensions?: string;
+    language?: string;
+    page_count?: number | string;
+    authenticity?: string;       // cth: 'Original', 'Repro'
+
+    // Atribut Khusus: Merch (Apparel)
+    size?: string;               // cth: 'S', 'M', 'L', 'XL'
+    brand_tag?: string;          // cth: 'Brockum', 'Giant'
+    certificate_of_authenticity?: string; // cth: 'Ada', 'Tidak Ada'
+
+    // [key: string]: any; // Opsional: Buka komentar ini jika ingin mengizinkan field arbitrary (bebas)
+}
 
 /**
  * Representasi tabel ProductMedia di Database
@@ -15,7 +51,7 @@ export type ProductCondition = 'new' | 'used';
 export interface ProductMedia {
     id: string;
     product_id: string;
-    media_url: string; // Misal: "/uploads/products/file.png"
+    media_url: string;
     file_type: string;
     is_primary: boolean;
     created_at: string;
@@ -23,47 +59,39 @@ export interface ProductMedia {
 
 /**
  * Representasi tabel Products di Database (Entitas Utama)
+ * Menggunakan arsitektur relasional baru (sub_category_id) dan JSONB (metadata)
  */
 export interface Product {
     id: string;
     store_id: string;
+    sub_category_id: string;
     name: string;
-    artist: string;
-    release_year: number;
-    format: ProductFormat;
-    label?: string | null;
-    catalog_number?: string | null;
-    grading: ProductGrading;
-    price: string | number; // String karena desimal dari DB (Decimal/Numeric) sering di-parse sebagai string
+    slug: string;
+    price: string | number;
     stock: number;
-    condition: ProductCondition;
-    condition_notes?: string | null;
-    category_id?: string | null;
-    is_active: boolean;
+    metadata: ProductMetadata; // <--- Game Changer
     created_at: string;
     updated_at: string;
 
     // Relasi (Eager Loading)
     media?: ProductMedia[];
-    store?: Store; // Membutuhkan import tipe Store
+    store?: Store;
+    subCategory?: SubCategory; // <--- Relasi Kategori Baru
 }
 
 /**
- * Payload spesifik untuk State Form React (Sebelum diubah jadi FormData)
- * Semua properti mandatory ditandai, dan file fisik didefinisikan secara eksplisit.
+ * Payload spesifik untuk State Form React (Saat Penjual Tambah/Edit Produk).
+ * Kawan Frontend akan menyimpan input di sini sebelum dikirim ke API sebagai FormData.
  */
 export interface CreateProductPayload {
-    // Data Teks
+    // Data Tabel Utama
     name: string;
-    artist: string;
-    release_year: string | number;
-    format: ProductFormat | '';
-    label?: string;
-    catalog_number?: string;
-    grading: ProductGrading | '';
     price: string | number;
     stock: string | number;
-    condition_notes?: string;
+    sub_category_id: string; // Menggantikan 'format'
+
+    // Data JSONB (Ditampung di satu objek agar mudah di-JSON.stringify saat submit)
+    metadata: Partial<ProductMetadata>;
 
     // Data File (Disimpan terpisah di state React sebelum di-append ke FormData)
     photos: {
