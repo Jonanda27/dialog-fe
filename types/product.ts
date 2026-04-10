@@ -25,6 +25,7 @@ export interface ProductMedia {
  * Representasi tabel Products di Database (Entitas Utama)
  */
 export interface Product {
+    image_url: string;
     id: string;
     store_id: string;
     name: string;
