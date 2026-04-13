@@ -1,20 +1,23 @@
 import { Product } from './product';
-import { User } from './auth'; // Pastikan interface User di auth.ts sudah memiliki atribut 'full_name'
+import { User } from './auth';
 
 /**
- * Literal Type untuk State Machine Status Pesanan
+ * Literal Type untuk State Machine Status Pesanan.
+ * Digunakan untuk validasi alur transaksi dan rendering UI Status Badge.
  */
 export type OrderStatus =
-    | 'pending_payment'
-    | 'paid'
-    | 'processing'
-    | 'shipped'
-    | 'delivered'
-    | 'completed'
-    | 'cancelled';
+    | 'pending_payment' // Menunggu pembayaran dari buyer
+    | 'paid'            // Pembayaran berhasil, menunggu konfirmasi seller
+    | 'processing'      // Sedang diproses/dipacking oleh seller
+    | 'shipped'         // Dalam pengiriman (Resi sudah diinput)
+    | 'delivered'       // Barang sudah sampai di tujuan
+    | 'completed'       // Transaksi selesai (Dana diteruskan ke seller)
+    | 'cancelled'       // Pesanan dibatalkan
+    | 'disputed';       // Terjadi komplain/dispute
 
 /**
- * Representasi tabel OrderItems di Database
+ * Representasi item di dalam pesanan (OrderItems).
+ * Menggunakan string untuk price_at_purchase untuk menjaga presisi desimal dari DB.
  */
 export interface OrderItem {
     id: string;
@@ -23,18 +26,17 @@ export interface OrderItem {
     qty: number;
     price_at_purchase: string | number;
 
-    // ⚡ PERBAIKAN: Diubah dari Enum statis menjadi string bebas, 
-    // karena datanya diambil secara dinamis dari JSONB Metadata
+    // Grading diambil secara dinamis dari metadata produk saat transaksi terjadi
     grading_at_purchase: string;
 
     created_at: string;
 
-    // Relasi opsional jika endpoint menyertakan data produk
+    // Relasi opsional untuk detail item di UI
     product?: Product;
 }
 
 /**
- * Representasi tabel Orders di Database (Entitas Utama)
+ * Entitas Utama Pesanan (Orders).
  */
 export interface Order {
     id: string;
@@ -50,33 +52,35 @@ export interface Order {
     created_at: string;
     updated_at: string;
 
-    // Relasi (Eager Loading)
-    // ⚡ PERBAIKAN: Menggunakan 'full_name' sesuai dengan skema Backend
+    // Relasi Eager Loading
+    // Menggunakan 'full_name' sesuai identitas user di sistem
     buyer?: Pick<User, 'id' | 'full_name' | 'email'>;
     items?: OrderItem[];
+
+    // Relasi tambahan jika diperlukan untuk UI (opsional)
+    store?: {
+        id: string;
+        name: string;
+        location: string;
+    };
 }
 
 /**
- * Item spesifik di dalam keranjang belanja saat Checkout
- */
-export interface CheckoutItem {
-    product_id: string;
-    qty: number;
-}
-
-/**
- * Payload yang dikirim FE saat mengeksekusi Checkout (POST /api/orders/checkout)
+ * Payload untuk eksekusi Checkout (POST /api/orders/checkout).
  */
 export interface CheckoutPayload {
-    items: CheckoutItem[];
+    items: {
+        product_id: string;
+        qty: number;
+    }[];
     shipping_address: string;
-
-    // ⚡ BARU: Ditambahkan agar Backend tau hasil akhir kalkulasi kurir yang dipilih pembeli
-    shipping_fee: number;
+    courier_code: string;  // cth: 'jne'
+    service_type: string;  // cth: 'REG'
+    shipping_fee: number;  // Hasil kalkulasi final yang dipilih buyer
 }
 
 /**
- * Payload yang dikirim FE (Seller) saat menginput nomor resi (PATCH /api/orders/:id/ship)
+ * Payload untuk input resi oleh Seller.
  */
 export interface ShipOrderPayload {
     tracking_number: string;

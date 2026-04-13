@@ -3,30 +3,53 @@ import { Order, CheckoutPayload } from '../types/order';
 import { OrderService } from '../services/api/order.service';
 import { ApiError } from '../types/api';
 
+/**
+ * Interface untuk menampung state form checkout secara bertahap.
+ * Membantu komponen UI (Address, Courier, Summary) berbagi data tanpa prop-drilling.
+ */
+export interface DraftCheckoutData {
+    shipping_address: string;
+    courier_code: string;
+    service_type: string;
+    shipping_fee: number;
+}
+
 interface OrderState {
-    // State
+    // State Utama
     orders: Order[];         // Digunakan oleh Seller (Pesanan Masuk)
     buyerOrders: Order[];    // Digunakan oleh Buyer (Riwayat Belanja)
     currentOrder: Order | null;
+
+    // ⚡ BARU: State untuk mengikat data sementara di halaman Checkout
+    draftCheckout: Partial<DraftCheckoutData>;
+
+    // State Status
     isLoading: boolean;
     isSubmitting: boolean;   // Khusus state mutasi agar UI tidak flicker
     error: string | null;
 
-    // Actions
+    // Actions API
     fetchStoreOrders: (status?: string) => Promise<void>;
     fetchBuyerOrders: (status?: string) => Promise<void>;
     fetchOrderById: (orderId: string) => Promise<void>;
     checkout: (payload: CheckoutPayload) => Promise<string>;
     shipOrder: (orderId: string, trackingNumber: string) => Promise<void>;
     completeOrder: (orderId: string) => Promise<void>;
+
+    // Actions Utility
     clearError: () => void;
     clearCurrentOrder: () => void;
+
+    // ⚡ BARU: Actions untuk memanipulasi Draft Checkout
+    setDraftCheckout: (data: Partial<DraftCheckoutData>) => void;
+    clearDraftCheckout: () => void;
 }
 
 export const useOrderStore = create<OrderState>((set, get) => ({
     orders: [],
     buyerOrders: [],
     currentOrder: null,
+    draftCheckout: {}, // Inisialisasi draft kosong
     isLoading: false,
     isSubmitting: false,
     error: null,
@@ -69,10 +92,10 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         try {
             const response = await OrderService.checkout(payload);
             set({ isSubmitting: false });
-            return response.data.order_id; // Kembalikan ID untuk di-redirect ke halaman bayar
+            // Mengembalikan ID pesanan untuk di-redirect oleh komponen UI ke halaman pembayaran
+            return response.data.order_id;
         } catch (error: any) {
             const err = error as ApiError;
-            // Pesan error dari backend (seperti stok habis/overselling) ditangkap di sini
             set({ error: err.message || 'Gagal melakukan checkout.', isSubmitting: false });
             throw err;
         }
@@ -123,5 +146,13 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     },
 
     clearError: () => set({ error: null }),
-    clearCurrentOrder: () => set({ currentOrder: null })
+
+    clearCurrentOrder: () => set({ currentOrder: null }),
+
+    // ⚡ Implementasi pengisian Draft Checkout (menggunakan spread operator agar bisa update parsial)
+    setDraftCheckout: (data) => set((state) => ({
+        draftCheckout: { ...state.draftCheckout, ...data }
+    })),
+
+    clearDraftCheckout: () => set({ draftCheckout: {} })
 }));

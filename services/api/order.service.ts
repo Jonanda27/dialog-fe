@@ -9,7 +9,7 @@ import {
 export const OrderService = {
     /**
      * [BUYER] Melakukan checkout keranjang belanja.
-     * Akan memotong stok, membuat tagihan, dan menahan dana di Escrow.
+     * Operasi ini bersifat atomik di backend: memotong stok, membuat tagihan, dan menyiapkan Escrow.
      */
     checkout: async (payload: CheckoutPayload): Promise<ApiResponse<{ order_id: string, grand_total: number }>> => {
         return await axiosClient.post<any, ApiResponse<{ order_id: string, grand_total: number }>>('/orders/checkout', payload);
@@ -17,7 +17,7 @@ export const OrderService = {
 
     /**
      * [BUYER/SELLER] Mengambil detail pesanan spesifik.
-     * Sangat dibutuhkan untuk halaman Pembayaran dan Invoice.
+     * Sangat dibutuhkan untuk polling status di halaman Pembayaran dan Invoice.
      */
     getById: async (orderId: string): Promise<ApiResponse<Order>> => {
         return await axiosClient.get<any, ApiResponse<Order>>(`/orders/${orderId}`);
@@ -25,6 +25,7 @@ export const OrderService = {
 
     /**
      * [BUYER] Mengambil riwayat pesanan milik pembeli yang sedang login.
+     * Mendukung filter status untuk tab navigasi UI (Misal: "Belum Bayar", "Dikirim").
      */
     getBuyerOrders: async (status?: string): Promise<ApiResponse<Order[]>> => {
         return await axiosClient.get<any, ApiResponse<Order[]>>('/orders/my-orders', {
@@ -43,15 +44,15 @@ export const OrderService = {
 
     /**
      * [SELLER] Menginput nomor resi untuk pesanan yang sudah dibayar.
-     * ⚡ PERBAIKAN: Menggunakan PATCH sesuai standar RESTful dan rute Backend kita.
+     * Menggunakan PATCH karena kita hanya memperbarui satu entitas spesifik (tracking_number) dan memicu transisi state.
      */
     shipOrder: async (orderId: string, payload: ShipOrderPayload): Promise<ApiResponse<Order>> => {
         return await axiosClient.patch<any, ApiResponse<Order>>(`/orders/${orderId}/ship`, payload);
     },
 
     /**
-     * [BUYER] Menyelesaikan pesanan setelah barang diterima.
-     * ⚡ PERBAIKAN: Menggunakan POST sesuai rute Backend (karena memicu transaksi pelepasan Escrow).
+     * [BUYER] Menyelesaikan pesanan setelah barang diterima dan divalidasi pembeli.
+     * Menggunakan POST karena operasi ini memicu action bisnis krusial (pelepasan dana Escrow ke saldo Seller).
      */
     completeOrder: async (orderId: string): Promise<ApiResponse<Order>> => {
         return await axiosClient.post<any, ApiResponse<Order>>(`/orders/${orderId}/complete`);

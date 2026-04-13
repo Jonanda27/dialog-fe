@@ -5,8 +5,19 @@ import ProductActions from '@/components/product/ProductActions';
 import StoreInfoCard from '@/components/product/StoreInfoCard';
 import { notFound } from 'next/navigation';
 
-export default async function ProductDetailPage({ params }: { params: { id: string } }) {
-    const response = await ProductService.getById(params.id);
+// ⚡ 1. Definisikan tipe params sebagai Promise
+type PageProps = {
+    params: Promise<{ id: string }>;
+};
+
+// ⚡ 2. Gunakan PageProps pada parameter
+export default async function ProductDetailPage({ params }: PageProps) {
+
+    // ⚡ 3. Unwrap Promise secara eksplisit sebelum digunakan
+    const resolvedParams = await params;
+
+    // ⚡ 4. Gunakan ID yang sudah diekstrak untuk memanggil API
+    const response = await ProductService.getById(resolvedParams.id);
     const product = response.data;
 
     if (!product) notFound();

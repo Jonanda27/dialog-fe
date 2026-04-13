@@ -2,104 +2,86 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCartStore } from '@/store/cartStore';
-import { OrderService } from '@/services/api/order.service';
-import { ShippingService } from '@/services/api/shipping.service';
+import { useCheckoutFlow } from '@/hooks/useCheckoutFlow';
 import AddressForm from '@/components/checkout/AddressForm';
 import CourierSelector from '@/components/checkout/CourierSelector';
 import OrderSummary from '@/components/checkout/OrderSummary';
 import { toast } from 'sonner';
-import { CourierOption } from '@/types/shipping';
 
 export default function CheckoutPage() {
     const router = useRouter();
-    const { items, clearCart } = useCartStore();
 
-    // State Management
-    const [address, setAddress] = useState('');
-    const [couriers, setCouriers] = useState<CourierOption[]>([]);
-    const [selectedCourier, setSelectedCourier] = useState<CourierOption | null>(null);
-    
-    // Status UI
-    const [isCalculating, setIsCalculating] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    // 1. Injeksi Controller (Custom Hook)
+    const {
+        cartItems,
+        subtotal,
+        draftCheckout,
+        isCalculatingShipping,
+        shippingOptions,
+        shippingError,
+        isSubmitting,
+        checkoutError,
+        handleAddressChange,
+        handleCourierSelection,
+        submitOrder
+    } = useCheckoutFlow();
 
-    // Proteksi: Jika keranjang kosong, kembalikan ke katalog
+    // 2. Local State khusus untuk kontrol input form alamat (sebelum di-submit ke hook)
+    const [localAddress, setLocalAddress] = useState(draftCheckout.shipping_address || '');
+
+    // 3. Proteksi Route: Redirect jika keranjang kosong
     useEffect(() => {
-        if (items.length === 0) {
+        if (cartItems.length === 0) {
             router.replace('/katalog');
         }
-    }, [items, router]);
+    }, [cartItems, router]);
 
-    if (items.length === 0) return null;
+    // 4. Listener untuk Error dari Hook Logic
+    useEffect(() => {
+        if (shippingError) toast.error(shippingError);
+        if (checkoutError) toast.error(checkoutError);
+    }, [shippingError, checkoutError]);
 
-    // 1. Kalkulasi Financial Dasar
-    const subtotal = items.reduce((acc, item) => acc + (Number(item.product.price) * item.quantity), 0);
+    if (cartItems.length === 0) return null;
 
-    // 2. Business Rule: Hitung Grading Fee (Flat Rp25.000 per produk yang di-request grading)
-    const gradingFeeTotal = items.reduce((acc, item) => {
+    // 5. Business Rule UI: Kalkulasi Grading Fee (Jika ada item yang request grading)
+    const gradingFeeTotal = cartItems.reduce((acc, item) => {
         const needsGrading = (item.product.metadata as any)?.request_grading === true;
         return needsGrading ? acc + 25000 : acc;
     }, 0);
 
-    // 3. Handler: Hitung Ongkos Kirim via API
-    const handleCalculateShipping = async () => {
-        if (address.trim().length < 10) {
+    // 6. UI Handlers
+    const onCalculateShippingClick = async () => {
+        if (localAddress.trim().length < 10) {
             toast.error('Alamat terlalu pendek untuk kalkulasi ongkir');
             return;
         }
-
-        setIsCalculating(true);
-        try {
-            // Simulasi Origin dari data toko produk pertama (Single Store Rule)
-            const response = await ShippingService.calculateCost({
-                origin: 'KOTA-ASAL', 
-                destination: address,
-                weight: items.length * 500 // Estimasi 500gr per item
-            });
-            setCouriers(response.data);
-            setSelectedCourier(null); // Reset pilihan kurir jika alamat berubah
-            toast.success('Opsi kurir berhasil dimuat');
-        } catch (error: any) {
-            toast.error(error.message || 'Gagal mengambil data kurir');
-        } finally {
-            setIsCalculating(false);
-        }
+        // Memicu action di hook yang akan mengubah draftCheckout dan memanggil API kurir
+        await handleAddressChange(localAddress);
+        toast.success('Kalkulasi ongkos kirim berhasil diperbarui');
     };
 
-    // 4. Handler: Konfirmasi Pesanan & Eksekusi Checkout (Jalur Uang)
-    const handleConfirmPayment = async () => {
-        if (!address || !selectedCourier) {
+    const onConfirmPaymentClick = async () => {
+        if (!draftCheckout.shipping_address || !draftCheckout.courier_code) {
             toast.error('Mohon lengkapi alamat dan pilih metode pengiriman');
             return;
         }
 
-        setIsSubmitting(true);
         try {
-            const payload = {
-                items: items.map(i => ({ 
-                    product_id: i.product.id, 
-                    qty: i.quantity 
-                })),
-                shipping_address: address,
-                shipping_fee: selectedCourier.cost,
-                grading_fee: gradingFeeTotal 
-            };
-
-            const response = await OrderService.checkout(payload);
-
-            toast.success('Pesanan berhasil dibuat! Silakan lakukan pembayaran.');
-            clearCart(); // Bersihkan keranjang belanja
-            
-            // Redirect ke halaman instruksi pembayaran
-            router.push(`/pembayaran/${response.data.order_id}`);
-        } catch (error: any) {
-            // Menangkap error seperti stok habis (overselling) dari backend
-            toast.error(error.message || 'Terjadi kesalahan saat memproses pesanan.');
-        } finally {
-            setIsSubmitting(false);
+            // Catatan Analis: Eksekusi murni di-handle oleh hook. 
+            // Routing ke halaman pembayaran sudah diatur di dalam try-block `submitOrder` di hook.
+            await submitOrder();
+            toast.success('Pesanan berhasil dibuat! Mengarahkan ke pembayaran...');
+        } catch (error) {
+            // Error handling spesifik sudah di-cover oleh useEffect (checkoutError) di atas
+            console.error("Gagal memproses checkout", error);
         }
     };
+
+    // Re-konstruksi objek kurir yang terpilih untuk dilempar ke komponen CourierSelector
+    const selectedCourierObject = shippingOptions.find(
+        (c) => c.courier_code === draftCheckout.courier_code && c.service_type === draftCheckout.service_type
+    ) || null;
 
     return (
         <main className="min-h-screen bg-gray-50 pt-8 pb-24">
@@ -107,32 +89,32 @@ export default function CheckoutPage() {
 
                 {/* Kolom Kiri: Form Alamat & Pengiriman */}
                 <div className="lg:col-span-8 space-y-6">
-                    <AddressForm 
-                        address={address}
-                        setAddress={setAddress}
-                        onCalculateShipping={handleCalculateShipping}
-                        isCalculating={isCalculating}
+                    <AddressForm
+                        address={localAddress}
+                        setAddress={setLocalAddress}
+                        onCalculateShipping={onCalculateShippingClick}
+                        isCalculating={isCalculatingShipping}
                     />
-                    
-                    <CourierSelector 
-                        couriers={couriers}
-                        selectedCourier={selectedCourier}
-                        onSelectCourier={setSelectedCourier}
+
+                    <CourierSelector
+                        couriers={shippingOptions}
+                        selectedCourier={selectedCourierObject}
+                        onSelectCourier={handleCourierSelection}
                     />
                 </div>
 
                 {/* Kolom Kanan: Ringkasan & Eksekusi */}
                 <div className="lg:col-span-4">
                     <OrderSummary
-                        items={items}
+                        items={cartItems}
                         subtotal={subtotal}
-                        shippingFee={selectedCourier?.cost || 0}
+                        shippingFee={draftCheckout.shipping_fee || 0}
                         gradingFee={gradingFeeTotal}
                         isSubmitting={isSubmitting}
-                        onConfirm={handleConfirmPayment}
+                        onConfirm={onConfirmPaymentClick}
                     />
                 </div>
-                
+
             </div>
         </main>
     );
