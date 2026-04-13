@@ -23,7 +23,7 @@ export default function CartDrawer() {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={closeCart}
-                        className="fixed inset-0 bg-black/40 z-[100] backdrop-blur-sm"
+                        className="fixed inset-0 bg-black/40 z-100 backdrop-blur-sm"
                     />
 
                     {/* Drawer */}
@@ -32,7 +32,7 @@ export default function CartDrawer() {
                         animate={{ x: 0 }}
                         exit={{ x: '100%' }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="fixed right-0 top-0 h-full w-full max-w-md bg-white z-[101] shadow-2xl flex flex-col"
+                        className="fixed right-0 top-0 h-full w-full max-w-md bg-white z-101 shadow-2xl flex flex-col"
                     >
                         {/* Header */}
                         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
@@ -51,7 +51,7 @@ export default function CartDrawer() {
                             ) : (
                                 items.map((item) => (
                                     <div key={item.cart_item_id} className="flex gap-4">
-                                        <div className="relative w-20 h-20 flex-shrink-0 bg-gray-50 border border-gray-100">
+                                        <div className="relative w-20 h-20 shrink-0 bg-gray-50 border border-gray-100">
                                             <Image
                                                 src={item.product.media?.[0]?.media_url || '/vynil.png'}
                                                 alt={item.product.name}

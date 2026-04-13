@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Sidebar from "@/components/layout/sidebar";
 import { TrendingUp, MoreVertical, Star, Calendar, Loader2 } from "lucide-react";
 import Link from "next/link";
 
@@ -54,52 +53,52 @@ export default function SellerDashboard() {
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
 
   useEffect(() => {
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      
-      // Concurrent API Fetching
-      const [storeRes, walletRes, ordersRes] = await Promise.all([
-        StoreService.getMyStore(),
-        StoreService.getWallet(),
-        OrderService.getStoreOrders()
-      ]);
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
 
-      // 1. Set Nama Toko
-      if (storeRes.data) setStoreName(storeRes.data.name);
+        // Concurrent API Fetching
+        const [storeRes, walletRes, ordersRes] = await Promise.all([
+          StoreService.getMyStore(),
+          StoreService.getWallet(),
+          OrderService.getStoreOrders()
+        ]);
 
-      const orders = ordersRes.data || [];
-      const walletData = walletRes.data;
+        // 1. Set Nama Toko
+        if (storeRes.data) setStoreName(storeRes.data.name);
 
-      // 2. Kalkulasi Pesanan Aktif (Paid, Processing, Shipped)
-      const activeCount = orders.filter(o => 
-        ['paid', 'processing', 'shipped'].includes(o.status)
-      ).length;
+        const orders = ordersRes.data || [];
+        const walletData = walletRes.data;
 
-      // 3. Update State Stats
-      setStats(prev => ({
-        ...prev,
-        // Konversi string "2000000.00" menjadi number
-        revenue: walletData?.balance ? parseFloat(walletData.balance.toString()) : 0,
-        totalOrders: orders.length,
-        activeOrders: activeCount
-      }));
+        // 2. Kalkulasi Pesanan Aktif (Paid, Processing, Shipped)
+        const activeCount = orders.filter(o =>
+          ['paid', 'processing', 'shipped'].includes(o.status)
+        ).length;
 
-      // 4. Ambil 5 pesanan teratas
-      setRecentOrders(orders.slice(0, 5));
+        // 3. Update State Stats
+        setStats(prev => ({
+          ...prev,
+          // Konversi string "2000000.00" menjadi number
+          revenue: walletData?.balance ? parseFloat(walletData.balance.toString()) : 0,
+          totalOrders: orders.length,
+          activeOrders: activeCount
+        }));
 
-    } catch (error) {
-      console.error("Gagal memuat data dashboard:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        // 4. Ambil 5 pesanan teratas
+        setRecentOrders(orders.slice(0, 5));
 
-  fetchDashboardData();
-}, []);
+      } catch (error) {
+        console.error("Gagal memuat data dashboard:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   return (
-    <Sidebar>
+    <div className="pb-8">
       {/* BANNER COMPACT & ESTETIK */}
       <div className="relative w-full mb-10 overflow-hidden rounded-3xl h-32 lg:h-36 group border border-zinc-800/50">
         {/* Gambar Background */}
@@ -109,7 +108,7 @@ export default function SellerDashboard() {
         />
 
         {/* Overlay Linear */}
-        <div className="absolute inset-0 bg-linear-to-r from-black via-black/40 to-black/80" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-black/80" />
 
         {/* Konten Banner (Flex Row) */}
         <div className="relative z-10 h-full flex items-center justify-between px-8 lg:px-12">
@@ -124,7 +123,7 @@ export default function SellerDashboard() {
           </div>
 
           {/* Sisi Kanan: Stats Mini */}
-          <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-3">
             <div className="flex items-center gap-2 bg-black/50 backdrop-blur-md border border-white/5 px-4 py-2 rounded-2xl">
               <div className="flex items-center gap-1.5 border-r border-white/10 pr-3">
                 <Star size={12} className="text-amber-500 fill-amber-500" />
@@ -220,12 +219,13 @@ export default function SellerDashboard() {
                           #{order.id.split('-')[0]}
                         </td>
                         <td className="py-4 px-4">
-                          <p className="text-xs font-bold text-white truncate max-w-37.5 sm:max-w-50">
+                          <p className="text-xs font-bold text-white truncate max-w-[150px] sm:max-w-[200px]">
                             {mainItem?.product?.name || 'Produk Tidak Diketahui'}
                             {extraItemsCount > 0 && <span className="text-zinc-500 font-medium ml-1">(+{extraItemsCount} lainnya)</span>}
                           </p>
+                          {/* PERBAIKAN: Menggunakan order.buyer?.full_name sesuai kontrak Interface User */}
                           <p className="text-[10px] font-bold text-zinc-500 uppercase mt-1">
-                            {order.buyer?.name || 'Guest'} • {new Date(order.created_at).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })}
+                            {order.buyer?.full_name || 'Guest'} • {new Date(order.created_at).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })}
                           </p>
                         </td>
                         <td className="py-4 px-4">
@@ -237,7 +237,7 @@ export default function SellerDashboard() {
                           Rp {Number(order.grand_total).toLocaleString('id-ID')}
                         </td>
                         <td className="py-4 pl-4 text-right">
-                          <Link href={`/penjual/transaksi`} className="text-zinc-500 hover:text-[#ef3333] transition-colors inline-block p-2">
+                          <Link href={`/penjual/transaksi/${order.id}`} className="text-zinc-500 hover:text-[#ef3333] transition-colors inline-block p-2">
                             <MoreVertical size={16} />
                           </Link>
                         </td>
@@ -280,6 +280,6 @@ export default function SellerDashboard() {
           </Link>
         </div>
       </div>
-    </Sidebar>
+    </div>
   );
 }

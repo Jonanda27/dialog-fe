@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Category } from '@/types/category';
 
 interface CategoryShowcaseProps {
-    categories: Category[]; // PERBAIKAN: Mendefinisikan props dari Server
+    categories: Category[];
 }
 
 export default function CategoryShowcase({ categories }: CategoryShowcaseProps) {
@@ -10,17 +10,17 @@ export default function CategoryShowcase({ categories }: CategoryShowcaseProps) 
 
     return (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {categories.map((cat) => (
+            {categories.map((cat, index) => (
                 <Link
                     key={cat.id}
-                    href={`/katalog?sub_category_id=${cat.subCategories?.[0]?.id || ''}`}
-                    className="group border border-gray-200 bg-white p-6 flex flex-col items-center justify-center hover:border-black transition-colors"
+                    href={`/katalog?category_id=${cat.id}`}
+                    className="bg-[#111114] border border-zinc-800 p-6 rounded-xl flex flex-col items-center text-center hover:border-[#ef3333]/50 transition-all group"
                 >
-                    {/* Jika ada icon, bisa dirender di sini. Placeholder bulat: */}
-                    <div className="w-16 h-16 bg-gray-100 rounded-full mb-4 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
-                        <span className="font-bold text-xl">{cat.name.charAt(0)}</span>
+                    <div className="w-14 h-14 rounded-full bg-zinc-800 flex items-center justify-center text-xl mb-3 group-hover:scale-110 transition-transform text-white font-black">
+                        {cat.name.charAt(0)}
                     </div>
-                    <h3 className="font-semibold text-gray-900">{cat.name}</h3>
+                    <h3 className="text-sm font-bold text-zinc-100 mb-1">{cat.name}</h3>
+                    <p className="text-zinc-500 text-[10px] uppercase font-black tracking-widest">Jelajahi Koleksi</p>
                 </Link>
             ))}
         </div>

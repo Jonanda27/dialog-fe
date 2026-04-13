@@ -1,4 +1,3 @@
-// File: dialog-fe/app/layout.tsx
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -26,20 +25,22 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="id" // Menggunakan bahasa Indonesia
+      lang="id"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      suppressHydrationWarning // Mencegah peringatan perbedaan state saat menggunakan localStorage
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-white text-slate-900">
-        <ToastProvider>
-          {/* RootLayout bertindak sebagai pembungkus utama. 
-              Semua halaman di dalamnya akan memiliki akses ke sistem Toast.
-              Logika fetchMe (inisialisasi user) sebaiknya diletakkan di dalam 
-              layout rute masing-masing (Buyer/Seller) via Client Component.
-          */}
-          {children}
-        </ToastProvider>
+
+        {/* Konten Halaman Utama */}
+        {children}
+
+        {/* ToastProvider dipanggil sebagai komponen yang sejajar (sibling).
+          Ia tidak memerlukan 'children' karena hanya bertugas menyuntikkan 
+          logika notifikasi global ke dalam DOM aplikasi.
+        */}
+        <ToastProvider />
+
       </body>
     </html>
   );
-}
+} 

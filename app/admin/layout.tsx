@@ -1,42 +1,46 @@
-"use client";
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "@/app/globals.css";
+import ToastProvider from "@/components/ui/ToastProvider";
 
-import React, { ReactNode, useState } from 'react'; // Tambah useState
-import AuthGuard from '@/components/layout/AuthGuard';
-import Sidebar from '@/components/layout/sidebar';
-import Navbar from '@/components/layout/navbar';
-import { Toaster } from 'sonner';
+const geistSans = Geist({
+    variable: "--font-geist-sans",
+    subsets: ["latin"],
+});
 
-export default function AdminLayout({ children }: { children: ReactNode }) {
-    // State untuk kontrol menu mobile
-    const [isMobileOpen, setIsMobileOpen] = useState(false);
+const geistMono = Geist_Mono({
+    variable: "--font-geist-mono",
+    subsets: ["latin"],
+});
 
+export const metadata: Metadata = {
+    title: "Analog.id | Marketplace Analog Photography",
+    description: "Platform jual beli kamera dan film analog terpercaya",
+};
+
+export default function RootLayout({
+    children,
+}: Readonly<{
+    children: React.ReactNode;
+}>) {
     return (
-        <AuthGuard allowedRoles={['admin']}>
-            <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 font-sans flex overflow-hidden">
-                
-                {/* 1. Sidebar: Berikan props isOpen dan onClose agar bisa ditutup di mobile */}
-                <Sidebar isOpen={isMobileOpen} onClose={() => setIsMobileOpen(false)} />
+        <html
+            lang="id"
+            className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+            suppressHydrationWarning
+        >
+            <body className="min-h-full flex flex-col bg-white text-slate-900">
 
-                <div className="flex-1 flex flex-col w-full">
-                    
-                    {/* 2. Navbar: Berikan fungsi untuk membuka sidebar mobile */}
-                    <Navbar onMenuClick={() => setIsMobileOpen(true)} />
+                {/* Konten Halaman Utama */}
+                {children}
 
-                    <main className="flex-1 overflow-y-auto bg-[#111114] p-4 sm:p-6 lg:p-8">
-                        <div className="animate-in fade-in duration-700 max-w-7xl mx-auto">
-                            {children}
-                        </div>
-                    </main>
-                </div>
+                {/* ToastProvider dipanggil sebagai komponen yang sejajar (sibling).
+          Ia tidak memerlukan 'children' karena hanya bertugas menyuntikkan 
+          logika notifikasi global ke dalam DOM aplikasi.
+        */}
+                <ToastProvider />
 
-                <Toaster
-                    theme="dark"
-                    position="bottom-right"
-                    toastOptions={{
-                        className: 'bg-[#0a0a0b] border border-[#ef3333]/50 text-zinc-100 rounded-none shadow-2xl font-medium tracking-wide',
-                    }}
-                />
-            </div>
-        </AuthGuard>
+            </body>
+        </html>
     );
 }
