@@ -29,32 +29,30 @@ export const ProductService = {
     create: async (payload: CreateProductPayload): Promise<ApiResponse<Product>> => {
         const formData = new FormData();
 
-        // 1. Append Data Utama (Tabel Products)
+        // 1. Core Data (stringified for multipart) [cite: 1747, 1748]
         formData.append('name', payload.name);
         formData.append('price', String(payload.price));
         formData.append('stock', String(payload.stock));
         formData.append('sub_category_id', payload.sub_category_id);
 
-        // 2. ⚡ Append Metadata Dinamis ⚡
+        // 2. Metadata [cite: 1748]
         if (payload.metadata) {
             formData.append('metadata', JSON.stringify(payload.metadata));
         }
 
-        // 3. Append Data File
+        // 3. Specific File Keys [cite: 1750, 1751]
         const { photos } = payload;
-        const fileKeys: (keyof typeof photos)[] = ['front', 'back', 'physical', 'extra1', 'extra2'];
+        if (photos.front) formData.append('front', photos.front);
+        if (photos.back) formData.append('back', photos.back);
+        if (photos.physical) formData.append('physical', photos.physical);
+        if (photos.extra1) formData.append('extra1', photos.extra1);
+        if (photos.extra2) formData.append('extra2', photos.extra2);
 
-        fileKeys.forEach((key) => {
-            if (photos[key]) {
-                // Backend Multer mencari req.files dengan field name 'photos'
-                formData.append('photos', photos[key] as File);
-            }
+        return await axiosClient.post<any, ApiResponse<Product>>('/products', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
         });
-
-        // 4. Eksekusi Request
-        // Catatan: Axios otomatis mengenali objek FormData dan mengatur header multipart beserta boundary-nya
-        return await axiosClient.post<any, ApiResponse<Product>>('/products', formData);
     },
+
 
     /**
      * Memperbarui produk yang sudah ada (Parsial)
