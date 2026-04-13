@@ -120,19 +120,21 @@ export default function TambahProduk() {
       // 4. Susun Payload dengan Metadata sebagai Objek JS [cite: 1801, 2798]
       // Note: Di level ProductService, metadata ini akan di-JSON.stringify
       // agar melewati preprocess validation di Backend [cite: 784, 2538]
-      await createProduct({
+   await createProduct({
         name: formData.name.trim(),
         price: priceNum,
         stock: stockNum,
         sub_category_id: formData.sub_category_id,
+        // INI BENTUK OBJECT MURNI DI REACT
         metadata: {
-          artist: formData.artist || "Unknown Artist",
-          release_year: formData.release_year ? parseInt(formData.release_year, 10) : null,
-          record_label: formData.label || "-",
-          matrix_number: formData.catalog_number || "-",
-          media_grading: formData.grading || "Ungraded",
-          description: formData.condition_notes || "-",
-          status: 'active'
+          artist: formData.artist || "Pink Floyd", // Ambil dari form, atau kasih default
+          status: "active",
+          description: formData.condition_notes || "Plat original rilisan pertama. Sangat langka.",
+          record_label: formData.label || "Harvest",
+          release_year: formData.release_year ? parseInt(formData.release_year, 10) : 1973,
+          matrix_number: formData.catalog_number || "SHVL 804",
+          media_grading: formData.grading || "NM",
+          sleeve_grading: "VG+" // Tambahkan manual jika tidak ada di form input
         },
         photos: {
           front: photos.front,

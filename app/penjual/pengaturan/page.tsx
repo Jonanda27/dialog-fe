@@ -4,14 +4,15 @@ import React, { useState, useEffect, useRef } from "react";
 import Sidebar from "@/components/layout/sidebar";
 import { StoreService } from "@/services/api/store.service";
 import { ProductService } from "@/services/api/product.service";
+import { CategoryService } from "@/services/api/category.service";
 import { Store as StoreType, UpdateStorePayload } from "@/types/store";
-import { Product } from "@/types/product";
 import { 
   Store, Camera, Save, ShieldCheck, 
   Clock, Edit3, X, Monitor, 
   Image as ImageIcon, Link as LinkIcon, 
   Loader2, Upload, Globe, MapPin, Calendar,
-  Star
+  Star, ChevronRight, LayoutGrid, Tag, ChevronDown,
+  Circle
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 
@@ -54,6 +55,12 @@ export default function PengaturanToko() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [products, setProducts] = useState<any[]>([]);
+  
+  // STATE KATEGORI
+  const [categories, setCategories] = useState<any[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState<boolean>(false);
+  const [selectedSubCategoryId, setSelectedSubCategoryId] = useState<string | null>(null);
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
 
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -72,11 +79,37 @@ export default function PengaturanToko() {
     createdAt: "2026-04-10T02:50:16.149Z"
   });
 
+  const toggleCategory = (catId: string) => {
+    setOpenCategories(prev => ({
+      ...prev,
+      [catId]: !prev[catId]
+    }));
+  };
+
+  // FETCH KATEGORI
+  const handleFetchCategories = async () => {
+    setIsLoadingCategories(true);
+    try {
+      const res: any = await CategoryService.getAllCategories();
+      const finalData = Array.isArray(res) ? res : (res.data || []);
+      setCategories(finalData);
+      
+      if(finalData.length > 0) {
+        setOpenCategories({ [finalData[0].id]: true });
+      }
+    } catch (err) {
+      toast.error("Gagal mengambil kategori");
+    } finally {
+      setIsLoadingCategories(false);
+    }
+  };
+
   const initData = async () => {
     try {
       const [storeRes, productRes] = await Promise.all([
         StoreService.getMyStore(),
-        ProductService.getMyProducts()
+        ProductService.getMyProducts(),
+        handleFetchCategories()
       ]);
       
       if (storeRes.success) {
@@ -98,7 +131,7 @@ export default function PengaturanToko() {
               facebook: data.social_links?.facebook || "",
               youtube: data.social_links?.youtube || "",
               website: data.social_links?.website || "",
-              createdAt: data.createdAt || "2026-04-10T02:50:16.149Z"
+              createdAt: data.created_at || "2026-04-10T02:50:16.149Z"
           });
       }
       if (productRes.success) setProducts(productRes.data);
@@ -205,6 +238,7 @@ export default function PengaturanToko() {
             
             {activeTab === "tampilan" && (
               <div className="animate-fade-in space-y-12">
+                {/* BANNER PREVIEW */}
                 <div className="relative w-full min-h-[580px] rounded-[3rem] overflow-hidden border border-zinc-900 bg-[#0a0a0b] group shadow-2xl">
                     <img 
                       src={storeData.banner_preview || "https://images.unsplash.com/photo-1535992165812-68d1863aa354?q=80&w=1600&auto=format&fit=crop"} 
@@ -218,17 +252,14 @@ export default function PengaturanToko() {
                     <div className="absolute bottom-0 left-0 w-full h-full bg-[radial-gradient(circle_at_bottom_left,rgba(0,0,0,0.85)_0%,rgba(0,0,0,0.4)_25%,transparent_50%)] z-[3] pointer-events-none" />
 
                     <div className="absolute inset-0 z-10 p-10 lg:p-14 flex flex-col justify-between">
-                        {/* TOP SECTION */}
                         <div className="flex flex-col md:flex-row items-start md:items-center gap-8">
                           <div className="relative">
-                            {/* UBAH BORDER PROFIL MENJADI HIJAU (EMERALD) */}
                             <div className="w-24 h-24 lg:w-32 lg:h-32 rounded-full bg-[#0a0a0b] border-4 border-emerald-500 flex items-center justify-center overflow-hidden shadow-[0_0_20px_rgba(16,185,129,0.3)]">
                                 {storeData.logo_preview ? 
                                   <img src={storeData.logo_preview} className="w-full h-full object-cover" alt="Logo" /> : 
                                   <span className="text-emerald-500 font-black text-xl uppercase ">{storeData.name?.substring(0, 2)}</span>
                                 }
                             </div>
-                            {/* IKON VERIFIED HIJAU */}
                             <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-emerald-500 rounded-full border-4 border-[#0a0a0b] flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.5)]">
                               <ShieldCheck size={14} className="text-white" />
                             </div>
@@ -273,9 +304,7 @@ export default function PengaturanToko() {
                           </div>
                         </div>
 
-                        {/* BOTTOM SECTION - STATS & OPERATIONAL */}
                         <div className="flex flex-col md:flex-row justify-between items-end w-full gap-6 relative z-10">
-                           
                            <div className="flex items-center gap-6 lg:gap-10 py-4 px-2">
                                 <div className="flex flex-col">
                                     <div className="flex items-center gap-1.5">
@@ -300,24 +329,14 @@ export default function PengaturanToko() {
                                     <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] drop-shadow-md">Responsif</span>
                                 </div>
                            </div>
-
-                           <div className="bg-black/20 backdrop-blur-xl p-6 rounded-[2.5rem] w-full md:max-w-[280px] border border-white/10 shadow-2xl">
-                              <div className="flex items-center gap-3 mb-3">
-                                <div className="p-2 rounded-xl bg-[#ef3333]/20 text-[#ef3333]">
-                                  <Clock size={16} />
-                                </div>
-                                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Jam Operasional</span>
-                              </div>
-                              <div className="space-y-1">
-                                <p className="text-white font-black text-base">{storeData.startDay} - {storeData.endDay}</p>
-                                <p className="text-[#ef3333] font-bold text-xs uppercase">{storeData.startTime} — {storeData.endTime} WIB</p>
-                              </div>
-                           </div>
+                           
+                           {/* JAM OPERASIONAL DI BANNER DIHAPUS SESUAI PERMINTAAN */}
                         </div>
                     </div>
                 </div>
 
                 <div className="space-y-8">
+                  {/* HEADER KATALOG */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="w-1.5 h-8 bg-[#ef3333] rounded-full" />
@@ -328,39 +347,137 @@ export default function PengaturanToko() {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                    {products.length > 0 ? products.map((p, i) => {
-                      const firstMediaUrl = p.media && p.media.length > 0 ? p.media[0].media_url : null;
-                      const imgSrc = getImageUrl(firstMediaUrl);
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+                    
+                    {/* SIDEBAR (LEFT) */}
+                    <div className="lg:col-span-3 space-y-6 sticky top-24">
+                       
+                       {/* JAM OPERASIONAL MINI (PERBAIKAN TAMPILAN) */}
+                       <div className="bg-[#111114] border border-zinc-900 rounded-[2.5rem] p-7 shadow-lg relative overflow-hidden group">
+                          <div className="absolute top-0 right-0 w-24 h-24 bg-[#ef3333]/5 rounded-full -mr-10 -mt-10 blur-2xl group-hover:bg-[#ef3333]/10 transition-all duration-700"></div>
+                          
+                          <div className="flex items-center justify-between mb-6 relative z-10">
+                             <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-[#ef3333]/10 flex items-center justify-center text-[#ef3333] border border-[#ef3333]/20">
+                                   <Clock size={18} />
+                                </div>
+                                <h4 className="text-[11px] font-black text-white uppercase tracking-[0.15em]">Operasional</h4>
+                             </div>
+                             <div className="flex items-center gap-1.5 bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/20">
+                                <Circle size={6} className="fill-emerald-500 text-emerald-500 animate-pulse" />
+                                <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Buka</span>
+                             </div>
+                          </div>
 
-                      return (
-                        <div key={i} className="bg-[#111114] border border-zinc-900 rounded-[2.5rem] overflow-hidden group hover:border-[#ef3333]/50 transition-all duration-500">
-                          <div className="aspect-[4/5] relative overflow-hidden bg-zinc-900">
-                             {imgSrc ? (
-                               <img 
-                                 src={imgSrc} 
-                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" 
-                                 alt={p.name} 
-                               />
-                             ) : (
-                               <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                                 <ImageIcon size={24} className="text-zinc-600" />
+                          <div className="space-y-4 relative z-10">
+                            <div className="flex flex-col">
+                               <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Hari Kerja</span>
+                               <p className="text-zinc-200 text-sm font-black tracking-tight">{storeData.startDay} — {storeData.endDay}</p>
+                            </div>
+                            <div className="h-[1px] w-full bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900"></div>
+                            <div className="flex flex-col">
+                               <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Jam Layanan</span>
+                               <p className="text-[#ef3333] text-lg font-black tracking-tighter italic">
+                                  {storeData.startTime} <span className="text-zinc-600 font-medium mx-1">/</span> {storeData.endTime}
+                                  <span className="text-[10px] text-zinc-500 ml-2 font-bold not-italic tracking-widest uppercase">WIB</span>
+                               </p>
+                            </div>
+                          </div>
+                       </div>
+
+                       {/* KOLEKSI MEDIA (ACCORDION) */}
+                       <div className="bg-[#111114] border border-zinc-900 rounded-[2.5rem] p-6 lg:p-8 overflow-hidden shadow-lg">
+                          <div className="flex items-center gap-3 mb-8">
+                            <LayoutGrid size={18} className="text-[#ef3333]" />
+                            <h4 className="text-xs font-black text-white uppercase tracking-widest">Koleksi Media</h4>
+                          </div>
+                          
+                          <div className="space-y-4">
+                             <button 
+                               onClick={() => setSelectedSubCategoryId(null)}
+                               className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedSubCategoryId === null ? "bg-[#ef3333] text-white shadow-lg shadow-red-900/20" : "text-zinc-500 hover:bg-white/5 hover:text-white"}`}>
+                               Semua Produk
+                               <ChevronRight size={14} className={selectedSubCategoryId === null ? "opacity-100" : "opacity-0"} />
+                             </button>
+
+                             {isLoadingCategories ? (
+                               <div className="py-4 flex justify-center">
+                                 <Loader2 size={16} className="animate-spin text-zinc-700" />
                                </div>
-                             )}
+                             ) : categories.map((cat: any) => {
+                               const isOpen = openCategories[cat.id];
+                               return (
+                                 <div key={cat.id} className="space-y-2">
+                                    <button 
+                                      onClick={() => toggleCategory(cat.id)}
+                                      className="w-full flex items-center justify-between px-4 py-2 hover:bg-white/5 rounded-xl transition-all group"
+                                    >
+                                       <div className="flex items-center gap-3">
+                                          <span className="text-base group-hover:scale-125 transition-transform">{cat.icon}</span>
+                                          <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest group-hover:text-zinc-200">{cat.name}</span>
+                                       </div>
+                                       <ChevronDown size={14} className={`text-zinc-600 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                                    </button>
+
+                                    <div className={`space-y-1.5 overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[500px] opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
+                                       <div className="border-l border-zinc-900 ml-5 pl-4 space-y-1">
+                                          {cat.subCategories?.map((sub: any) => (
+                                            <button 
+                                              key={sub.id}
+                                              onClick={() => setSelectedSubCategoryId(sub.id)}
+                                              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all text-left ${selectedSubCategoryId === sub.id ? "text-[#ef3333] bg-[#ef3333]/5" : "text-zinc-500 hover:text-zinc-300"}`}>
+                                              {sub.name}
+                                              <Tag size={10} className={selectedSubCategoryId === sub.id ? "opacity-100" : "opacity-0"} />
+                                            </button>
+                                          ))}
+                                       </div>
+                                    </div>
+                                 </div>
+                               );
+                             })}
                           </div>
-                          <div className="p-6">
-                            <h4 className="text-zinc-400 font-black text-[10px] uppercase tracking-widest mb-1">{p.artist || "Unknown Artist"}</h4>
-                            <h4 className="text-white font-black text-sm uppercase truncate mb-2">{p.name}</h4>
-                            <p className="text-[#ef3333] font-black text-base ">Rp {Number(p.price).toLocaleString()}</p>
+                       </div>
+                    </div>
+
+                    {/* DAFTAR PRODUK (RIGHT) */}
+                    <div className="lg:col-span-9">
+                      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {products.length > 0 ? products
+                          .filter(p => !selectedSubCategoryId || p.sub_category_id === selectedSubCategoryId)
+                          .map((p, i) => {
+                          const firstMediaUrl = p.media && p.media.length > 0 ? p.media[0].media_url : null;
+                          const imgSrc = getImageUrl(firstMediaUrl);
+
+                          return (
+                            <div key={i} className="bg-[#111114] border border-zinc-900 rounded-[2.5rem] overflow-hidden group hover:border-[#ef3333]/50 transition-all duration-500">
+                              <div className="aspect-[4/5] relative overflow-hidden bg-zinc-900">
+                                 {imgSrc ? (
+                                   <img 
+                                     src={imgSrc} 
+                                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" 
+                                     alt={p.name} 
+                                   />
+                                 ) : (
+                                   <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                                     <ImageIcon size={24} className="text-zinc-600" />
+                                   </div>
+                                 )}
+                              </div>
+                              <div className="p-6">
+                                <h4 className="text-zinc-400 font-black text-[10px] uppercase tracking-widest mb-1">{p.metadata?.artist || "Unknown Artist"}</h4>
+                                <h4 className="text-white font-black text-sm uppercase truncate mb-2">{p.name}</h4>
+                                <p className="text-[#ef3333] font-black text-base ">Rp {Number(p.price).toLocaleString()}</p>
+                              </div>
+                            </div>
+                          );
+                        }) : (
+                          <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed border-zinc-900 rounded-[3rem] text-zinc-700">
+                            <ImageIcon size={48} className="mb-4 opacity-20" />
+                            <span className="uppercase text-[11px] font-black tracking-widest">Belum ada produk</span>
                           </div>
-                        </div>
-                      );
-                    }) : (
-                      <div className="col-span-full py-20 flex flex-col items-center justify-center border-2 border-dashed border-zinc-900 rounded-[3rem] text-zinc-700">
-                        <ImageIcon size={48} className="mb-4 opacity-20" />
-                        <span className="uppercase text-[11px] font-black tracking-widest">Belum ada produk</span>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -378,7 +495,6 @@ export default function PengaturanToko() {
                         </div>
                     </div>
                     <div className="relative h-[280px] bg-[#111114] border border-zinc-900 rounded-[2.5rem] flex flex-col items-center justify-center gap-6">
-                        {/* PREVIEW LOGO DENGAN OUTLINE HIJAU */}
                         <div className="w-24 h-24 rounded-full border-4 border-emerald-500/50 overflow-hidden bg-zinc-900 relative">
                             {storeData.logo_preview && <img src={storeData.logo_preview} className="w-full h-full object-cover" alt="Logo Preview" />}
                             <div className="absolute bottom-1 right-1 w-6 h-6 bg-emerald-500 rounded-full border-2 border-[#111114] flex items-center justify-center">
