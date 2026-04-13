@@ -26,7 +26,7 @@ export const ProductService = {
     create: async (payload: CreateProductPayload): Promise<ApiResponse<Product>> => {
         const formData = new FormData();
 
-        // 1. Core Data (stringified for multipart) [cite: 1747, 1748]
+        // 1. Core Data
         formData.append('name', payload.name);
         formData.append('price', String(payload.price));
         formData.append('stock', String(payload.stock));
@@ -37,7 +37,8 @@ export const ProductService = {
             formData.append('metadata', JSON.stringify(payload.metadata));
         }
 
-        // 3. Specific File Keys [cite: 1750, 1751]
+        // 3. Specific File Keys -> PERBAIKAN DI SINI
+        // Semua foto HARUS di-append menggunakan key "photos" agar dibaca sebagai array oleh backend
         const { photos } = payload;
         const fileKeys: (keyof typeof photos)[] = ['front', 'back', 'physical', 'extra1', 'extra2'];
 
