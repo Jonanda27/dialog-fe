@@ -1,3 +1,5 @@
+'use client';
+
 export default function ShoppingSummary() {
     const summaries = [
         { title: 'Pesanan Aktif', value: '2', icon: '📦', color: 'text-blue-400', bg: 'bg-blue-400/10' },

@@ -1,5 +1,3 @@
-// File: dialog-fe/types/auth.ts
-
 /**
  * Enum untuk Role User, memastikan tidak ada typo saat pengecekan role di FE.
  */
@@ -16,13 +14,13 @@ export type UserStatus = 'active' | 'suspended' | 'banned';
 export interface User {
     id: string;
     email: string;
-    name: string;
+    full_name: string; // ⚡ PERBAIKAN: Diubah dari 'name' menjadi 'full_name' menyesuaikan Backend
     role: UserRole;
     status: UserStatus;
     avatar_url?: string | null;
     created_at: string;
     updated_at: string;
-    // TAMBAHKAN INI:
+    // Data toko (Eager Loading)
     store?: {
         id: string;
         status: 'pending' | 'approved' | 'rejected' | 'suspended';
@@ -41,7 +39,7 @@ export interface LoginPayload {
  * Payload yang dikirim FE saat submit form Register
  */
 export interface RegisterPayload {
-    name: string;
+    full_name: string; // ⚡ PERBAIKAN: Diubah dari 'name' menjadi 'full_name'
     email: string;
     password: string;
     role: UserRole;

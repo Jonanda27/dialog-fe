@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Sidebar from "@/components/layout/sidebar";
 import { TrendingUp, MoreVertical, Star, Calendar, Loader2 } from "lucide-react";
 import Link from "next/link";
 
@@ -12,7 +11,7 @@ import { Order } from "@/types/order";
 
 // Komponen StatCard (Dumb Component)
 const StatCard = ({ title, value, trend, isPositive, isLoading }: { title: string, value: string, trend: string, isPositive: boolean, isLoading?: boolean }) => (
-  <div className="bg-[#111114] p-6 rounded-[2rem] border border-zinc-800 hover:border-zinc-700 transition-colors shadow-sm relative overflow-hidden group">
+  <div className="bg-[#111114] p-6 rounded-4xl border border-zinc-800 hover:border-zinc-700 transition-colors shadow-sm relative overflow-hidden group">
     <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 relative z-10">{title}</h3>
     <div className="flex items-end justify-between relative z-10">
       {isLoading ? (
@@ -54,52 +53,52 @@ export default function SellerDashboard() {
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
 
   useEffect(() => {
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      
-      // Concurrent API Fetching
-      const [storeRes, walletRes, ordersRes] = await Promise.all([
-        StoreService.getMyStore(),
-        StoreService.getWallet(),
-        OrderService.getStoreOrders()
-      ]);
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
 
-      // 1. Set Nama Toko
-      if (storeRes.data) setStoreName(storeRes.data.name);
+        // Concurrent API Fetching
+        const [storeRes, walletRes, ordersRes] = await Promise.all([
+          StoreService.getMyStore(),
+          StoreService.getWallet(),
+          OrderService.getStoreOrders()
+        ]);
 
-      const orders = ordersRes.data || [];
-      const walletData = walletRes.data;
+        // 1. Set Nama Toko
+        if (storeRes.data) setStoreName(storeRes.data.name);
 
-      // 2. Kalkulasi Pesanan Aktif (Paid, Processing, Shipped)
-      const activeCount = orders.filter(o => 
-        ['paid', 'processing', 'shipped'].includes(o.status)
-      ).length;
+        const orders = ordersRes.data || [];
+        const walletData = walletRes.data;
 
-      // 3. Update State Stats
-      setStats(prev => ({
-        ...prev,
-        // Konversi string "2000000.00" menjadi number
-        revenue: walletData?.balance ? parseFloat(walletData.balance.toString()) : 0,
-        totalOrders: orders.length,
-        activeOrders: activeCount
-      }));
+        // 2. Kalkulasi Pesanan Aktif (Paid, Processing, Shipped)
+        const activeCount = orders.filter(o =>
+          ['paid', 'processing', 'shipped'].includes(o.status)
+        ).length;
 
-      // 4. Ambil 5 pesanan teratas
-      setRecentOrders(orders.slice(0, 5));
+        // 3. Update State Stats
+        setStats(prev => ({
+          ...prev,
+          // Konversi string "2000000.00" menjadi number
+          revenue: walletData?.balance ? parseFloat(walletData.balance.toString()) : 0,
+          totalOrders: orders.length,
+          activeOrders: activeCount
+        }));
 
-    } catch (error) {
-      console.error("Gagal memuat data dashboard:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        // 4. Ambil 5 pesanan teratas
+        setRecentOrders(orders.slice(0, 5));
 
-  fetchDashboardData();
-}, []);
+      } catch (error) {
+        console.error("Gagal memuat data dashboard:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   return (
-    <Sidebar>
+    <div className="pb-8">
       {/* BANNER COMPACT & ESTETIK */}
       <div className="relative w-full mb-10 overflow-hidden rounded-3xl h-32 lg:h-36 group border border-zinc-800/50">
         {/* Gambar Background */}
@@ -124,7 +123,7 @@ export default function SellerDashboard() {
           </div>
 
           {/* Sisi Kanan: Stats Mini */}
-          <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-3">
             <div className="flex items-center gap-2 bg-black/50 backdrop-blur-md border border-white/5 px-4 py-2 rounded-2xl">
               <div className="flex items-center gap-1.5 border-r border-white/10 pr-3">
                 <Star size={12} className="text-amber-500 fill-amber-500" />
@@ -176,7 +175,7 @@ export default function SellerDashboard() {
       {/* Tabel & Top Produk */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Tabel Pesanan */}
-        <div className="lg:col-span-2 bg-[#111114] border border-zinc-800 rounded-[2rem] p-6">
+        <div className="lg:col-span-2 bg-[#111114] border border-zinc-800 rounded-4xl p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-sm font-black uppercase tracking-wider text-white">Pesanan Terbaru</h3>
             <Link href="/penjual/transaksi" className="text-[10px] font-bold text-[#ef3333] hover:underline uppercase tracking-widest">
@@ -224,8 +223,9 @@ export default function SellerDashboard() {
                             {mainItem?.product?.name || 'Produk Tidak Diketahui'}
                             {extraItemsCount > 0 && <span className="text-zinc-500 font-medium ml-1">(+{extraItemsCount} lainnya)</span>}
                           </p>
+                          {/* PERBAIKAN: Menggunakan order.buyer?.full_name sesuai kontrak Interface User */}
                           <p className="text-[10px] font-bold text-zinc-500 uppercase mt-1">
-                            {order.buyer?.name || 'Guest'} • {new Date(order.created_at).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })}
+                            {order.buyer?.full_name || 'Guest'} • {new Date(order.created_at).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })}
                           </p>
                         </td>
                         <td className="py-4 px-4">
@@ -237,7 +237,7 @@ export default function SellerDashboard() {
                           Rp {Number(order.grand_total).toLocaleString('id-ID')}
                         </td>
                         <td className="py-4 pl-4 text-right">
-                          <Link href={`/penjual/transaksi`} className="text-zinc-500 hover:text-[#ef3333] transition-colors inline-block p-2">
+                          <Link href={`/penjual/transaksi/${order.id}`} className="text-zinc-500 hover:text-[#ef3333] transition-colors inline-block p-2">
                             <MoreVertical size={16} />
                           </Link>
                         </td>
@@ -251,7 +251,7 @@ export default function SellerDashboard() {
         </div>
 
         {/* Top Produk (Dummy Fallback Sementara API Analytics Belum Tersedia) */}
-        <div className="bg-[#111114] border border-zinc-800 rounded-[2rem] p-6">
+        <div className="bg-[#111114] border border-zinc-800 rounded-4xl p-6">
           <h3 className="text-sm font-black uppercase tracking-wider text-white mb-6">Vinyl Terlaris</h3>
           <div className="space-y-4">
             {[
@@ -280,6 +280,6 @@ export default function SellerDashboard() {
           </Link>
         </div>
       </div>
-    </Sidebar>
+    </div>
   );
 }

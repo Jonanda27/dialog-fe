@@ -1,28 +1,34 @@
-// File: dialog-fe/store/orderStore.ts
-
 import { create } from 'zustand';
-import { Order, CheckoutPayload, ShipOrderPayload } from '../types/order';
+import { Order, CheckoutPayload } from '../types/order';
 import { OrderService } from '../services/api/order.service';
 import { ApiError } from '../types/api';
 
 interface OrderState {
-    orders: Order[];
+    // State
+    orders: Order[];         // Digunakan oleh Seller (Pesanan Masuk)
+    buyerOrders: Order[];    // Digunakan oleh Buyer (Riwayat Belanja)
     currentOrder: Order | null;
     isLoading: boolean;
+    isSubmitting: boolean;   // Khusus state mutasi agar UI tidak flicker
     error: string | null;
 
     // Actions
     fetchStoreOrders: (status?: string) => Promise<void>;
-    checkout: (payload: CheckoutPayload) => Promise<string>; // me-return order_id
+    fetchBuyerOrders: (status?: string) => Promise<void>;
+    fetchOrderById: (orderId: string) => Promise<void>;
+    checkout: (payload: CheckoutPayload) => Promise<string>;
     shipOrder: (orderId: string, trackingNumber: string) => Promise<void>;
     completeOrder: (orderId: string) => Promise<void>;
     clearError: () => void;
+    clearCurrentOrder: () => void;
 }
 
 export const useOrderStore = create<OrderState>((set, get) => ({
     orders: [],
+    buyerOrders: [],
     currentOrder: null,
     isLoading: false,
+    isSubmitting: false,
     error: null,
 
     fetchStoreOrders: async (status) => {
@@ -32,52 +38,90 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             set({ orders: response.data, isLoading: false });
         } catch (error: any) {
             const err = error as ApiError;
-            set({ error: err.message || 'Gagal memuat daftar pesanan', isLoading: false });
+            set({ error: err.message || 'Gagal memuat daftar pesanan toko.', isLoading: false });
+        }
+    },
+
+    fetchBuyerOrders: async (status) => {
+        set({ isLoading: true, error: null });
+        try {
+            const response = await OrderService.getBuyerOrders(status);
+            set({ buyerOrders: response.data, isLoading: false });
+        } catch (error: any) {
+            const err = error as ApiError;
+            set({ error: err.message || 'Gagal memuat riwayat belanja Anda.', isLoading: false });
+        }
+    },
+
+    fetchOrderById: async (orderId) => {
+        set({ isLoading: true, error: null, currentOrder: null });
+        try {
+            const response = await OrderService.getById(orderId);
+            set({ currentOrder: response.data, isLoading: false });
+        } catch (error: any) {
+            const err = error as ApiError;
+            set({ error: err.message || 'Gagal memuat detail pesanan.', isLoading: false });
         }
     },
 
     checkout: async (payload) => {
-        set({ isLoading: true, error: null });
+        set({ isSubmitting: true, error: null });
         try {
             const response = await OrderService.checkout(payload);
-            set({ isLoading: false });
+            set({ isSubmitting: false });
             return response.data.order_id; // Kembalikan ID untuk di-redirect ke halaman bayar
         } catch (error: any) {
             const err = error as ApiError;
-            set({ error: err.message || 'Gagal melakukan checkout', isLoading: false });
+            // Pesan error dari backend (seperti stok habis/overselling) ditangkap di sini
+            set({ error: err.message || 'Gagal melakukan checkout.', isSubmitting: false });
             throw err;
         }
     },
 
     shipOrder: async (orderId, trackingNumber) => {
-        set({ isLoading: true, error: null });
+        set({ isSubmitting: true, error: null });
         try {
             await OrderService.shipOrder(orderId, { tracking_number: trackingNumber });
 
-            // Update state lokal agar UI langsung berubah tanpa perlu refresh API
+            // Optimistic Update UI (Seller)
             const updatedOrders = get().orders.map(order =>
-                order.id === orderId ? { ...order, status: 'shipped', tracking_number: trackingNumber } : order
+                order.id === orderId
+                    ? { ...order, status: 'shipped', tracking_number: trackingNumber }
+                    : order
             ) as Order[];
 
-            set({ orders: updatedOrders, isLoading: false });
+            set({ orders: updatedOrders, isSubmitting: false });
         } catch (error: any) {
             const err = error as ApiError;
-            set({ error: err.message || 'Gagal menginput resi', isLoading: false });
+            set({ error: err.message || 'Gagal menginput resi pengiriman.', isSubmitting: false });
             throw err;
         }
     },
 
     completeOrder: async (orderId) => {
-        set({ isLoading: true, error: null });
+        set({ isSubmitting: true, error: null });
         try {
             await OrderService.completeOrder(orderId);
-            set({ isLoading: false });
+
+            // Optimistic Update UI (Buyer)
+            const updatedBuyerOrders = get().buyerOrders.map(order =>
+                order.id === orderId
+                    ? { ...order, status: 'completed' }
+                    : order
+            ) as Order[];
+
+            set({
+                buyerOrders: updatedBuyerOrders,
+                currentOrder: get().currentOrder?.id === orderId ? { ...get().currentOrder!, status: 'completed' } : get().currentOrder,
+                isSubmitting: false
+            });
         } catch (error: any) {
             const err = error as ApiError;
-            set({ error: err.message || 'Gagal menyelesaikan pesanan', isLoading: false });
+            set({ error: err.message || 'Gagal menyelesaikan pesanan.', isSubmitting: false });
             throw err;
         }
     },
 
-    clearError: () => set({ error: null })
+    clearError: () => set({ error: null }),
+    clearCurrentOrder: () => set({ currentOrder: null })
 }));

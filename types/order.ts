@@ -1,7 +1,5 @@
-// File: dialog-fe/types/order.ts
-
-import { Product, ProductGrading } from './product';
-import { User } from './auth';
+import { Product } from './product';
+import { User } from './auth'; // Pastikan interface User di auth.ts sudah memiliki atribut 'full_name'
 
 /**
  * Literal Type untuk State Machine Status Pesanan
@@ -24,7 +22,11 @@ export interface OrderItem {
     product_id: string;
     qty: number;
     price_at_purchase: string | number;
-    grading_at_purchase: ProductGrading;
+
+    // ⚡ PERBAIKAN: Diubah dari Enum statis menjadi string bebas, 
+    // karena datanya diambil secara dinamis dari JSONB Metadata
+    grading_at_purchase: string;
+
     created_at: string;
 
     // Relasi opsional jika endpoint menyertakan data produk
@@ -49,7 +51,8 @@ export interface Order {
     updated_at: string;
 
     // Relasi (Eager Loading)
-    buyer?: Pick<User, 'id' | 'name' | 'email'>; // Pick = hanya mengambil atribut tertentu dari interface User
+    // ⚡ PERBAIKAN: Menggunakan 'full_name' sesuai dengan skema Backend
+    buyer?: Pick<User, 'id' | 'full_name' | 'email'>;
     items?: OrderItem[];
 }
 
@@ -62,15 +65,18 @@ export interface CheckoutItem {
 }
 
 /**
- * Payload yang dikirim FE saat mengeksekusi Checkout
+ * Payload yang dikirim FE saat mengeksekusi Checkout (POST /api/orders/checkout)
  */
 export interface CheckoutPayload {
     items: CheckoutItem[];
     shipping_address: string;
+
+    // ⚡ BARU: Ditambahkan agar Backend tau hasil akhir kalkulasi kurir yang dipilih pembeli
+    shipping_fee: number;
 }
 
 /**
- * Payload yang dikirim FE (Seller) saat menginput nomor resi
+ * Payload yang dikirim FE (Seller) saat menginput nomor resi (PATCH /api/orders/:id/ship)
  */
 export interface ShipOrderPayload {
     tracking_number: string;

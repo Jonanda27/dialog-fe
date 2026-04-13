@@ -1,66 +1,43 @@
+// File: dialog-fe/utils/serverAuth.ts
 import { cookies } from 'next/headers';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
-// Mengambil token dari Cookie
+/**
+ * MENGAMBIL TOKEN (DEPRECATED FOR LOCAL STORAGE MODE)
+ * Server-side tidak bisa membaca localStorage. Fungsi ini akan selalu null 
+ * kecuali jika Anda sengaja menyuntikkan cookie tambahan.
+ */
 export async function getToken() {
-    const cookieStore = await cookies();
-    return cookieStore.get('token')?.value;
+    return null;
 }
 
-// Menyimpan token (Gunakan ini di Server Action saat proses Login)
-export async function setToken(token: string) {
-    const cookieStore = await cookies();
-    cookieStore.set('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60 * 60 * 24, // 1 hari
-    });
-}
-
-// Menghapus token (Untuk Logout)
-export async function removeToken() {
-    const cookieStore = await cookies();
-    cookieStore.delete('token');
-}
-
-// Fetch Profil User (Server Component)
+/**
+ * FETCH PROFIL USER (SERVER COMPONENT)
+ * Karena menggunakan Local Session, proses ini dialihkan ke Client-Side (Zustand fetchMe).
+ * Server akan mengembalikan null agar Client Guard yang mengambil alih.
+ */
 export async function getMe() {
-    const token = await getToken();
-    if (!token) return null;
-
-    try {
-        const res = await fetch(`${API_URL}/api/auth/me`, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-            },
-            cache: 'no-store', // Selalu ambil data terbaru
-        });
-
-        if (!res.ok) return null;
-        const json = await res.json();
-        return json.data;
-    } catch (error) {
-        console.error('Failed to fetch user:', error);
-        return null;
-    }
+    return null;
 }
 
-// Fetch Produk Terbaru
+/**
+ * FETCH PRODUK TERBARU (PUBLIC DATA)
+ * Fungsi ini tetap dipertahankan karena bersifat publik dan tidak butuh token.
+ */
 export async function getRecentProducts() {
     try {
         const res = await fetch(`${API_URL}/api/products`, {
-            next: { revalidate: 60 }, // ISR: Cache 60 detik demi performa
+            next: { revalidate: 60 }, // ISR: Cache 60 detik
         });
 
         if (!res.ok) return [];
         const json = await res.json();
-        // Ambil 4 produk terbaru
         return json.data.slice(0, 4);
     } catch (error) {
-        console.error('Failed to fetch products:', error);
+        console.error('Failed to fetch public products:', error);
         return [];
     }
 }
+
+// Fungsi setToken dan removeToken dihapus karena sudah tidak relevan dengan Local Storage

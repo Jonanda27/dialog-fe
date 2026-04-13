@@ -1,5 +1,3 @@
-// File: dialog-fe/types/product.ts
-
 import { Store } from './store'; // Pastikan path import sesuai dengan project Anda
 import { SubCategory } from './category';
 
@@ -43,6 +41,11 @@ export interface ProductMetadata {
     size?: string;               // cth: 'S', 'M', 'L', 'XL'
     brand_tag?: string;          // cth: 'Brockum', 'Giant'
     certificate_of_authenticity?: string; // cth: 'Ada', 'Tidak Ada'
+
+    // ⚡ SUPER KRUSIAL UNTUK ARSITEKTUR JSONB ⚡
+    // Mengizinkan field arbitrary (bebas) agar TypeScript tidak error 
+    // jika backend mengirimkan key metadata baru di masa depan.
+    [key: string]: any;
 }
 
 /**

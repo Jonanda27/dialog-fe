@@ -1,56 +1,47 @@
-import Image from 'next/image';
 import Link from 'next/link';
+import { Product } from '@/types/product';
 
-interface ProductProps {
-    id: string;
-    name: string;
-    artist: string;
-    price: number;
-    grading: string;
-    mediaUrl: string;
+interface ProductCardProps {
+    product: Product;
 }
 
-export default function ProductCard({ id, name, artist, price, grading, mediaUrl }: ProductProps) {
-    // Format Rupiah
-    const formattedPrice = new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0,
-    }).format(price);
+export default function ProductCard({ product }: ProductCardProps) {
+    const primaryImage = product.media?.find((m) => m.is_primary)?.media_url || '/placeholder.jpg';
 
-    // Warna Badge berdasarkan Grading
-    const badgeColor = {
-        'Mint': 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
-        'NM': 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-        'VG+': 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
-        'VG': 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-        'Good': 'bg-orange-500/10 text-orange-500 border-orange-500/20',
-        'Fair': 'bg-red-500/10 text-red-500 border-red-500/20',
-    }[grading] || 'bg-zinc-800 text-zinc-300 border-zinc-700';
+    // Ambil grading dari metadata asli produk Anda
+    const conditionBadge = product.metadata?.media_grading || product.metadata?.physical_condition || 'VG+';
+
+    const formatIDR = (price: number) => {
+        return "Rp" + price.toLocaleString("id-ID").replace(/,/g, ".");
+    };
 
     return (
-        <Link href={`/produk/${id}`} className="group flex flex-col bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden hover:border-red-500/50 transition-all duration-300">
-            {/* Image Container */}
-            <div className="relative aspect-square w-full overflow-hidden bg-zinc-900">
-                <Image
-                    src={mediaUrl || '/vynil.png'} // Fallback image dari public folder
-                    alt={name}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                <div className="absolute top-3 right-3">
-                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-md border backdrop-blur-md ${badgeColor}`}>
-                        {grading}
-                    </span>
+        <Link href={`/produk/${product.id}`} className="group">
+            <div className="bg-[#111114] rounded-2xl border border-zinc-800 overflow-hidden cursor-pointer hover:shadow-2xl hover:border-[#ef3333]/50 transition-all flex flex-col h-full shadow-lg">
+                <div className="aspect-square relative overflow-hidden bg-black">
+                    <img
+                        src={primaryImage}
+                        alt={product.name}
+                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500"
+                    />
+                    <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-black text-white border border-white/10 uppercase tracking-widest">
+                        {conditionBadge}
+                    </div>
                 </div>
-            </div>
 
-            {/* Content */}
-            <div className="p-4 flex flex-col grow">
-                <h3 className="text-zinc-100 font-medium truncate group-hover:text-red-400 transition-colors">{name}</h3>
-                <p className="text-zinc-500 text-sm truncate">{artist}</p>
-                <div className="mt-auto pt-4 flex items-center justify-between">
-                    <span className="text-zinc-100 font-semibold tracking-tight">{formattedPrice}</span>
+                <div className="p-5 flex flex-col flex-1 text-left">
+                    <h3 className="text-sm font-bold line-clamp-2 leading-snug text-zinc-100 group-hover:text-[#ef3333] transition-colors h-10">
+                        {product.name}
+                    </h3>
+                    <p className="text-[#ef3333] text-xl font-black mt-3 leading-none">
+                        {formatIDR(Number(product.price))}
+                    </p>
+
+                    <div className="mt-auto pt-4 flex items-center gap-1 text-[11px] text-zinc-500 font-bold uppercase tracking-tight">
+                        <span className="text-zinc-300">★ 4.9</span>
+                        <span className="mx-1">•</span>
+                        <span className="truncate">{product.store?.name || 'Analog Store'}</span>
+                    </div>
                 </div>
             </div>
         </Link>

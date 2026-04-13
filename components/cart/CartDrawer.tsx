@@ -1,85 +1,121 @@
 'use client';
 
+import { motion, AnimatePresence } from 'framer-motion';
 import { useCartStore } from '@/store/cartStore';
+import { toIDR } from '@/utils/format';
+import { Trash2, Plus, Minus, X, Store } from 'lucide-react';
+import { toast } from 'sonner';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 
 export default function CartDrawer() {
-    const { items, isOpen, toggleCart, removeItem, getTotal } = useCartStore();
-    const [mounted, setMounted] = useState(false);
+    const { isOpen, closeCart, items, updateQuantity, removeItem } = useCartStore();
 
-    // Menghindari Hydration Mismatch dari Zustand Persist
-    useEffect(() => setMounted(true), []);
-    if (!mounted) return null;
-
-    if (!isOpen) return null;
-
-    const formatPrice = (price: number) =>
-        new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(price);
+    const subtotal = items.reduce((acc, item) => acc + (Number(item.product.price) * item.quantity), 0);
 
     return (
-        <div className="fixed inset-0 z-50 flex justify-end">
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={toggleCart}></div>
+        <AnimatePresence>
+            {isOpen && (
+                <>
+                    {/* Overlay */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={closeCart}
+                        className="fixed inset-0 bg-black/40 z-100 backdrop-blur-sm"
+                    />
 
-            {/* Sidebar */}
-            <div className="relative w-full max-w-md bg-zinc-950 border-l border-zinc-800 shadow-2xl h-full flex flex-col animate-in slide-in-from-right">
+                    {/* Drawer */}
+                    <motion.div
+                        initial={{ x: '100%' }}
+                        animate={{ x: 0 }}
+                        exit={{ x: '100%' }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                        className="fixed right-0 top-0 h-full w-full max-w-md bg-white z-101 shadow-2xl flex flex-col"
+                    >
+                        {/* Header */}
+                        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                            <h2 className="text-xl font-bold tracking-tighter uppercase">Keranjang Belanja</h2>
+                            <button onClick={closeCart} className="p-2 hover:bg-gray-100 transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
 
-                {/* Header */}
-                <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
-                    <h2 className="text-xl font-bold text-white">Keranjang Belanja</h2>
-                    <button onClick={toggleCart} className="text-zinc-500 hover:text-white transition">
-                        ✕
-                    </button>
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                    {items.length === 0 ? (
-                        <div className="text-center py-10 text-zinc-500">Keranjang masih kosong.</div>
-                    ) : (
-                        <div className="space-y-6">
-                            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                                Dari Toko: <span className="text-zinc-300">{items[0].store_name}</span>
-                            </p>
-
-                            {items.map((item) => (
-                                <div key={item.id} className="flex gap-4 items-center">
-                                    <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-zinc-800 bg-zinc-900 shrink-0">
-                                        <Image src={item.mediaUrl} alt={item.name} fill className="object-cover" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="text-sm font-semibold text-white truncate">{item.name}</h3>
-                                        <p className="text-xs text-zinc-400">{item.artist}</p>
-                                        <p className="text-sm font-medium text-red-400 mt-1">{formatPrice(item.price)} <span className="text-zinc-600 text-xs font-normal">x{item.qty}</span></p>
-                                    </div>
-                                    <button onClick={() => removeItem(item.id)} className="text-zinc-600 hover:text-red-500 transition px-2">
-                                        Hapus
-                                    </button>
+                        {/* List Items */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                            {items.length === 0 ? (
+                                <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                                    <p>Keranjang masih kosong</p>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                            ) : (
+                                items.map((item) => (
+                                    <div key={item.cart_item_id} className="flex gap-4">
+                                        <div className="relative w-20 h-20 shrink-0 bg-gray-50 border border-gray-100">
+                                            <Image
+                                                src={item.product.media?.[0]?.media_url || '/vynil.png'}
+                                                alt={item.product.name}
+                                                fill
+                                                className="object-cover"
+                                            />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-1 text-[10px] text-gray-500 uppercase font-bold mb-1">
+                                                <Store size={10} />
+                                                <span className="truncate">{item.product.store?.name}</span>
+                                            </div>
+                                            <h4 className="text-sm font-bold text-gray-900 truncate uppercase">{item.product.name}</h4>
+                                            <p className="text-sm font-black text-black mt-1">{toIDR(item.product.price)}</p>
 
-                {/* Footer */}
-                {items.length > 0 && (
-                    <div className="p-6 border-t border-zinc-800 bg-zinc-950">
-                        <div className="flex justify-between items-center mb-6">
-                            <span className="text-zinc-400">Total</span>
-                            <span className="text-2xl font-bold text-white">{formatPrice(getTotal())}</span>
+                                            <div className="flex items-center justify-between mt-3">
+                                                {/* Qty Controls */}
+                                                <div className="flex items-center border border-gray-200">
+                                                    <button
+                                                        onClick={() => updateQuantity(item.cart_item_id, item.quantity - 1)}
+                                                        className="p-1 hover:bg-gray-50"
+                                                    >
+                                                        <Minus size={14} />
+                                                    </button>
+                                                    <span className="px-3 text-xs font-bold">{item.quantity}</span>
+                                                    <button
+                                                        onClick={() => updateQuantity(item.cart_item_id, item.quantity + 1)}
+                                                        className="p-1 hover:bg-gray-50"
+                                                    >
+                                                        <Plus size={14} />
+                                                    </button>
+                                                </div>
+                                                <button
+                                                    onClick={() => removeItem(item.cart_item_id)}
+                                                    className="text-gray-400 hover:text-red-600 transition-colors"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
-                        <Link
-                            href="/checkout"
-                            onClick={toggleCart}
-                            className="block w-full text-center bg-red-600 hover:bg-red-700 text-white py-4 rounded-xl font-bold transition shadow-lg shadow-red-500/20"
-                        >
-                            Lanjutkan ke Checkout
-                        </Link>
-                    </div>
-                )}
-            </div>
-        </div>
+
+                        {/* Footer */}
+                        {items.length > 0 && (
+                            <div className="p-6 border-t border-gray-100 space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm font-bold text-gray-500 uppercase">Subtotal</span>
+                                    <span className="text-xl font-black">{toIDR(subtotal)}</span>
+                                </div>
+                                <Link
+                                    href="/checkout"
+                                    onClick={closeCart}
+                                    className="block w-full bg-black text-white text-center py-4 text-sm font-bold uppercase tracking-widest hover:bg-gray-800 transition-colors"
+                                >
+                                    Checkout
+                                </Link>
+                            </div>
+                        )}
+                    </motion.div>
+                </>
+            )}
+        </AnimatePresence>
     );
 }

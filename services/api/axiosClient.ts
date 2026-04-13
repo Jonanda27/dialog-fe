@@ -1,7 +1,10 @@
+// File: dialog-fe/services/api/axiosClient.ts
+
 import axios, { AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import { ApiError, ValidationErrorField } from '../../types/api';
+// Gunakan import dinamis / pemanggilan state lambat untuk mencegah Circular Dependency
+import { useAuthStore } from '../../store/authStore';
 
-// Ekstraksi Base URL dari Environment Variable
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 // 1. Inisialisasi Master Axios Instance
@@ -10,19 +13,19 @@ const axiosClient = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    // Timeout opsional untuk mencegah request menggantung terlalu lama
     timeout: 30000,
 });
 
-// 2. Request Interceptor: Otomatis menyuntikkan Bearer Token dari localStorage
+// 2. Request Interceptor: Injeksi Keamanan & Token
 axiosClient.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-        // MIGRASI: Ambil token dari localStorage secara aman (hanya dieksekusi di sisi client/browser)
-        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        config.headers['X-Requested-With'] = 'XMLHttpRequest';
 
-        if (token && config.headers) {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+
         return config;
     },
     (error) => {
@@ -30,17 +33,15 @@ axiosClient.interceptors.request.use(
     }
 );
 
-// 3. Response Interceptor: Standarisasi Error Handling
+// 3. Response Interceptor: Centralized Error Parser & Gatekeeper
 axiosClient.interceptors.response.use(
     (response: AxiosResponse) => {
-        // Jika sukses (2xx), langsung kembalikan data (sudah sesuai tipe ApiResponse)
         return response.data;
     },
     (error: AxiosError<any>) => {
-        // Objek ApiError bawaan yang akan dilempar ke UI
         const customError: ApiError = {
             status: error.response?.status || 500,
-            message: 'Terjadi kesalahan pada server. Silakan coba lagi.',
+            message: 'Terjadi kesalahan pada server. Silakan coba lagi nanti.',
             errors: null,
             isAuthError: false,
         };
@@ -48,37 +49,31 @@ axiosClient.interceptors.response.use(
         if (error.response) {
             const { status, data } = error.response;
 
-            // Map pesan error utama dari Backend (utils/apiResponse.js)
-            if (data && data.message) {
-                customError.message = data.message;
-            }
+            if (data && data.message) customError.message = data.message;
+            if (status === 400 && data.errors) customError.errors = data.errors as ValidationErrorField[];
 
-            // Map Error 400 (Zod Validation)
-            if (status === 400 && data.errors) {
-                customError.errors = data.errors as ValidationErrorField[];
-            }
-
-            // Map Error 401 (Unauthorized / Token Expired)
+            // ⚡ PROTOKOL GATEKEEPER 401 (Unauthorized) TERPUSAT ⚡
             if (status === 401) {
                 customError.isAuthError = true;
                 customError.message = data.message || 'Sesi Anda telah berakhir. Silakan login kembali.';
 
-                // PENTING: Jangan lakukan window.location.href = '/login' di sini.
-                // Biarkan Zustand AuthStore yang mendengarkan flag isAuthError ini 
-                // dan melakukan logout/redirect secara elegan.
+                if (typeof window !== 'undefined') {
+                    // Panggil fungsi logout Zustand. 
+                    // Menggunakan setTimeout(..., 0) untuk menghindari masalah "Cannot update a component while rendering a different component" di React.
+                    setTimeout(() => {
+                        useAuthStore.getState().logout();
+                    }, 0);
+                }
             }
 
-            // Map Error 403 (Forbidden / Akses Ditolak)
             if (status === 403) {
-                customError.message = data.message || 'Anda tidak memiliki akses untuk tindakan ini.';
+                customError.message = data.message || 'Anda tidak memiliki otorisasi untuk tindakan ini.';
             }
         } else if (error.request) {
-            // Kasus di mana request terkirim tapi server mati / tidak merespon
             customError.status = 0;
             customError.message = 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
         }
 
-        // Kembalikan customError agar di komponen UI cukup menggunakan: catch (err: ApiError)
         return Promise.reject(customError);
     }
 );

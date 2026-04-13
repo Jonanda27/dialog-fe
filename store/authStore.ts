@@ -1,3 +1,5 @@
+// File: dialog-fe/store/authStore.ts
+
 import { create } from 'zustand';
 import { User, LoginPayload, RegisterPayload } from '../types/auth';
 import { AuthService } from '../services/api/auth.service';
@@ -10,7 +12,6 @@ interface AuthState {
     error: string | null;
     isInitialized: boolean;
 
-    // Return Promise<User> agar component bisa langsung menangkap datanya untuk routing dinamis
     login: (payload: LoginPayload) => Promise<User>;
     register: (payload: RegisterPayload) => Promise<void>;
     logout: () => void;
@@ -23,26 +24,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     isAuthenticated: false,
     isLoading: false,
     error: null,
-    isInitialized: false,
+    isInitialized: false, // Menandakan apakah proses pengecekan token awal sudah selesai
 
     login: async (payload: LoginPayload) => {
         set({ isLoading: true, error: null });
         try {
             const response = await AuthService.login(payload);
 
-            // Pengamanan Lapis 1: Pastikan struktur data valid sebelum diproses
-            if (!response || !response.data) {
-                throw new Error("Respons dari server tidak valid atau kosong.");
-            }
+            if (!response || !response.data) throw new Error("Respons dari server tidak valid atau kosong.");
 
             const { user, token } = response.data;
+            if (!token) throw new Error("Sistem gagal mengamankan token otorisasi.");
 
-            // Pengamanan Lapis 2: Cegah penulisan token 'undefined'
-            if (!token) {
-                throw new Error("Sistem gagal mengamankan token otorisasi.");
-            }
-
-            // MIGRASI: Simpan token ke dalam localStorage (Aman dari middleware server)
             if (typeof window !== 'undefined') {
                 localStorage.setItem('token', token);
             }
@@ -51,13 +44,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 user,
                 isAuthenticated: true,
                 isLoading: false,
+                isInitialized: true, // Pastikan saat login, sistem dianggap sudah inisialisasi
             });
 
             return user;
         } catch (error: any) {
             const apiErr = error as ApiError;
             set({
-                error: apiErr.message || 'Kredensial tidak valid atau terjadi kegagalan sistem.',
+                error: apiErr.message || 'Kredensial tidak valid.',
                 isLoading: false
             });
             throw apiErr;
@@ -69,7 +63,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
             await AuthService.register(payload);
             set({ isLoading: false });
-            // Setelah register sukses, user tetap harus login manual untuk mendapatkan token
         } catch (error: any) {
             const apiErr = error as ApiError;
             set({
@@ -81,7 +74,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     },
 
     logout: () => {
-        // 1. MIGRASI: Hapus token dari localStorage
+        // 1. Hapus kredensial dari penyimpanan lokal
         if (typeof window !== 'undefined') {
             localStorage.removeItem('token');
         }
@@ -91,16 +84,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             user: null,
             isAuthenticated: false,
             error: null,
+            // isInitialized dibiarkan TRUE agar AuthGuard tidak mencoba fetchMe() lagi dan langsung melempar ke /login
+            isInitialized: true,
         });
 
-        // 3. Hard Cleanup: Paksa peramban untuk memuat ulang ke halaman login
-        if (typeof window !== 'undefined') {
-            window.location.href = '/auth/login';
-        }
+        // Catatan Arsitektur: 
+        // Penghapusan window.location.href dilakukan karena komponen <AuthGuard> 
+        // akan otomatis mendeteksi isAuthenticated === false dan melakukan router.replace('/auth/login')
     },
 
     fetchMe: async () => {
-        // MIGRASI: Lakukan pengecekan token dari localStorage dengan aman
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
         if (!token) {
@@ -119,20 +112,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 isInitialized: true,
             });
         } catch (error: any) {
-            const apiErr = error as ApiError;
-
-            // Evaluasi presisi: Hanya hapus token jika backend memberikan vonis 401 Unauthorized
-            if (apiErr.isAuthError) {
-                if (typeof window !== 'undefined') {
-                    localStorage.removeItem('token');
-                }
-                set({ user: null, isAuthenticated: false });
-            }
-
+            // Jika error 401, axiosClient akan otomatis memanggil fungsi logout() 
+            // sehingga state akan dibersihkan di sana. Kita cukup pastikan loading selesai.
             set({
                 isLoading: false,
                 isInitialized: true,
-                error: apiErr.message
+                error: error.message
             });
         }
     },
