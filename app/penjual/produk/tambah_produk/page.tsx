@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/layout/sidebar";
-import { Save, Loader2, AlertCircle } from "lucide-react";
+import { Save, Loader2, AlertCircle, ChevronDown, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "react-hot-toast";
 
 // Import Presentational Components
 import AlbumInfoSection from "@/components/product/form/AlbumInfoSection";
@@ -11,27 +12,30 @@ import IdentificationSection from "@/components/product/form/IdentificationSecti
 import PricingSection from "@/components/product/form/PricingSection";
 import PhotoUploadSection from "@/components/product/form/PhotoUploadSection";
 
-// Import Zustand Store & Types (KABEL UTAMA)
+// Import Services & Stores
 import { useProductStore } from "@/store/productStore";
-import { ProductFormat, ProductGrading } from "@/types/product";
+import { CategoryService } from "@/services/api/category.service";
 
 export default function TambahProduk() {
   const router = useRouter();
+  const { createProduct, isSubmitting, error: apiError, clearError } = useProductStore();
 
-  // 1. Ekstraksi fungsi dan state dari Zustand Store
-  const { createProduct, isLoading, error: apiError, clearError } = useProductStore();
+  const [categories, setCategories] = useState<any[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
 
+  // State Form Utama
   const [formData, setFormData] = useState({
     name: "",
     artist: "",
     release_year: "",
-    format: "" as ProductFormat | "",
     label: "",
     catalog_number: "",
-    grading: "" as ProductGrading | "",
+    grading: "", 
     price: "",
     stock: "1",
     condition_notes: "",
+    sub_category_id: "", 
   });
 
   const [photos, setPhotos] = useState<{ [key: string]: File | null }>({
@@ -44,21 +48,40 @@ export default function TambahProduk() {
 
   const [previews, setPreviews] = useState<{ [key: string]: string }>({});
 
+  useEffect(() => {
+    return () => clearError();
+  }, [clearError]);
+
+  const handleFetchCategories = async () => {
+    if (hasFetched || isLoadingCategories) return;
+    setIsLoadingCategories(true);
+    try {
+      const res: any = await CategoryService.getAllCategories();
+      const finalData = Array.isArray(res) ? res : (res.data || []);
+      setCategories(finalData);
+      setHasFetched(true);
+    } catch (err) {
+      toast.error("Gagal mengambil kategori");
+    } finally {
+      setIsLoadingCategories(false);
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    clearError(); // Bersihkan error API jika user mulai mengetik ulang untuk memperbaiki data
+    if (apiError) clearError();
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleGradeSelect = (grade: string) => {
-    setFormData((prev) => ({ ...prev, grading: grade as ProductGrading }));
+    setFormData((prev) => ({ ...prev, grading: grade }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setPhotos((prev) => ({ ...prev, [key]: file }));
-
+      
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviews((prev) => ({ ...prev, [key]: reader.result as string }));
@@ -67,19 +90,50 @@ export default function TambahProduk() {
     }
   };
 
-  // 2. Proses Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    
+    // 1. Validasi Foto Wajib (Minimal 3 foto sesuai aturan bisnis)
     if (!photos.front || !photos.back || !photos.physical) {
-      alert("Harap unggah minimal 3 foto wajib (Depan, Belakang, Fisik)!");
+      toast.error("Foto Depan, Belakang, dan Fisik wajib diunggah!");
+      return;
+    }
+
+    // 2. Validasi Kategori
+    if (!formData.sub_category_id) {
+      toast.error("Silakan pilih kategori media!");
       return;
     }
 
     try {
-      // 3. Delegasikan ke Zustand (Hanya mengirim Object mentah sesuai Aturan Mutlak)
+      // 3. Normalisasi Angka dan Tipe Data (SOLUSI UNTUK NaN & Undefined) [cite: 781, 782]
+      // Pastikan harga dan stok adalah angka murni
+      const rawPrice = formData.price.toString().replace(/[^0-9]/g, "");
+      const priceNum = parseFloat(rawPrice) || 0;
+      const stockNum = parseInt(formData.stock.toString(), 10) || 0;
+
+      if (priceNum <= 0) {
+        toast.error("Harga harus lebih dari 0");
+        return;
+      }
+
+      // 4. Susun Payload dengan Metadata sebagai Objek JS [cite: 1801, 2798]
+      // Note: Di level ProductService, metadata ini akan di-JSON.stringify
+      // agar melewati preprocess validation di Backend [cite: 784, 2538]
       await createProduct({
-        ...formData,
+        name: formData.name.trim(),
+        price: priceNum,
+        stock: stockNum,
+        sub_category_id: formData.sub_category_id,
+        metadata: {
+          artist: formData.artist || "Unknown Artist",
+          release_year: formData.release_year ? parseInt(formData.release_year, 10) : null,
+          record_label: formData.label || "-",
+          matrix_number: formData.catalog_number || "-",
+          media_grading: formData.grading || "Ungraded",
+          description: formData.condition_notes || "-",
+          status: 'active'
+        },
         photos: {
           front: photos.front,
           back: photos.back,
@@ -89,15 +143,15 @@ export default function TambahProduk() {
         }
       });
 
-      alert("Produk berhasil ditambahkan ke katalog!");
-      router.push("/penjual/kelola_produk");
-
-    } catch (err: unknown) {
-      // PERBAIKAN: Menggunakan unknown dan mengecek instance Error
-      if (err instanceof Error) {
-        console.error("Gagal menyimpan produk:", err.message);
+      toast.success("Koleksi berhasil diterbitkan!");
+      router.push("/penjual/produk/kelola_produk");
+    } catch (err: any) {
+      console.error("Submission failed:", err);
+      // Parsing pesan error Zod yang dikirim dari Backend via interceptor [cite: 116, 2468]
+      if (err.errors && err.errors.length > 0) {
+        toast.error(`Gagal: ${err.errors[0].message}`);
       } else {
-        console.error("Gagal menyimpan produk:", err);
+        toast.error(err.message || "Terjadi kesalahan sistem saat menyimpan.");
       }
     }
   };
@@ -105,47 +159,92 @@ export default function TambahProduk() {
   return (
     <Sidebar>
       <div className="max-w-5xl mx-auto pb-20">
-        <div className="mb-10">
+        <header className="mb-10">
           <h2 className="text-2xl font-black uppercase tracking-tight text-white">Tambah Koleksi Baru</h2>
           <p className="text-sm text-zinc-500 font-medium mt-1">
-            Lengkapi detail produk dengan akurat untuk memudahkan kurasi <span className="text-[#ef3333]">Analog.id</span>
+            Produk akan tampil di etalase <span className="text-[#ef3333]">Analog.id</span> setelah disimpan.
           </p>
-        </div>
+        </header>
 
-        {/* Global Error Alert dari Zustand (Jika Backend menolak data) */}
         {apiError && (
-          <div className="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center gap-3 animate-fade-in">
-            <AlertCircle className="text-red-500" size={20} />
-            <p className="text-sm text-red-500 font-medium">{apiError}</p>
+          <div className="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+            <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={20} />
+            <div className="text-sm text-red-500 font-medium">
+              <p className="font-bold uppercase text-[10px] tracking-widest mb-1">Gagal Menyimpan:</p>
+              {apiError}
+            </div>
           </div>
         )}
 
-        {/* Tambahkan encType="multipart/form-data" sebagai best practice HTML Form */}
-        <form onSubmit={handleSubmit} className="space-y-8" encType="multipart/form-data">
+        <form onSubmit={handleSubmit} className="space-y-10">
+          {/* SEKSI KATEGORI */}
+          <section className="bg-[#111114] border border-zinc-900 rounded-[2.5rem] p-8 lg:p-10 shadow-xl">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-1.5 h-6 bg-[#ef3333] rounded-full" />
+              <h3 className="text-lg font-black text-white uppercase tracking-tight">Pilih Jenis Media</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="relative group">
+                <select
+                  name="sub_category_id"
+                  required
+                  value={formData.sub_category_id}
+                  onFocus={handleFetchCategories}
+                  onChange={handleInputChange}
+                  className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-2xl px-6 py-5 text-sm font-bold text-white focus:border-[#ef3333] outline-none appearance-none cursor-pointer transition-all"
+                >
+                  <option value="" className="text-zinc-500">
+                    {isLoadingCategories ? "Memuat Kategori..." : "-- Pilih Kategori --"}
+                  </option>
+                  
+                  {categories.map((cat: any) => (
+                    <optgroup 
+                      key={cat.id} 
+                      label={`${cat.icon || "📦"} ${cat.name.toUpperCase()}`} 
+                      className="bg-[#111114] text-[#ef3333] font-black"
+                    >
+                      {cat.subCategories?.map((sub: any) => (
+                        <option key={sub.id} value={sub.id} className="text-white bg-[#0a0a0b] py-2">
+                          {sub.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none" size={18} />
+              </div>
 
+              {formData.sub_category_id && (
+                <div className="flex items-center gap-4 bg-green-500/5 border border-green-500/20 p-4 rounded-2xl animate-in zoom-in-95">
+                  <Check className="text-green-500" size={20} />
+                  <span className="text-[10px] text-green-500 font-black uppercase tracking-widest">Kategori Terverifikasi</span>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Form Sections */}
           <AlbumInfoSection formData={formData} onChange={handleInputChange} />
-
           <IdentificationSection formData={formData} onChange={handleInputChange} onGradeSelect={handleGradeSelect} />
-
           <PricingSection formData={formData} onChange={handleInputChange} />
-
           <PhotoUploadSection previews={previews} onFileChange={handleFileChange} />
 
-          <div className="flex items-center justify-end gap-4 pt-6">
-            <button
+          <div className="flex justify-end gap-6 pt-10 border-t border-zinc-900">
+            <button 
               type="button"
               onClick={() => router.back()}
-              className="px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-white transition-all"
+              className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-white transition-all"
             >
               Batalkan
             </button>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="flex items-center gap-3 bg-[#ef3333] hover:bg-red-700 text-white font-black px-10 py-4 rounded-2xl text-[10px] uppercase tracking-[0.2em] transition-all active:scale-95 shadow-xl shadow-red-900/40 disabled:opacity-50"
+            <button 
+              type="submit" 
+              disabled={isSubmitting} 
+              className="bg-[#ef3333] text-white font-black px-12 py-5 rounded-2xl text-[10px] uppercase tracking-[0.2em] shadow-2xl shadow-red-900/30 disabled:opacity-50 transition-all active:scale-95 flex items-center gap-3"
             >
-              {isLoading ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-              {isLoading ? "Memproses..." : "Publikasikan Produk"}
+              {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+              {isSubmitting ? "Menyimpan..." : "Publikasikan Koleksi"}
             </button>
           </div>
         </form>

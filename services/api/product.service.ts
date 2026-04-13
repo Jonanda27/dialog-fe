@@ -26,7 +26,7 @@ export const ProductService = {
     create: async (payload: CreateProductPayload): Promise<ApiResponse<Product>> => {
         const formData = new FormData();
 
-        // 1. Append Data Utama (Tabel Products)
+        // 1. Core Data (stringified for multipart) [cite: 1747, 1748]
         formData.append('name', payload.name);
         formData.append('price', String(payload.price));
         formData.append('stock', String(payload.stock));
@@ -37,7 +37,7 @@ export const ProductService = {
             formData.append('metadata', JSON.stringify(payload.metadata));
         }
 
-        // 3. Append Data File
+        // 3. Specific File Keys [cite: 1750, 1751]
         const { photos } = payload;
         const fileKeys: (keyof typeof photos)[] = ['front', 'back', 'physical', 'extra1', 'extra2'];
 
@@ -50,6 +50,7 @@ export const ProductService = {
         // 4. Eksekusi Request
         return await axiosClient.post<any, ApiResponse<Product>>('/products', formData);
     },
+
 
     /**
      * Memperbarui produk yang sudah ada (Parsial)
