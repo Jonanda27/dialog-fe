@@ -18,7 +18,7 @@ import Link from "next/link";
 
 // Komponen StatCard Reusable
 const StatCard = ({ title, value, trend, isPositive, icon: Icon, colorClass }: any) => (
-  <div className="bg-[#111114] p-6 rounded-[2rem] border border-zinc-800 hover:border-zinc-700 transition-colors shadow-sm relative overflow-hidden group">
+  <div className="bg-[#111114] p-6 rounded-4xl border border-zinc-800 hover:border-zinc-700 transition-colors shadow-sm relative overflow-hidden group">
     <div className="flex justify-between items-start mb-4 relative z-10">
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${colorClass}`}>
         <Icon size={18} />
@@ -128,7 +128,7 @@ export default function AdminDashboardPage() {
               
               {/* Dummy Chart Area */}
               <div className="h-64 w-full border border-zinc-800 border-dashed rounded-3xl flex items-center justify-center bg-[#0a0a0b] relative overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-t from-[#ef3333]/10 to-transparent opacity-50"></div>
+                <div className="absolute inset-0 bg-linear-to-t from-[#ef3333]/10 to-transparent opacity-50"></div>
                 <Activity size={48} className="text-zinc-800 group-hover:text-[#ef3333] transition-colors duration-500" />
                 <span className="absolute bottom-4 text-[10px] font-black text-zinc-700 uppercase tracking-widest">Chart Area (Integrasi Recharts/Chart.js)</span>
               </div>
@@ -142,7 +142,7 @@ export default function AdminDashboardPage() {
                 { label: "Dispute Center", icon: ShieldAlert, color: "text-amber-500" },
                 { label: "Pengaturan", icon: AlertTriangle, color: "text-zinc-400" },
               ].map((action, idx) => (
-                <button key={idx} className="bg-[#111114] border border-zinc-900 hover:border-zinc-700 p-6 rounded-[2rem] flex flex-col items-center justify-center gap-3 transition-all group">
+                <button key={idx} className="bg-[#111114] border border-zinc-900 hover:border-zinc-700 p-6 rounded-4xl flex flex-col items-center justify-center gap-3 transition-all group">
                   <action.icon size={24} className={`${action.color} group-hover:scale-110 transition-transform`} />
                   <span className="text-[10px] font-black text-zinc-400 group-hover:text-white uppercase tracking-widest text-center leading-tight">{action.label}</span>
                 </button>

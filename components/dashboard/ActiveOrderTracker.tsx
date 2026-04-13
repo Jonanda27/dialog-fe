@@ -1,44 +1,51 @@
-import Image from 'next/image';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Check } from 'lucide-react';
+
+// Mendefinisikan tipe lokal jika belum ter-export sempurna dari types/order
+type TrackerStatus = 'paid' | 'processing' | 'shipped' | 'delivered' | 'completed';
+
+const STEPS = [
+    { label: 'Paid', status: ['paid', 'processing', 'shipped', 'delivered', 'completed'] },
+    { label: 'Process', status: ['processing', 'shipped', 'delivered', 'completed'] },
+    { label: 'Shipped', status: ['shipped', 'delivered', 'completed'] },
+    { label: 'Complete', status: ['completed'] },
+];
 
 export default function ActiveOrderTracker() {
+    // State lokal untuk simulasi/integrasi API. Default 'processing'
+    const [currentStatus, setCurrentStatus] = useState<TrackerStatus>('processing');
+
+    // Nanti Anda bisa gunakan useEffect ini untuk fetch status pesanan terbaru dari API
+    // useEffect(() => { OrderService.getLatestActiveOrder().then(res => setCurrentStatus(res.status)) }, []);
+
     return (
-        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6">
-            <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-bold text-white">Lacak Pesanan</h3>
-                <button className="text-sm text-red-500 hover:text-red-400 font-medium">Lihat Semua</button>
-            </div>
+        <div className="w-full h-full py-8 px-4 border border-zinc-800 bg-zinc-950 rounded-2xl flex flex-col justify-center relative overflow-hidden">
+            <h3 className="text-lg font-bold text-white mb-8 px-4">Status Pesanan Terakhir</h3>
 
-            {/* Item Pesanan */}
-            <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-900/30">
-                <div className="flex items-start gap-4 mb-5">
-                    <div className="relative w-16 h-16 rounded-md overflow-hidden border border-zinc-800 bg-zinc-900 shrink-0">
-                        <Image src="/vynil.png" alt="Product" fill className="object-cover" />
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <p className="text-xs text-zinc-500 mb-1">Toko: <span className="text-zinc-300 font-medium">Vintage JKT Records</span></p>
-                                <h4 className="text-white font-semibold line-clamp-1">The Dark Side of the Moon - Pink Floyd</h4>
+            <div className="flex justify-between items-center relative w-full px-4">
+                {STEPS.map((step, idx) => {
+                    const isActive = step.status.includes(currentStatus);
+
+                    return (
+                        <div key={idx} className="flex flex-col items-center z-10 flex-1">
+                            <div className={`w-10 h-10 flex items-center justify-center rounded-full border-2 mb-3 transition-all duration-500 shadow-xl ${isActive
+                                ? 'bg-[#ef3333] border-[#ef3333] text-white shadow-[#ef3333]/20'
+                                : 'bg-[#111114] border-zinc-800 text-zinc-600'
+                                }`}>
+                                {isActive ? <Check size={18} strokeWidth={3} /> : <span className="text-[12px] font-black">{idx + 1}</span>}
                             </div>
-                            <p className="text-sm font-bold text-white">Rp 850.000</p>
+                            <span className={`text-[10px] uppercase font-black tracking-widest ${isActive ? 'text-zinc-100' : 'text-zinc-600'
+                                }`}>
+                                {step.label}
+                            </span>
                         </div>
-                    </div>
-                </div>
+                    );
+                })}
 
-                {/* Progress Bar Status */}
-                <div className="relative pt-2">
-                    <div className="flex justify-between text-xs font-semibold mb-2 text-zinc-500">
-                        <span className="text-emerald-500">Dibayar</span>
-                        <span className="text-emerald-500">Dikirim</span>
-                        <span>Sampai</span>
-                    </div>
-                    <div className="w-full bg-zinc-800 rounded-full h-1.5">
-                        <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: '50%' }}></div>
-                    </div>
-                    <p className="text-xs text-zinc-400 mt-3 flex items-center gap-1">
-                        <span className="text-blue-400">ℹ</span> Resi: JNE-9988776655 (Sedang dalam perjalanan ke Jakarta Pusat)
-                    </p>
-                </div>
+                {/* Background Line (Progress Bar Base) */}
+                <div className="absolute top-5 left-[15%] right-[15%] h-0.5 bg-zinc-800 z-0" />
             </div>
         </div>
     );

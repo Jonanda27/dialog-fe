@@ -56,7 +56,7 @@ export default function AnalogLandingPage() {
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 font-sans selection:bg-[#ef3333]">
 
       {/* 1. NAVBAR */}
-      <nav className={`fixed top-0 w-full z-[100] transition-all duration-300 px-6 ${scrolled ? "bg-[#111114] shadow-xl py-2 border-b border-zinc-800" : "bg-[#0a0a0b] py-4"}`}>
+      <nav className={`fixed top-0 w-full z-100 transition-all duration-300 px-6 ${scrolled ? "bg-[#111114] shadow-xl py-2 border-b border-zinc-800" : "bg-[#0a0a0b] py-4"}`}>
         <div className="w-full flex items-center justify-between">
           <Link href="/" className="text-2xl font-black text-[#ef3333] tracking-tighter cursor-pointer uppercase shrink-0">
             Analog<span className="text-white">.id</span>
@@ -74,7 +74,7 @@ export default function AnalogLandingPage() {
               <button className="text-zinc-400 hover:text-[#ef3333] transition-colors mt-1 outline-none">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" /></svg>
               </button>
-              <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover/cart:opacity-100 group-hover/cart:visible transition-all z-[110]">
+              <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover/cart:opacity-100 group-hover/cart:visible transition-all z-110">
                 <div className="bg-[#1a1a1e] border border-zinc-800 w-64 p-6 rounded-xl shadow-2xl text-center">
                   <div className="text-4xl mb-3 opacity-20">🛒</div>
                   <p className="text-sm font-bold text-zinc-300 mb-4">Wah, keranjangmu kosong!</p>
@@ -83,7 +83,7 @@ export default function AnalogLandingPage() {
               </div>
             </div>
 
-            <div className="h-6 w-[1px] bg-zinc-800"></div>
+            <div className="h-6 w-px bg-zinc-800"></div>
             <Link href="/auth/login" className="text-sm font-bold hover:text-[#ef3333] transition-colors">Masuk</Link>
             <Link href="/auth/register" className="bg-[#ef3333] text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-900/20">Daftar</Link>
           </div>
@@ -91,11 +91,11 @@ export default function AnalogLandingPage() {
       </nav>
 
       {/* 2. MAIN CONTENT */}
-      <main className="pt-28 pb-20 max-w-[1200px] mx-auto px-4">
+      <main className="pt-28 pb-20 max-w-300 mx-auto px-4">
 
         {/* HERO */}
-        <section className="w-full h-[300px] bg-[#1a1a1a] rounded-xl overflow-hidden mb-12 border border-zinc-800 relative group cursor-pointer shadow-2xl">
-          <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent z-10 flex flex-col justify-center px-12 text-left">
+        <section className="w-full h-75 bg-[#1a1a1a] rounded-xl overflow-hidden mb-12 border border-zinc-800 relative group cursor-pointer shadow-2xl">
+          <div className="absolute inset-0 bg-linear-to-r from-black/80 to-transparent z-10 flex flex-col justify-center px-12 text-left">
             <h2 className="text-[#ef3333] font-black text-sm uppercase tracking-widest mb-2">Exclusively Drops</h2>
             <h1 className="text-white text-5xl font-black uppercase leading-none">VINTAGE <br /> COLLECTION 2026</h1>
             <p className="text-zinc-400 mt-4 max-w-sm">Dapatkan diskon kolektor hingga 30% untuk kaset pita klasik pilihan.</p>
@@ -125,7 +125,7 @@ export default function AnalogLandingPage() {
         <section>
           <div className="flex items-center gap-3 mb-6 text-left">
             <h2 className="text-xl font-black uppercase tracking-tighter shrink-0 text-white">Terpopuler Untukmu</h2>
-            <div className="h-[1px] flex-1 bg-zinc-900"></div>
+            <div className="h-px flex-1 bg-zinc-900"></div>
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-8 no-scrollbar">
@@ -154,7 +154,7 @@ export default function AnalogLandingPage() {
 
       {/* MODAL DETAIL (SESUAI GAMBAR REFERENSI) */}
       {selectedProduct && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-1000 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={() => setSelectedProduct(null)}></div>
           <div className="relative w-full max-w-6xl bg-[#0e1017] rounded-xl border border-zinc-800 overflow-hidden shadow-2xl flex flex-col animate-modal-in">
             <div className="bg-[#161922] px-4 py-3 border-b border-zinc-800 flex justify-between items-center shrink-0 text-left">
@@ -163,7 +163,7 @@ export default function AnalogLandingPage() {
             </div>
             <div className="flex flex-col lg:flex-row overflow-hidden">
               <div className="lg:w-[35%] bg-[#1c1f26] p-10 flex flex-col items-center justify-center relative border-r border-zinc-800">
-                <div className="w-64 h-64 rounded-full border-[15px] border-zinc-800/50 flex items-center justify-center shadow-2xl bg-zinc-900/30"><div className="w-10 h-10 rounded-full border-4 border-zinc-800"></div></div>
+                <div className="w-64 h-64 rounded-full border-15 border-zinc-800/50 flex items-center justify-center shadow-2xl bg-zinc-900/30"><div className="w-10 h-10 rounded-full border-4 border-zinc-800"></div></div>
                 <div className="absolute bottom-4 right-4 bg-black/40 px-2 py-1 rounded text-[10px] font-bold text-zinc-400 flex items-center gap-1 border border-zinc-800">📸 4 foto</div>
               </div>
               <div className="lg:w-[65%] p-8 lg:p-10 text-left overflow-y-auto max-h-[70vh] custom-scrollbar">

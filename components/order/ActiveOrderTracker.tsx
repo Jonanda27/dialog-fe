@@ -35,7 +35,7 @@ export default function ActiveOrderTracker({ status }: TrackerProps) {
             })}
 
             {/* Background Line */}
-            <div className="absolute top-[48px] left-[12%] right-[12%] h-[2px] bg-gray-200 -z-0" />
+            <div className="absolute top-12 left-[12%] right-[12%] h-0.5 bg-gray-200 z-0" />
         </div>
     );
 }

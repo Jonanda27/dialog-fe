@@ -12,7 +12,7 @@ import { Order } from "@/types/order";
 
 // Komponen StatCard (Dumb Component)
 const StatCard = ({ title, value, trend, isPositive, isLoading }: { title: string, value: string, trend: string, isPositive: boolean, isLoading?: boolean }) => (
-  <div className="bg-[#111114] p-6 rounded-[2rem] border border-zinc-800 hover:border-zinc-700 transition-colors shadow-sm relative overflow-hidden group">
+  <div className="bg-[#111114] p-6 rounded-4xl border border-zinc-800 hover:border-zinc-700 transition-colors shadow-sm relative overflow-hidden group">
     <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 relative z-10">{title}</h3>
     <div className="flex items-end justify-between relative z-10">
       {isLoading ? (
@@ -109,7 +109,7 @@ export default function SellerDashboard() {
         />
 
         {/* Overlay Linear */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-black/80" />
+        <div className="absolute inset-0 bg-linear-to-r from-black via-black/40 to-black/80" />
 
         {/* Konten Banner (Flex Row) */}
         <div className="relative z-10 h-full flex items-center justify-between px-8 lg:px-12">
@@ -176,7 +176,7 @@ export default function SellerDashboard() {
       {/* Tabel & Top Produk */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Tabel Pesanan */}
-        <div className="lg:col-span-2 bg-[#111114] border border-zinc-800 rounded-[2rem] p-6">
+        <div className="lg:col-span-2 bg-[#111114] border border-zinc-800 rounded-4xl p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-sm font-black uppercase tracking-wider text-white">Pesanan Terbaru</h3>
             <Link href="/penjual/transaksi" className="text-[10px] font-bold text-[#ef3333] hover:underline uppercase tracking-widest">
@@ -220,7 +220,7 @@ export default function SellerDashboard() {
                           #{order.id.split('-')[0]}
                         </td>
                         <td className="py-4 px-4">
-                          <p className="text-xs font-bold text-white truncate max-w-[150px] sm:max-w-[200px]">
+                          <p className="text-xs font-bold text-white truncate max-w-37.5 sm:max-w-50">
                             {mainItem?.product?.name || 'Produk Tidak Diketahui'}
                             {extraItemsCount > 0 && <span className="text-zinc-500 font-medium ml-1">(+{extraItemsCount} lainnya)</span>}
                           </p>
@@ -251,7 +251,7 @@ export default function SellerDashboard() {
         </div>
 
         {/* Top Produk (Dummy Fallback Sementara API Analytics Belum Tersedia) */}
-        <div className="bg-[#111114] border border-zinc-800 rounded-[2rem] p-6">
+        <div className="bg-[#111114] border border-zinc-800 rounded-4xl p-6">
           <h3 className="text-sm font-black uppercase tracking-wider text-white mb-6">Vinyl Terlaris</h3>
           <div className="space-y-4">
             {[
