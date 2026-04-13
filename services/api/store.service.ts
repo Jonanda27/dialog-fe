@@ -11,6 +11,16 @@ import {
 } from '../../types/store';
 
 export const StoreService = {
+
+    /**
+     * [PUBLIC] Mengambil semua daftar toko yang tersedia.
+     * Digunakan untuk halaman eksplorasi toko oleh pembeli.
+     * @param params Filter opsional seperti status atau search pencarian
+     */
+    getAllStores: async (params?: { status?: string; search?: string }): Promise<ApiResponse<Store[]>> => {
+        return await axiosClient.get<any, ApiResponse<Store[]>>('/stores', { params });
+    },
+
     /**
      * Mengambil data profil toko milik pengguna yang sedang login.
      */
@@ -52,6 +62,15 @@ export const StoreService = {
     getWallet: async (): Promise<ApiResponse<StoreWalletResponse>> => {
         return await axiosClient.get<any, ApiResponse<StoreWalletResponse>>('/stores/wallet');
     },
+
+    /**
+ * Mengambil detail satu toko berdasarkan ID secara publik
+ * @param id ID Toko (UUID)
+ */
+getStoreById: async (id: string): Promise<ApiResponse<Store>> => {
+    // Sesuaikan path endpoint dengan backend Anda, biasanya /stores/:id
+    return await axiosClient.get<any, ApiResponse<Store>>(`/stores/${id}`);
+},
 
     /**
      * Memperbarui profil toko.

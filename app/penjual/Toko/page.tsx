@@ -153,7 +153,6 @@ export default function RegisterStorePage() {
   }
 
   return (
-    <Sidebar>
       <div className="max-w-4xl mx-auto py-10 px-6">
         
         {/* PROGRESS STEPPER VISUAL */}
@@ -319,6 +318,5 @@ export default function RegisterStorePage() {
         )}
 
       </div>
-    </Sidebar>
   );
 }

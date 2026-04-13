@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import Sidebar from "@/components/layout/sidebar";
 import { StoreService } from "@/services/api/store.service";
 import { ProductService } from "@/services/api/product.service";
 import { CategoryService } from "@/services/api/category.service";
@@ -193,17 +192,9 @@ export default function PengaturanToko() {
     }
   };
 
-  if (isLoading) return (
-    <Sidebar>
-      <div className="flex h-screen items-center justify-center text-white">
-        <Loader2 className="animate-spin text-[#ef3333] mr-3" />
-        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Sinkronisasi Data Toko...</span>
-      </div>
-    </Sidebar>
-  );
+ 
 
   return (
-    <Sidebar>
       <div className="max-w-[1400px] mx-auto pb-20 px-4">
         <input type="file" name="banner_file" ref={bannerInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
         <input type="file" name="logo_file" ref={logoInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
@@ -591,6 +582,5 @@ export default function PengaturanToko() {
           }
         `}</style>
       </div>
-    </Sidebar>
   );
 }

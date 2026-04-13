@@ -24,65 +24,63 @@ export const ProductService = {
      * Menggunakan arsitektur JSONB Metadata.
      */
     create: async (payload: CreateProductPayload): Promise<ApiResponse<Product>> => {
-        const formData = new FormData();
+    const formData = new FormData();
 
-        // 1. Core Data
-        formData.append('name', payload.name);
-        formData.append('price', String(payload.price));
-        formData.append('stock', String(payload.stock));
-        formData.append('sub_category_id', payload.sub_category_id);
+    formData.append('name', payload.name);
+    formData.append('price', String(payload.price));
+    formData.append('stock', String(payload.stock));
+    formData.append('sub_category_id', payload.sub_category_id);
 
-        // 2. Append Metadata Dinamis (Diubah jadi string untuk dikirim via form-data)
-        if (payload.metadata) {
-            formData.append('metadata', JSON.stringify(payload.metadata));
-        }
+    if (payload.metadata) {
+        formData.append('metadata', JSON.stringify(payload.metadata));
+    }
 
-        // 3. Specific File Keys -> PERBAIKAN DI SINI
-        // Semua foto HARUS di-append menggunakan key "photos" agar dibaca sebagai array oleh backend
-        const { photos } = payload;
-        const fileKeys: (keyof typeof photos)[] = ['front', 'back', 'physical', 'extra1', 'extra2'];
+    // URUTAN PENTING: Front dulu agar jadi is_primary di backend
+    const photos = payload.photos;
+    if (photos.front) formData.append('photos', photos.front);
+    if (photos.back) formData.append('photos', photos.back);
+    if (photos.physical) formData.append('photos', photos.physical);
+    if (photos.extra1) formData.append('photos', photos.extra1);
+    if (photos.extra2) formData.append('photos', photos.extra2);
 
-        fileKeys.forEach((key) => {
-            if (photos[key]) {
-                formData.append('photos', photos[key] as File);
-            }
-        });
-
-        // 4. Eksekusi Request
-        return await axiosClient.post<any, ApiResponse<Product>>('/products', formData);
-    },
-
+    return await axiosClient.post('/products', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+},
 
     /**
      * Memperbarui produk yang sudah ada (Parsial)
      * Menggunakan arsitektur JSONB Metadata.
+     * Note: Menggunakan PUT sesuai dengan route Backend.
      */
-    update: async (id: string, payload: Partial<CreateProductPayload>): Promise<ApiResponse<Product>> => {
-        const formData = new FormData();
+    update: async (id: string, payload: any): Promise<ApiResponse<Product>> => {
+    const formData = new FormData();
 
-        if (payload.name) formData.append('name', payload.name);
-        if (payload.price) formData.append('price', String(payload.price));
-        if (payload.stock) formData.append('stock', String(payload.stock));
-        if (payload.sub_category_id) formData.append('sub_category_id', payload.sub_category_id);
+    // 1. Append data dasar
+    if (payload.name) formData.append('name', payload.name);
+    if (payload.price) formData.append('price', String(payload.price));
+    if (payload.stock) formData.append('stock', String(payload.stock));
+    if (payload.sub_category_id) formData.append('sub_category_id', payload.sub_category_id);
 
-        if (payload.metadata) {
-            formData.append('metadata', JSON.stringify(payload.metadata));
-        }
+    // 2. Append Metadata
+    if (payload.metadata) {
+        formData.append('metadata', JSON.stringify(payload.metadata));
+    }
 
-        // Handle update foto jika ada
-        if (payload.photos) {
-            const { photos } = payload;
-            const fileKeys: (keyof typeof photos)[] = ['front', 'back', 'physical', 'extra1', 'extra2'];
+    // 3. Append Photos (PENTING: Gunakan key 'photos' agar match dengan Multer array)
+    if (payload.photos) {
+        const { front, back, physical } = payload.photos;
+        
+        // Masukkan ke array sesuai urutan prioritas (front = index 0 = is_primary)
+        if (front instanceof File) formData.append('photos', front);
+        if (back instanceof File) formData.append('photos', back);
+        if (physical instanceof File) formData.append('photos', physical);
+    }
 
-            fileKeys.forEach((key) => {
-                if (photos[key]) {
-                    formData.append('photos', photos[key] as File);
-                }
-            });
-        }
-
-        return await axiosClient.patch<any, ApiResponse<Product>>(`/products/${id}`, formData);
-    },
+    return await axiosClient.put<any, ApiResponse<Product>>(`/products/${id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+},
 
     /**
      * Menghapus produk
