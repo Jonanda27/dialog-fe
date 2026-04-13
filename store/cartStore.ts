@@ -15,6 +15,9 @@ interface CartState {
     removeItem: (cartItemId: string) => void;
     updateQuantity: (cartItemId: string, quantity: number) => void;
     clearCart: () => void;
+
+    // ⚡ BARU: Alias fungsional untuk memperjelas alur setelah transaksi sukses
+    clearCartAfterCheckout: () => void;
 }
 
 export const useCartStore = create<CartState>()(
@@ -108,6 +111,9 @@ export const useCartStore = create<CartState>()(
             },
 
             clearCart: () => set({ items: [] }),
+
+            // Menggunakan fungsi clearCart untuk membersihkan keranjang pasca-checkout sukses
+            clearCartAfterCheckout: () => set({ items: [] }),
         }),
         {
             name: 'analog-cart-storage', // Nama Key yang akan muncul di Application > Local Storage Browser

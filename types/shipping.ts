@@ -1,3 +1,5 @@
+// File: dialog-fe/types/shipping.ts
+
 /**
  * Payload yang dikirim Frontend ke Backend saat pembeli memilih alamat di halaman Checkout
  * POST /api/orders/shipping-cost
