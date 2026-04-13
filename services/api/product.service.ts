@@ -29,24 +29,25 @@ export const ProductService = {
     create: async (payload: CreateProductPayload): Promise<ApiResponse<Product>> => {
         const formData = new FormData();
 
-        // 1. Core Data (stringified for multipart) [cite: 1747, 1748]
+        // 1. Core Data
         formData.append('name', payload.name);
         formData.append('price', String(payload.price));
         formData.append('stock', String(payload.stock));
         formData.append('sub_category_id', payload.sub_category_id);
 
-        // 2. Metadata [cite: 1748]
+        // 2. Metadata (wajib JSON.stringify)
         if (payload.metadata) {
             formData.append('metadata', JSON.stringify(payload.metadata));
         }
 
-        // 3. Specific File Keys [cite: 1750, 1751]
+        // 3. Specific File Keys -> PERBAIKAN DI SINI
+        // Semua foto HARUS di-append menggunakan key "photos" agar dibaca sebagai array oleh backend
         const { photos } = payload;
-        if (photos.front) formData.append('front', photos.front);
-        if (photos.back) formData.append('back', photos.back);
-        if (photos.physical) formData.append('physical', photos.physical);
-        if (photos.extra1) formData.append('extra1', photos.extra1);
-        if (photos.extra2) formData.append('extra2', photos.extra2);
+        if (photos.front) formData.append('photos', photos.front);
+        if (photos.back) formData.append('photos', photos.back);
+        if (photos.physical) formData.append('photos', photos.physical);
+        if (photos.extra1) formData.append('photos', photos.extra1);
+        if (photos.extra2) formData.append('photos', photos.extra2);
 
         return await axiosClient.post<any, ApiResponse<Product>>('/products', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
