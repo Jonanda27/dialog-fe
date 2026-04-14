@@ -17,7 +17,7 @@ export default function CourierSelector({ couriers, selectedCourier, onSelectCou
             </h2>
 
             {couriers.length === 0 ? (
-                // Peningkatan UI: Empty State yang lebih jelas secara visual
+                // State Kosong: Memberikan panduan sistem yang jelas kepada pengguna (User Guidance)
                 <div className="bg-gray-50 border border-dashed border-gray-300 p-6 flex items-center justify-center text-center">
                     <p className="text-sm text-gray-500">
                         Silakan isi dan kalkulasi alamat pengiriman terlebih dahulu untuk melihat opsi logistik yang tersedia.
@@ -26,13 +26,14 @@ export default function CourierSelector({ couriers, selectedCourier, onSelectCou
             ) : (
                 <div className="grid grid-cols-1 gap-3">
                     {couriers.map((courier) => {
-                        // ⚡ PERBAIKAN LOGIKA: Validasi ketat menggunakan kombinasi kode dan tipe layanan
+                        // Evaluasi Logika Kuat: 
+                        // Memastikan identitas kurir diverifikasi dari Kode Vendor dan Tipe Layanan.
+                        // Menghindari bug ketika vendor berbeda memiliki nama layanan yang sama (misal: "REG").
                         const isSelected =
                             selectedCourier?.courier_code === courier.courier_code &&
                             selectedCourier?.service_type === courier.service_type;
 
-                        // Identifier unik untuk optimalisasi DOM (menggantikan penggunaan `idx`)
-                        // dan untuk mengaitkan elemen label dengan input radio
+                        // Identifier deterministik untuk optimalisasi Virtual DOM React dan aksesibilitas input label
                         const uniqueId = `courier-${courier.courier_code}-${courier.service_type}`;
 
                         return (
@@ -40,7 +41,7 @@ export default function CourierSelector({ couriers, selectedCourier, onSelectCou
                                 key={uniqueId}
                                 htmlFor={uniqueId}
                                 className={`flex items-center justify-between p-4 border cursor-pointer transition-all ${isSelected
-                                    ? 'border-black bg-gray-50 ring-1 ring-black' // Efek ring agar lebih tegas saat dipilih
+                                    ? 'border-black bg-gray-50 ring-1 ring-black' // Penegasan visual state terpilih
                                     : 'border-gray-200 hover:border-gray-400'
                                     }`}
                             >
@@ -56,7 +57,6 @@ export default function CourierSelector({ couriers, selectedCourier, onSelectCou
                                     <div>
                                         <p className="text-sm font-bold text-gray-900 uppercase flex items-center gap-2">
                                             {courier.courier_name}
-                                            {/* Pemisah visual antara nama kurir dan jenis layanannya */}
                                             <span className="font-normal text-gray-500 text-xs border-l border-gray-300 pl-2">
                                                 {courier.service_type}
                                             </span>
