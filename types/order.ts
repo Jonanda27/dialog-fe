@@ -69,14 +69,14 @@ export interface Order {
  * Payload untuk eksekusi Checkout (POST /api/orders/checkout).
  */
 export interface CheckoutPayload {
-    items: {
-        product_id: string;
-        qty: number;
-    }[];
-    shipping_address: string;
-    courier_code: string;  // cth: 'jne'
-    service_type: string;  // cth: 'REG'
-    shipping_fee: number;  // Hasil kalkulasi final yang dipilih buyer
+    address_id: string;
+    store_id: string;
+    cart_item_ids: string[];
+    shipping_fee: number;
+    // Field MANDATORY baru untuk integrasi resi Biteship di backend
+    courier_code: string;
+    service_type: string;
+    payment_method?: string;
 }
 
 /**
