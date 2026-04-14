@@ -124,7 +124,6 @@ export default function BulkUpload() {
   };
 
   return (
-    <Sidebar>
       <div className="max-w-5xl mx-auto pb-20">
         {/* HEADER */}
         <div className="mb-10">
@@ -308,6 +307,5 @@ export default function BulkUpload() {
           </div>
         </div>
       </div>
-    </Sidebar>
   );
 }
