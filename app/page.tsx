@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 // INTEGRASI SERVICES
 import { StoreService } from "@/services/api/store.service";
 import { ProductService } from "@/services/api/product.service";
+import { CategoryService } from "@/services/api/category.service"; // Pastikan path import ini sesuai
 
 // INTEGRASI TYPES
 import { Product } from "@/types/product";
@@ -32,6 +33,11 @@ export default function AnalogLandingPage() {
     
     const [products, setProducts] = useState<Product[]>([]);
     const [featuredStores, setFeaturedStores] = useState<StoreType[]>([]);
+    
+    // STATE UNTUK SUB-KATEGORI DINAMIS & MAPPING ID
+    const [subCategoriesList, setSubCategoriesList] = useState<string[]>(["Semua"]);
+    const [subCategoryMap, setSubCategoryMap] = useState<Record<string, string>>({});
+    
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -44,13 +50,54 @@ export default function AnalogLandingPage() {
     const fetchInitialData = async () => {
         try {
             setIsLoading(true);
-            const [storeRes, productRes] = await Promise.all([
+            
+            // Fetch Stores, Products, dan Categories secara paralel
+            // Gunakan catch pada CategoryService agar jika gagal tidak memblokir render produk
+            const [storeRes, productRes, categoryRes] = await Promise.all([
                 StoreService.getAllStores({ status: 'approved' }),
-                ProductService.getAll()
+                ProductService.getAll(),
+                CategoryService.getAllCategories().catch(() => null) 
             ]);
 
             if (storeRes.success) setFeaturedStores(storeRes.data.slice(0, 4));
             if (productRes.success) setProducts(productRes.data);
+            
+            // Ekstrak data sub-kategori secara robust sesuai format JSON terbaru
+            if (categoryRes) {
+                // Handle struktur { success, data: [...] } atau array langsung [...]
+                let rawCategories: any[] = [];
+                if (Array.isArray(categoryRes.data)) {
+                    rawCategories = categoryRes.data;
+                } else if (Array.isArray(categoryRes)) {
+                    rawCategories = categoryRes;
+                }
+                
+                const extractedNames = new Set<string>();
+                const mapIdToName: Record<string, string> = {};
+                
+                rawCategories.forEach((cat: any) => {
+                    // Cek properti subCategories (camelCase sesuai response)
+                    const subs = cat.subCategories || cat.sub_categories;
+                    
+                    if (subs && Array.isArray(subs) && subs.length > 0) {
+                        subs.forEach((sub: any) => {
+                            if (sub.name) {
+                                extractedNames.add(sub.name);
+                                // Simpan mapping ID ke Nama untuk proses filtering produk
+                                if (sub.id) mapIdToName[sub.id] = sub.name; 
+                            }
+                        });
+                    } else if (cat.name) {
+                        // Fallback jika tidak ada subCategories
+                        extractedNames.add(cat.name);
+                        if (cat.id) mapIdToName[cat.id] = cat.name;
+                    }
+                });
+                
+                setSubCategoriesList(["Semua", ...Array.from(extractedNames)]);
+                setSubCategoryMap(mapIdToName);
+            }
+
         } catch (error: any) {
             console.error("Gagal memuat data landing page:", error?.message || error);
         } finally {
@@ -58,12 +105,28 @@ export default function AnalogLandingPage() {
         }
     };
 
-    const subCategories = ["Semua", "Vinyl", "Kaset Pita", "CD", "Audio Gear"];
-
     const formatIDR = (num: number | string) => {
         const value = typeof num === 'string' ? parseFloat(num) : num;
         return "Rp" + (value || 0).toLocaleString("id-ID").replace(/,/g, ".");
     };
+
+    // Filter produk berdasarkan sub-kategori yang aktif
+    const displayedProducts = activeFilter === "Semua" 
+        ? products 
+        : products.filter(product => {
+            // Jika backend mem-populate relasi sub_category langsung
+            const nestedSubName = (product as any).sub_category?.name || (product as any).subCategory?.name;
+            if (nestedSubName) return nestedSubName === activeFilter;
+
+            // Jika backend HANYA mereturn sub_category_id (seperti data contoh sebelumnya)
+            // Maka kita cari nama kategorinya menggunakan subCategoryMap yang sudah dibuat
+            if (product.sub_category_id) {
+                const mappedName = subCategoryMap[product.sub_category_id];
+                return mappedName === activeFilter;
+            }
+            
+            return false;
+        });
 
     return (
         <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 font-sans selection:bg-[#ef3333]">
@@ -124,17 +187,24 @@ export default function AnalogLandingPage() {
                         <div className="h-px flex-1 bg-zinc-900"></div>
                     </div>
 
-                    <div className="flex gap-2 overflow-x-auto pb-8 no-scrollbar">
-                        {subCategories.map((cat) => (
-                            <button key={cat} onClick={() => setActiveFilter(cat)} className={`px-5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${activeFilter === cat ? "bg-[#ef3333] border-[#ef3333] text-white shadow-[0_0_15px_rgba(239,51,51,0.3)]" : "bg-[#1a1a1e] border-zinc-800 text-zinc-500 hover:border-zinc-600"}`}>{cat}</button>
+                    {/* SUB-CATEGORY FILTERS DENGAN SCROLLBAR DISEMBUNYIKAN */}
+                    <div className="flex gap-2 overflow-x-auto pb-4 mb-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                        {subCategoriesList.map((cat) => (
+                            <button 
+                                key={cat} 
+                                onClick={() => setActiveFilter(cat)} 
+                                className={`shrink-0 px-5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${activeFilter === cat ? "bg-[#ef3333] border-[#ef3333] text-white shadow-[0_0_15px_rgba(239,51,51,0.3)]" : "bg-[#1a1a1e] border-zinc-800 text-zinc-500 hover:border-zinc-600"}`}
+                            >
+                                {cat}
+                            </button>
                         ))}
                     </div>
 
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
                         {isLoading ? (
                             Array.from({ length: 8 }).map((_, i) => <div key={i} className="aspect-[3/4] bg-zinc-900/50 rounded-2xl animate-pulse"></div>)
-                        ) : (
-                            products.map((product) => (
+                        ) : displayedProducts.length > 0 ? (
+                            displayedProducts.map((product) => (
                                 <Link href={`landingpage/product/${product.id}`} key={product.id} className="bg-[#111114] rounded-2xl border border-zinc-800 overflow-hidden cursor-pointer hover:shadow-2xl hover:border-[#ef3333]/50 transition-all flex flex-col h-full group shadow-lg">
                                     <div className="aspect-square relative overflow-hidden bg-black">
                                         <img 
@@ -155,11 +225,16 @@ export default function AnalogLandingPage() {
                                             <span className="text-yellow-500 text-xs">★</span>
                                             <span className="text-zinc-300">4.9</span>
                                             <span className="mx-1">•</span>
-                                            <span>{product.store?.name || 'Store'}</span>
+                                            <span className="line-clamp-1">{product.store?.name || 'Store'}</span>
                                         </div>
                                     </div>
                                 </Link>
                             ))
+                        ) : (
+                            <div className="col-span-full py-12 flex flex-col items-center justify-center text-zinc-500 bg-[#111114] rounded-2xl border border-zinc-800/50 border-dashed">
+                                <Disc size={48} className="mb-4 opacity-30" />
+                                <p className="font-medium text-sm">Tidak ada produk untuk kategori "{activeFilter}".</p>
+                            </div>
                         )}
                     </div>
                 </section>
