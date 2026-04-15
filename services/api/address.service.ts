@@ -7,7 +7,14 @@ export const shippingService = {
             const response = await axiosClient.get(`/v1/shipping/areas`, {
                 params: { input: query }
             });
-            return response.data.data || [];
+
+            // [PERBAIKAN]: Ekstraksi data secara dinamis
+            // Menutupi kemungkinan axiosClient sudah di-unwrap oleh interceptor atau belum
+            const payloadData = response.data?.data || response.data || response;
+
+            // Pastikan yang direturn murni sebuah Array untuk di-mapping oleh React
+            return Array.isArray(payloadData) ? payloadData : [];
+
         } catch (error: any) {
             if (error.response?.status === 503) {
                 throw new Error('Layanan pencarian wilayah sedang tidak tersedia.');
@@ -20,7 +27,7 @@ export const shippingService = {
 export const addressService = {
     getMyAddresses: async (): Promise<Address[]> => {
         const response = await axiosClient.get('/v1/addresses');
-        return response.data.data;
+        return response.data.data || [];
     },
 
     addAddress: async (data: AddressFormPayload): Promise<Address> => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/store/cartStore';
 import { OrderService } from '@/services/api/order.service';
@@ -31,6 +31,16 @@ export default function CheckoutPage() {
 
     const [selectedCourier, setSelectedCourier] = useState<CourierOption | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // [PERBAIKAN]: useMemo dipindahkan ke atas, SEBELUM semua blok early return
+    const shippingItems: ShippingItemPayload[] = useMemo(() => {
+        return items.map(i => ({
+            name: i.product.name,
+            price: Number(i.product.price),
+            weight: Number((i.product.metadata as any)?.weight || i.product.product_weight || 500),
+            quantity: i.quantity
+        }));
+    }, [items]);
 
     // ⚡ PRE-FLIGHT CHECK: Sinkronisasi data lokal vs server saat halaman dimuat
     useEffect(() => {
@@ -80,6 +90,9 @@ export default function CheckoutPage() {
         }
     }, [items.length, isSyncing, router]);
 
+
+    // 👇 BLOK EARLY RETURN BERADA DI BAWAH SEMUA HOOKS 👇
+
     if (items.length === 0) return null;
 
     // ⚡ SKELETON LOADING UI: Mencegah lonjakan visual saat data sedang disinkronkan
@@ -98,7 +111,7 @@ export default function CheckoutPage() {
         );
     }
 
-    // --- KALKULASI & MAPPING DATA ---
+    // --- KALKULASI & MAPPING DATA LANJUTAN ---
 
     // Karena sistem 1 Transaksi = 1 Toko, kita ambil ID toko dari produk pertama
     const currentStoreId = items[0]?.product?.store_id as string;
@@ -110,13 +123,6 @@ export default function CheckoutPage() {
         return needsGrading ? acc + 25000 : acc;
     }, 0);
 
-    // Mapping item keranjang menjadi payload khusus kalkulasi logistik (Biteship)
-    const shippingItems: ShippingItemPayload[] = items.map(i => ({
-        name: i.product.name,
-        price: Number(i.product.price),
-        weight: Number((i.product.metadata as any)?.weight || i.product.product_weight || 500),
-        quantity: i.quantity
-    }));
 
     // --- HANDLERS ---
 

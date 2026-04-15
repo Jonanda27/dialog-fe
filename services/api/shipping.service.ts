@@ -37,9 +37,13 @@ export const shippingService = {
         try {
             const response = await axiosClient.post('/v1/shipping/rates', payload);
 
-            return response.data.data || [];
+            // [PERBAIKAN]: Ekstraksi data secara dinamis dan kebal terhadap interceptor Axios
+            const payloadData = response.data?.data || response.data || response;
+
+            // Pastikan nilai yang dikembalikan benar-benar sebuah Array
+            return Array.isArray(payloadData) ? payloadData : [];
+
         } catch (error: any) {
-            // Menangkap error spesifik seperti 404 (Alamat tidak ditemukan) atau 400 (Payload cacat)
             throw new Error(error.response?.data?.message || 'Gagal menghitung tarif pengiriman ke rute ini.');
         }
     }
