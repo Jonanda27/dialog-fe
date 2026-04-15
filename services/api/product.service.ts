@@ -101,5 +101,12 @@ export const ProductService = {
      */
     bulkCreate: async (payload: BulkCreateProductPayload[]): Promise<ApiResponse<Product[]>> => {
         return await axiosClient.post<any, ApiResponse<Product[]>>('/products/bulk', payload);
-    }
+    },
+
+    /**
+     * [ADMIN] Mengambil seluruh produk dari semua penjual.
+     */
+    getAllAdmin: async (params?: Record<string, any>): Promise<ApiResponse<Product[]>> => {
+        return await axiosClient.get<any, ApiResponse<Product[]>>('/products/admin/all', { params });
+    },
 };

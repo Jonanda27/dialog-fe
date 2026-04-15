@@ -1,64 +1,54 @@
 import { create } from 'zustand';
-import { Review, CreateReviewPayload, ProductReviewSummary } from '../types/review';
-import { ReviewService } from '../services/api/review.service';
-import { ApiError } from '../types/api';
+import { Review } from '../types/review';
+import { ReviewService } from '.././services/api/review.service';
 
 interface ReviewState {
-    // State
-    productReviews: Review[];
-    reviewSummary: ProductReviewSummary | null;
-    isLoading: boolean;      // Loading untuk GET data
-    isSubmitting: boolean;   // Loading khusus untuk mutasi (POST)
-    error: string | null;
-
-    // Actions
-    fetchProductReviews: (productId: string, params?: Record<string, any>) => Promise<void>;
-    submitReview: (payload: CreateReviewPayload) => Promise<Review>;
-    clearError: () => void;
+  reviews: Review[];
+  isLoading: boolean;
+  error: string | null;
+  
+  // Actions
+  fetchProductReviews: (productId: string) => Promise<void>;
+  fetchStoreReviews: (storeId: string) => Promise<void>;
+  submitReview: (payload: any) => Promise<void>;
 }
 
-export const useReviewStore = create<ReviewState>((set, get) => ({
-    productReviews: [],
-    reviewSummary: null,
-    isLoading: false,
-    isSubmitting: false,
-    error: null,
+export const useReviewStore = create<ReviewState>((set) => ({
+  reviews: [],
+  isLoading: false,
+  error: null,
 
-    fetchProductReviews: async (productId, params) => {
-        set({ isLoading: true, error: null });
-        try {
-            const response = await ReviewService.getProductReviews(productId, params);
-            set({
-                productReviews: response.data.reviews,
-                reviewSummary: response.data.summary,
-                isLoading: false
-            });
-        } catch (error: any) {
-            const err = error as ApiError;
-            set({ error: err.message || 'Gagal memuat daftar ulasan.', isLoading: false });
-        }
-    },
+  fetchProductReviews: async (productId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await ReviewService.getProductReviews(productId);
+      // PERBAIKAN: Ambil array-nya dari response.data
+      set({ reviews: response.data, isLoading: false }); 
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
+    }
+  },
 
-    submitReview: async (payload) => {
-        set({ isSubmitting: true, error: null });
-        try {
-            const response = await ReviewService.submitReview(payload);
-            const newReview = response.data;
+  fetchStoreReviews: async (storeId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await ReviewService.getStoreReviews(storeId);
+      // PERBAIKAN: Ambil array-nya dari response.data
+      set({ reviews: response.data, isLoading: false }); 
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
+    }
+  },
 
-            // Jika kebetulan user sedang berada di halaman produk yang sama, 
-            // kita lakukan Optimistic Update agar ulasannya langsung muncul
-            set((state) => ({
-                productReviews: [newReview, ...state.productReviews],
-                isSubmitting: false
-            }));
-
-            return newReview;
-        } catch (error: any) {
-            const err = error as ApiError;
-            set({ error: err.message || 'Gagal mengirim ulasan.', isSubmitting: false });
-            throw err; // Lempar error agar Modal Ulasan bisa menampilkannya
-        }
-    },
-
-    clearError: () => set({ error: null })
+  submitReview: async (payload) => {
+    set({ isLoading: true, error: null });
+    try {
+      await ReviewService.createReview(payload);
+      // Opsional: Refresh data atau tampilkan pesan sukses
+      set({ isLoading: false });
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
+      throw err;
+    }
+  }
 }));

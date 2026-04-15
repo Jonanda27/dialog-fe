@@ -3,7 +3,8 @@ import { ApiResponse } from '../../types/api';
 import {
     Order,
     CheckoutPayload,
-    ShipOrderPayload
+    ShipOrderPayload,
+    OrderAdminResponse
 } from '../../types/order';
 
 export const OrderService = {
@@ -56,5 +57,11 @@ export const OrderService = {
      */
     completeOrder: async (orderId: string): Promise<ApiResponse<Order>> => {
         return await axiosClient.post<any, ApiResponse<Order>>(`/orders/${orderId}/complete`);
+    },
+
+    getAllOrdersForAdmin: async (status?: string): Promise<ApiResponse<OrderAdminResponse[]>> => {
+        return await axiosClient.get<any, ApiResponse<OrderAdminResponse[]>>('/orders/admin/all', {
+            params: status ? { status } : undefined
+        });
     }
 };

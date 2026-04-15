@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/layout/sidebar";
 import { 
   Search, 
@@ -16,32 +16,69 @@ import {
   CheckCircle2,
   X,
   Save,
-  ChevronRight
+  ChevronRight,
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 
-interface Release {
-  id: string;
-  album: string;
-  artist: string;
-  year: string;
-  label: string;
-  format: string;
-  genre: string;
-  totalListings: number;
-}
+// INTEGRASI SERVICE & STORE
+import { useProductStore } from "@/store/productStore";
+import { toIDR } from "@/utils/format";
 
 export default function KatalogRilisanPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Data Dummy Master Katalog
-  const masterKatalog: Release[] = [
-    { id: "CAT-001", album: "Abbey Road", artist: "The Beatles", year: "1969", label: "Apple Records", format: "Vinyl", genre: "Rock", totalListings: 124 },
-    { id: "CAT-002", album: "Nevermind", artist: "Nirvana", year: "1991", label: "Geffen Records", format: "Vinyl", genre: "Grunge", totalListings: 89 },
-    { id: "CAT-003", album: "Random Access Memories", artist: "Daft Punk", year: "2013", label: "Columbia", format: "Vinyl", genre: "Electronic", totalListings: 56 },
-    { id: "CAT-004", album: "Discovery", artist: "Daft Punk", year: "2001", label: "Virgin", format: "Vinyl", genre: "French House", totalListings: 42 },
-    { id: "CAT-005", album: "Currents", artist: "Tame Impala", year: "2015", label: "Modular", format: "Vinyl", genre: "Psychedelic Pop", totalListings: 67 },
-  ];
+  // 1. Injeksi State & Action dari useProductStore
+  const { 
+    adminProducts, 
+    fetchAllProductsAdmin, 
+    isLoading, 
+    deleteProduct 
+  } = useProductStore();
+
+  // 2. Fetch data saat komponen dimuat
+  useEffect(() => {
+    fetchAllProductsAdmin();
+  }, [fetchAllProductsAdmin]);
+
+  /** * HELPER URL GAMBAR (FIXED)
+   * Menghasilkan: http://localhost:5000/public/uploads/products/...
+   */
+  const getImageUrl = (path: string | null | undefined): string | null => {
+    if (!path) return null;
+    if (path.startsWith("http")) return path;
+    
+    // Mengambil base URL backend (http://localhost:5000) 
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || "http://localhost:5000";
+    
+    // Bersihkan path agar tidak double slash atau mengandung kata public berlebih
+    let cleanPath = path.startsWith("/") ? path : `/${path}`;
+    
+    // Jika path dari DB belum menyertakan /public, tambahkan secara manual [cite: 519]
+    if (!cleanPath.startsWith("/public")) {
+        cleanPath = `/public${cleanPath}`;
+    }
+    
+    return `${baseUrl}${cleanPath}`;
+  };
+
+  // 3. Logika Filter Pencarian Lokal
+  const filteredProducts = adminProducts.filter((item) =>
+    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.metadata?.artist?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleDelete = async (id: string) => {
+    if (confirm("Apakah Anda yakin ingin menghapus produk ini dari katalog global?")) {
+      try {
+        await deleteProduct(id);
+        fetchAllProductsAdmin();
+      } catch (err) {
+        alert("Gagal menghapus produk.");
+      }
+    }
+  };
 
   return (
     <Sidebar>
@@ -52,10 +89,10 @@ export default function KatalogRilisanPage() {
           <div>
             <h2 className="text-2xl font-black uppercase tracking-tight text-white flex items-center gap-3">
               <Disc className="text-[#ef3333]" size={28} />
-              Katalog Rilisan
+              Katalog Rilisan Global
             </h2>
             <p className="text-sm text-zinc-500 font-medium mt-1">
-              Database Master: Standarisasi metadata album dan artis untuk seluruh marketplace.
+              Database Master: Memantau seluruh listing produk dari semua penjual di platform.
             </p>
           </div>
 
@@ -92,64 +129,90 @@ export default function KatalogRilisanPage() {
         {/* TABLE CONTENT */}
         <div className="bg-[#111114] border border-zinc-900 rounded-[2.5rem] overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-[#1a1a1e]/50 border-b border-zinc-900 text-[10px] uppercase tracking-[0.2em] text-zinc-600 font-black">
-                  <th className="py-6 px-8">Album & Artist</th>
-                  <th className="py-6 px-4">Tahun / Label</th>
-                  <th className="py-6 px-4">Genre</th>
-                  <th className="py-6 px-4 text-center">Listing Aktif</th>
-                  <th className="py-6 px-8 text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-900">
-                {masterKatalog.map((item) => (
-                  <tr key={item.id} className="hover:bg-white/[0.01] transition-colors group">
-                    <td className="py-5 px-8">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-[#0a0a0b] border border-zinc-800 flex items-center justify-center text-xl shadow-inner group-hover:border-[#ef3333] transition-colors">
-                          <Disc className="text-zinc-700 group-hover:text-[#ef3333] transition-colors" size={24} />
-                        </div>
-                        <div>
-                          <p className="text-xs font-black text-white uppercase tracking-tight group-hover:text-[#ef3333] transition-colors">{item.album}</p>
-                          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest flex items-center gap-1.5 mt-0.5">
-                            <Music size={10} /> {item.artist}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-5 px-4">
-                      <p className="text-xs font-black text-white">{item.year}</p>
-                      <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mt-0.5">{item.label}</p>
-                    </td>
-                    <td className="py-5 px-4">
-                      <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-900 px-3 py-1 rounded-full border border-zinc-800">
-                        {item.genre}
-                      </span>
-                    </td>
-                    <td className="py-5 px-4 text-center">
-                      <p className="text-xs font-black text-white">{item.totalListings}</p>
-                      <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-tighter">Listed Item</p>
-                    </td>
-                    <td className="py-5 px-8 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button className="p-2.5 rounded-xl bg-[#1a1a1e] text-zinc-600 hover:text-white border border-zinc-800 transition-all">
-                          <Edit3 size={14} />
-                        </button>
-                        <button className="p-2.5 rounded-xl bg-[#1a1a1e] text-zinc-600 hover:text-[#ef3333] border border-zinc-800 transition-all">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
+                <Loader2 className="animate-spin text-[#ef3333] mb-4" size={40} />
+                <p className="text-[10px] font-black uppercase tracking-widest">Sinkronisasi Katalog...</p>
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="p-20 text-center flex flex-col items-center gap-4">
+                <Disc size={48} className="text-zinc-800 animate-spin-slow" />
+                <p className="text-sm font-bold text-zinc-500 uppercase tracking-widest">Katalog Kosong atau Tidak Ditemukan</p>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-[#1a1a1e]/50 border-b border-zinc-900 text-[10px] uppercase tracking-[0.2em] text-zinc-600 font-black">
+                    <th className="py-6 px-8">Album & Artist</th>
+                    <th className="py-6 px-4">Harga / Stok</th>
+                    <th className="py-6 px-4">Toko Penjual</th>
+                    <th className="py-6 px-4 text-center">Format</th>
+                    <th className="py-6 px-8 text-right">Aksi</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-zinc-900">
+                  {filteredProducts.map((item) => (
+                    <tr key={item.id} className="hover:bg-white/[0.01] transition-colors group">
+                      <td className="py-5 px-8">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-[#0a0a0b] border border-zinc-800 flex items-center justify-center text-xl shadow-inner group-hover:border-[#ef3333] transition-colors overflow-hidden">
+                            {/* PERBAIKAN: Menggunakan getImageUrl helper agar URL absolut ke backend */}
+                            {item.media?.[0]?.media_url ? (
+                              <img 
+                                src={getImageUrl(item.media[0].media_url)!} 
+                                className="w-full h-full object-cover" 
+                                alt={item.name} 
+                              />
+                            ) : (
+                              <Disc className="text-zinc-700 group-hover:text-[#ef3333] transition-colors" size={24} />
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-xs font-black text-white uppercase tracking-tight group-hover:text-[#ef3333] transition-colors">{item.name}</p>
+                            <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest flex items-center gap-1.5 mt-0.5">
+                              <Music size={10} /> {item.metadata?.artist || "Unknown Artist"}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-5 px-4">
+                        <p className="text-xs font-black text-white">{toIDR(item.price)}</p>
+                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mt-0.5">Stok: {item.stock}</p>
+                      </td>
+                      <td className="py-5 px-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-900 px-3 py-1 rounded-full border border-zinc-800">
+                            {item.store?.name || "No Store"}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-5 px-4 text-center">
+                        <p className="text-xs font-black text-[#ef3333] uppercase">{item.metadata?.format || "N/A"}</p>
+                        <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-tighter">{item.metadata?.media_grading || "No Grade"}</p>
+                      </td>
+                      <td className="py-5 px-8 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button className="p-2.5 rounded-xl bg-[#1a1a1e] text-zinc-600 hover:text-white border border-zinc-800 transition-all">
+                            <Edit3 size={14} />
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(item.id)}
+                            className="p-2.5 rounded-xl bg-[#1a1a1e] text-zinc-600 hover:text-[#ef3333] border border-zinc-800 transition-all"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
           
           <div className="p-8 border-t border-zinc-900 bg-[#0d0d0f] flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-[9px] font-black text-zinc-700 uppercase tracking-[0.3em]">
-              Analog.id Master Database • Total {masterKatalog.length} Rilisan
+              Analog.id Master Database • Total {filteredProducts.length} Rilisan Global
             </p>
             <div className="flex gap-2">
               <button className="px-5 py-2.5 rounded-xl bg-[#1a1a1e] text-zinc-700 text-[10px] font-black uppercase tracking-widest border border-zinc-900">Prev</button>

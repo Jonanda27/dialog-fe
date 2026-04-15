@@ -41,6 +41,9 @@ export interface Store {
     status: StoreStatus;
     ktp_url: string | null;
     balance: string | number;
+    bank_name: string | null;
+    bank_account_number: string | null;
+    bank_account_name: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -97,4 +100,10 @@ export interface KYCUpdatePayload {
 export interface StoreWalletResponse {
     balance: number;
     transactions: WalletTransaction[];
+}
+
+export interface BankAccountPayload {
+    bank_name: string;
+    bank_account_number: string;
+    bank_account_name: string;
 }

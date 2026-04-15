@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Sidebar from "@/components/layout/sidebar";
 import { 
   Search, 
   Calendar, 
@@ -63,7 +62,6 @@ export default function RiwayatPesanan() {
   ];
 
   return (
-    <Sidebar>
       <div className="max-w-6xl mx-auto pb-20">
         {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
@@ -187,6 +185,5 @@ export default function RiwayatPesanan() {
           </div>
         </div>
       </div>
-    </Sidebar>
   );
 }

@@ -2,12 +2,14 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
+import { AuthService } from "@/services/api/auth.service"; // Pastikan path import service benar
 import {
   LayoutDashboard, Package, PlusCircle, UploadCloud,
   Inbox, History, Wallet, Star, Settings, LogOut, X,
-  Disc, FileBarChart, Gavel, Receipt, UserCog, ClipboardCheck
+  Disc, FileBarChart, Gavel, Receipt, UserCog, ClipboardCheck,
+  Loader2
 } from "lucide-react";
 import Navbar from "./navbar";
 
@@ -17,12 +19,34 @@ interface SidebarProps {
 
 export default function Sidebar({ children }: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // 1. Integrasi Terpusat: Ambil user dan fungsi logout dari Zustand Store
-  const { user, logout, isInitialized } = useAuthStore();
+  const { user, logout: clearLocalAuth, isInitialized } = useAuthStore();
   const pathname = usePathname();
+  const router = useRouter();
 
-  // 2. Definisi Menu Berdasarkan Role (Sama seperti sebelumnya)
+  // 2. Handler Logout Terintegrasi
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      
+      // Langkah 1: Panggil API Logout ke Backend (untuk blacklist token/clear cookie di server)
+      await AuthService.logout();
+    } catch (error) {
+      console.error("Gagal logout dari server:", error);
+      // Tetap lanjutkan pembersihan lokal meskipun API gagal (demi keamanan sisi klien)
+    } finally {
+      // Langkah 2: Bersihkan state di Zustand & LocalStorage
+      clearLocalAuth();
+      
+      // Langkah 3: Redirect ke halaman login
+      router.push("/auth/login");
+      setIsLoggingOut(false);
+    }
+  };
+
+  // 3. Definisi Menu Berdasarkan Role
   const sellerMenu = [
     {
       title: "Ringkasan",
@@ -76,13 +100,15 @@ export default function Sidebar({ children }: SidebarProps) {
     }
   ];
 
-  // Pilih menu berdasarkan role. 
-  // Amankan pengecekan role karena user mungkin belum ter-load (hydrate).
   const menuGroups = user?.role === "admin" ? adminMenu : sellerMenu;
 
-  // Tampilkan layar memuat ringan HANYA jika Zustand belum selesai inisialisasi
   if (!isInitialized) {
-    return <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center text-zinc-500 font-bold tracking-widest text-xs uppercase">Menyiapkan Antarmuka...</div>;
+    return (
+      <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center text-zinc-500 font-bold tracking-widest text-xs uppercase">
+        <Loader2 className="animate-spin mr-2" size={16} />
+        Menyiapkan Antarmuka...
+      </div>
+    );
   }
 
   return (
@@ -133,10 +159,17 @@ export default function Sidebar({ children }: SidebarProps) {
 
         {/* Footer Sidebar / Logout */}
         <div className="p-4 border-t border-zinc-900">
-          {/* Menggunakan fungsi logout murni dari Zustand */}
-          <button onClick={() => logout()} className="flex items-center gap-3 px-3 py-3 w-full rounded-xl transition-all font-bold text-xs uppercase tracking-wider text-zinc-500 hover:bg-red-900/20 hover:text-red-500 group">
-            <LogOut size={18} className="group-hover:text-red-500" />
-            Keluar Akun
+          <button 
+            onClick={handleLogout} 
+            disabled={isLoggingOut}
+            className="flex items-center gap-3 px-3 py-3 w-full rounded-xl transition-all font-bold text-xs uppercase tracking-wider text-zinc-500 hover:bg-red-900/20 hover:text-red-500 group disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoggingOut ? (
+              <Loader2 size={18} className="animate-spin text-red-500" />
+            ) : (
+              <LogOut size={18} className="group-hover:text-red-500" />
+            )}
+            {isLoggingOut ? "Keluar..." : "Keluar Akun"}
           </button>
         </div>
       </aside>

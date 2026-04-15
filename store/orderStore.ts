@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Order, CheckoutPayload } from '../types/order';
+import { Order, CheckoutPayload, OrderAdminResponse } from '../types/order';
 import { OrderService } from '../services/api/order.service';
 import { ApiError } from '../types/api';
 
@@ -17,7 +17,8 @@ export interface DraftCheckoutData {
 interface OrderState {
     // State Utama
     orders: Order[];         // Digunakan oleh Seller (Pesanan Masuk)
-    buyerOrders: Order[];    // Digunakan oleh Buyer (Riwayat Belanja)
+    buyerOrders: Order[]; 
+    adminOrders: OrderAdminResponse[];   // Digunakan oleh Buyer (Riwayat Belanja)
     currentOrder: Order | null;
 
     // ⚡ BARU: State untuk mengikat data sementara di halaman Checkout
@@ -35,6 +36,7 @@ interface OrderState {
     checkout: (payload: CheckoutPayload) => Promise<string>;
     shipOrder: (orderId: string, trackingNumber: string) => Promise<void>;
     completeOrder: (orderId: string) => Promise<void>;
+    fetchAllOrdersForAdmin: (status?: string) => Promise<void>;
 
     // Actions Utility
     clearError: () => void;
@@ -48,6 +50,7 @@ interface OrderState {
 export const useOrderStore = create<OrderState>((set, get) => ({
     orders: [],
     buyerOrders: [],
+    adminOrders: [],
     currentOrder: null,
     draftCheckout: {}, // Inisialisasi draft kosong
     isLoading: false,
@@ -142,6 +145,24 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             const err = error as ApiError;
             set({ error: err.message || 'Gagal menyelesaikan pesanan.', isSubmitting: false });
             throw err;
+        }
+    },
+    /**
+     * Aksi untuk Admin mengambil semua transaksi
+     */
+    fetchAllOrdersForAdmin: async (status) => {
+        set({ isLoading: true, error: null });
+        try {
+            const response = await OrderService.getAllOrdersForAdmin(status);
+            set({ 
+                adminOrders: response.data, 
+                isLoading: false 
+            });
+        } catch (error: any) {
+            set({ 
+                error: error.message || 'Gagal memuat data transaksi global.', 
+                isLoading: false 
+            });
         }
     },
 

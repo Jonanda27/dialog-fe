@@ -85,3 +85,29 @@ export interface CheckoutPayload {
 export interface ShipOrderPayload {
     tracking_number: string;
 }
+
+export interface OrderAdminResponse {
+    id: string;
+    buyer_id: string;
+    store_id: string;
+    subtotal: number | string;
+    shipping_fee: number | string;
+    grading_fee: number | string;
+    grand_total: number | string;
+    status: OrderStatus;
+    shipping_address: string;
+    tracking_number?: string | null;
+    createdAt: string;
+    updated_at: string;
+    // Eager Loaded Data dari Backend baru
+    buyer: {
+        id: string;
+        full_name: string;
+        email: string;
+    };
+    store: {
+        id: string;
+        name: string;
+    };
+    items: OrderItem[];
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/layout/sidebar";
 import { 
   Search, 
@@ -15,53 +15,54 @@ import {
   Truck,
   ShieldCheck,
   X,
-  AlertOctagon
+  AlertOctagon,
+  Loader2,
+  Disc
 } from "lucide-react";
 
-interface Transaction {
-  id: string;
-  date: string;
-  buyer: string;
-  seller: string;
-  product: string;
-  amount: string;
-  status: string;
-  payment: string;
-  escrowStatus: string;
-}
+// INTEGRASI SERVICE & STORE SESUAI STANDAR ANDA
+import { useOrderStore } from "@/store/orderStore";
+import { OrderAdminResponse } from "@/types/order";
+import { toIDR } from "@/utils/format";
 
 export default function AllTransaksiAdminPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedTrx, setSelectedTrx] = useState<Transaction | null>(null);
+  const [selectedTrx, setSelectedTrx] = useState<OrderAdminResponse | null>(null);
 
-  // Data Dummy Platform-Wide Transactions
-  const transactions: Transaction[] = [
-    { id: "TRX-2026-001", date: "09 Apr 2026, 09:15", buyer: "Rizky Ramadhan", seller: "Vinylnesia Store", product: "The Dark Side of The Moon", amount: "Rp 965.000", status: "Diproses", payment: "BCA Virtual Account", escrowStatus: "Ditahan (Escrow)" },
-    { id: "TRX-2026-002", date: "08 Apr 2026, 14:20", buyer: "Siska Amelia", seller: "Analog Audio", product: "Daft Punk - Discovery", amount: "Rp 1.100.000", status: "Dikirim", payment: "GoPay", escrowStatus: "Ditahan (Escrow)" },
-    { id: "TRX-2026-003", date: "07 Apr 2026, 10:00", buyer: "Budi Pratama", seller: "Kasetjogja", product: "The Beatles - Abbey Road", amount: "Rp 850.000", status: "Selesai", payment: "Mandiri VA", escrowStatus: "Diteruskan ke Penjual" },
-    { id: "TRX-2026-004", date: "07 Apr 2026, 08:30", buyer: "Diana Putri", seller: "Memorabilia", product: "Nirvana - Nevermind", amount: "Rp 750.000", status: "Dibatalkan", payment: "QRIS", escrowStatus: "Refund ke Pembeli" },
-    { id: "TRX-2026-005", date: "06 Apr 2026, 16:45", buyer: "Eko Prasetyo", seller: "Vinylnesia Store", product: "Radiohead - OK Computer", amount: "Rp 1.250.000", status: "Dispute", payment: "BCA Virtual Account", escrowStatus: "Dibekukan (Investigasi)" },
-  ];
+  // 1. Injeksi State & Action dari useOrderStore
+  const { adminOrders, fetchAllOrdersForAdmin, isLoading, error } = useOrderStore();
 
-  // Helper untuk warna status
+  // 2. Fetch data saat komponen dimuat
+  useEffect(() => {
+    fetchAllOrdersForAdmin();
+  }, [fetchAllOrdersForAdmin]);
+
+  // Helper untuk warna status sesuai database enum
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Selesai": return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
-      case "Diproses": return "bg-amber-500/10 text-amber-500 border-amber-500/20";
-      case "Dikirim": return "bg-blue-500/10 text-blue-500 border-blue-500/20";
-      case "Dibatalkan": return "bg-red-500/10 text-red-500 border-red-500/20";
-      case "Dispute": return "bg-purple-500/10 text-purple-500 border-purple-500/20";
+      case "completed": return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+      case "paid":
+      case "processing": return "bg-amber-500/10 text-amber-500 border-amber-500/20";
+      case "shipped": return "bg-blue-500/10 text-blue-500 border-blue-500/20";
+      case "cancelled": return "bg-red-500/10 text-red-500 border-red-500/20";
+      case "disputed": return "bg-purple-500/10 text-purple-500 border-purple-500/20";
       default: return "bg-zinc-500/10 text-zinc-500 border-zinc-500/20";
     }
   };
 
   const getEscrowColor = (status: string) => {
-    if (status.includes("Ditahan")) return "text-amber-500";
-    if (status.includes("Diteruskan")) return "text-emerald-500";
-    if (status.includes("Refund")) return "text-red-500";
-    if (status.includes("Dibekukan")) return "text-purple-500";
-    return "text-zinc-500";
+    if (status === "disputed") return "text-purple-500";
+    if (status === "completed") return "text-emerald-500";
+    if (status === "cancelled") return "text-red-500";
+    return "text-amber-500";
   };
+
+  // 3. Logika Filter Pencarian
+  const filteredTransactions = adminOrders.filter((trx) => 
+    trx.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    trx.buyer?.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    trx.store?.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <Sidebar>
@@ -99,87 +100,101 @@ export default function AllTransaksiAdminPage() {
           </div>
         </div>
 
-        {/* METRIK MINI */}
+        {/* METRIK MINI (STATIS/DINAMIS DARI TOTAL DATA) */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-[#111114] border border-zinc-900 rounded-2xl p-5">
-            <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1">Volume Hari Ini</p>
-            <p className="text-xl font-black text-white tracking-tight">Rp 34.5M</p>
+            <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1">Total Volume</p>
+            <p className="text-xl font-black text-white tracking-tight">
+                {toIDR(adminOrders.reduce((acc, curr) => acc + Number(curr.grand_total), 0))}
+            </p>
           </div>
           <div className="bg-[#111114] border border-zinc-900 rounded-2xl p-5">
             <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1">Transaksi Aktif</p>
-            <p className="text-xl font-black text-amber-500 tracking-tight">142</p>
+            <p className="text-xl font-black text-amber-500 tracking-tight">{adminOrders.length}</p>
           </div>
           <div className="bg-[#111114] border border-zinc-900 rounded-2xl p-5">
-            <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1">Dana Mengendap (Escrow)</p>
-            <p className="text-xl font-black text-blue-500 tracking-tight">Rp 128.2M</p>
+            <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1">Status Sistem</p>
+            <p className="text-xl font-black text-blue-500 tracking-tight uppercase text-xs">Synchronized</p>
           </div>
           <div className="bg-[#111114] border border-zinc-900 rounded-2xl p-5 border-l-2 border-l-purple-500">
             <p className="text-[9px] font-black text-purple-500 uppercase tracking-widest mb-1">Dispute Aktif</p>
-            <p className="text-xl font-black text-white tracking-tight">3 <span className="text-xs text-zinc-600">Kasus</span></p>
+            <p className="text-xl font-black text-white tracking-tight">
+                {adminOrders.filter(o => o.status === 'disputed').length} <span className="text-xs text-zinc-600">Kasus</span>
+            </p>
           </div>
         </div>
 
         {/* TABLE CONTENT */}
         <div className="bg-[#111114] border border-zinc-900 rounded-[2.5rem] overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-[#1a1a1e]/50 border-b border-zinc-900 text-[10px] uppercase tracking-[0.2em] text-zinc-600 font-black">
-                  <th className="py-6 px-8">ID Transaksi</th>
-                  <th className="py-6 px-4">Pembeli & Penjual</th>
-                  <th className="py-6 px-4">Total</th>
-                  <th className="py-6 px-4">Status Transaksi</th>
-                  <th className="py-6 px-8 text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-900">
-                {transactions.map((trx) => (
-                  <tr key={trx.id} className="hover:bg-white/[0.01] transition-colors group">
-                    <td className="py-5 px-8">
-                      <div className="space-y-1">
-                        <p className="text-xs font-black text-white uppercase tracking-tight group-hover:text-[#ef3333] transition-colors">{trx.id}</p>
-                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">{trx.date}</p>
-                      </div>
-                    </td>
-                    <td className="py-5 px-4">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
-                          <User size={12} className="text-blue-500" /> {trx.buyer}
+            {isLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
+                    <Loader2 className="animate-spin text-[#ef3333] mb-4" size={40} />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Sinkronisasi Database Platform...</p>
+                </div>
+            ) : error ? (
+                <div className="p-20 text-center text-red-500 uppercase text-xs font-black tracking-widest">{error}</div>
+            ) : (
+                <table className="w-full text-left border-collapse">
+                <thead>
+                    <tr className="bg-[#1a1a1e]/50 border-b border-zinc-900 text-[10px] uppercase tracking-[0.2em] text-zinc-600 font-black">
+                    <th className="py-6 px-8">ID Transaksi</th>
+                    <th className="py-6 px-4">Pembeli & Penjual</th>
+                    <th className="py-6 px-4">Total</th>
+                    <th className="py-6 px-4">Status Transaksi</th>
+                    <th className="py-6 px-8 text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-900">
+                    {filteredTransactions.map((trx) => (
+                    <tr key={trx.id} className="hover:bg-white/[0.01] transition-colors group">
+                        <td className="py-5 px-8">
+                        <div className="space-y-1">
+                            <p className="text-xs font-black text-white uppercase tracking-tight group-hover:text-[#ef3333] transition-colors">#{trx.id.slice(0,8)}</p>
+                            <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+                                {new Date(trx.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </p>
                         </div>
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
-                          <Store size={12} className="text-emerald-500" /> {trx.seller}
+                        </td>
+                        <td className="py-5 px-4">
+                        <div className="space-y-1.5">
+                            <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                            <User size={12} className="text-blue-500" /> {trx.buyer?.full_name || 'Buyer'}
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                            <Store size={12} className="text-emerald-500" /> {trx.store?.name || 'Store'}
+                            </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="py-5 px-4">
-                      <span className="text-xs font-black text-white tracking-tight">{trx.amount}</span>
-                      <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest mt-1">{trx.payment}</p>
-                    </td>
-                    <td className="py-5 px-4">
-                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border inline-block ${getStatusColor(trx.status)}`}>
-                        {trx.status}
-                      </span>
-                    </td>
-                    <td className="py-5 px-8">
-                      <div className="flex items-center justify-end gap-2">
-                        <button 
-                          onClick={() => setSelectedTrx(trx)}
-                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1a1a1e] text-zinc-400 hover:text-white border border-zinc-800 hover:border-zinc-700 transition-all text-[9px] font-black uppercase tracking-widest"
-                          title="Lihat Detail Transaksi"
-                        >
-                          <Eye size={14} /> Detail
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        </td>
+                        <td className="py-5 px-4">
+                        <span className="text-xs font-black text-white tracking-tight">{toIDR(trx.grand_total)}</span>
+                        <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest mt-1">Sistem Escrow</p>
+                        </td>
+                        <td className="py-5 px-4">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border inline-block ${getStatusColor(trx.status)}`}>
+                            {trx.status.replace('_', ' ')}
+                        </span>
+                        </td>
+                        <td className="py-5 px-8">
+                        <div className="flex items-center justify-end gap-2">
+                            <button 
+                            onClick={() => setSelectedTrx(trx)}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1a1a1e] text-zinc-400 hover:text-white border border-zinc-800 hover:border-zinc-700 transition-all text-[9px] font-black uppercase tracking-widest"
+                            title="Lihat Detail Transaksi"
+                            >
+                            <Eye size={14} /> Detail
+                            </button>
+                        </div>
+                        </td>
+                    </tr>
+                    ))}
+                </tbody>
+                </table>
+            )}
           </div>
           
-          {/* Pagination Dummy */}
           <div className="p-6 border-t border-zinc-900 bg-[#0d0d0f] flex items-center justify-between">
-            <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em]">Showing 1-5 of 142 Transactions</p>
+            <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em]">Showing {filteredTransactions.length} platform-wide transactions</p>
             <div className="flex gap-2">
               <button className="px-4 py-2 rounded-lg bg-[#1a1a1e] text-zinc-600 text-[9px] font-black uppercase tracking-widest border border-zinc-900 cursor-not-allowed">Prev</button>
               <button className="px-4 py-2 rounded-lg bg-[#1a1a1e] text-zinc-400 hover:text-white text-[9px] font-black uppercase tracking-widest border border-zinc-900 transition-all">Next</button>
@@ -198,7 +213,7 @@ export default function AllTransaksiAdminPage() {
               <div className="bg-[#1a1a1e] px-8 py-6 border-b border-zinc-900 flex justify-between items-center">
                 <div>
                   <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
-                    <Receipt size={18} className="text-[#ef3333]" /> Detail Transaksi
+                    <Receipt size={18} className="text-[#ef3333]" /> Detail Transaksi Platform
                   </h3>
                   <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">ID: {selectedTrx.id}</p>
                 </div>
@@ -208,20 +223,20 @@ export default function AllTransaksiAdminPage() {
               </div>
 
               {/* Modal Body */}
-              <div className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              <div className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar text-left">
                 
                 {/* Status & Escrow Banner */}
                 <div className="flex flex-col sm:flex-row gap-4 mb-8">
                   <div className={`flex-1 p-5 rounded-2xl border ${getStatusColor(selectedTrx.status).replace('bg-', 'bg-').replace('/10', '/5')}`}>
                     <p className="text-[9px] font-black uppercase tracking-widest mb-1 opacity-70">Status Pesanan</p>
-                    <p className="text-lg font-black uppercase tracking-tight">{selectedTrx.status}</p>
+                    <p className="text-lg font-black uppercase tracking-tight">{selectedTrx.status.replace('_', ' ')}</p>
                   </div>
                   <div className="flex-1 p-5 rounded-2xl bg-[#0a0a0b] border border-zinc-800">
                     <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1 flex items-center gap-1.5">
                       <ShieldCheck size={12} className="text-zinc-500" /> Status Dana (Escrow)
                     </p>
-                    <p className={`text-sm font-black uppercase tracking-tight ${getEscrowColor(selectedTrx.escrowStatus)}`}>
-                      {selectedTrx.escrowStatus}
+                    <p className={`text-sm font-black uppercase tracking-tight ${getEscrowColor(selectedTrx.status)}`}>
+                        {selectedTrx.status === 'completed' ? 'RELEASED TO SELLER' : selectedTrx.status === 'disputed' ? 'FROZEN / LOCKED' : 'HELD BY PLATFORM'}
                     </p>
                   </div>
                 </div>
@@ -235,8 +250,9 @@ export default function AllTransaksiAdminPage() {
                         <User size={18} />
                       </div>
                       <div>
-                        <p className="text-xs font-black text-white uppercase tracking-tight">{selectedTrx.buyer}</p>
-                        <p className="text-[10px] font-bold text-zinc-500 uppercase mt-0.5">Jl. Merdeka No. 12, Jakarta</p>
+                        <p className="text-xs font-black text-white uppercase tracking-tight">{selectedTrx.buyer?.full_name}</p>
+                        <p className="text-[10px] font-bold text-zinc-500 uppercase mt-0.5">{selectedTrx.buyer?.email}</p>
+                        <p className="text-[9px] text-zinc-600 mt-2 line-clamp-2">{selectedTrx.shipping_address}</p>
                       </div>
                     </div>
                   </div>
@@ -247,7 +263,7 @@ export default function AllTransaksiAdminPage() {
                         <Store size={18} />
                       </div>
                       <div>
-                        <p className="text-xs font-black text-white uppercase tracking-tight">{selectedTrx.seller}</p>
+                        <p className="text-xs font-black text-white uppercase tracking-tight">{selectedTrx.store?.name}</p>
                         <p className="text-[10px] font-bold text-zinc-500 uppercase mt-0.5">Toko Terverifikasi ✓</p>
                       </div>
                     </div>
@@ -255,52 +271,49 @@ export default function AllTransaksiAdminPage() {
                 </div>
 
                 {/* Detail Produk & Pembayaran */}
-                <h4 className="text-[10px] font-black text-zinc-600 uppercase tracking-widest border-b border-zinc-900 pb-2 mb-4">Rincian Pembayaran</h4>
+                <h4 className="text-[10px] font-black text-zinc-600 uppercase tracking-widest border-b border-zinc-900 pb-2 mb-4">Rincian Barang & Pembayaran</h4>
                 <div className="bg-[#0a0a0b] border border-zinc-900 rounded-2xl p-5 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <Package size={16} className="text-zinc-500" />
-                      <span className="text-xs font-bold text-zinc-300 uppercase">{selectedTrx.product} (1x)</span>
+                  {selectedTrx.items?.map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center pb-3 border-b border-zinc-900 last:border-0 last:pb-0">
+                        <div className="flex items-center gap-3">
+                        <Package size={16} className="text-zinc-500" />
+                        <span className="text-xs font-bold text-zinc-300 uppercase">{item.product?.name} ({item.qty}x)</span>
+                        </div>
+                        <span className="text-xs font-black text-white">{toIDR(item.price_at_purchase)}</span>
                     </div>
-                    <span className="text-xs font-black text-white">{selectedTrx.amount}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
+                  ))}
+                  
+                  <div className="flex justify-between items-center pt-2">
                     <div className="flex items-center gap-3">
                       <Truck size={16} className="text-zinc-500" />
-                      <span className="text-xs font-bold text-zinc-300 uppercase">Ongkos Kirim (Reguler)</span>
+                      <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Ongkos Kirim</span>
                     </div>
-                    <span className="text-xs font-black text-white">Rp 25.000</span>
+                    <span className="text-xs font-bold text-zinc-400">{toIDR(selectedTrx.shipping_fee)}</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <ShieldCheck size={16} className="text-zinc-500" />
-                      <span className="text-xs font-bold text-zinc-300 uppercase">Biaya Layanan Escrow</span>
-                    </div>
-                    <span className="text-xs font-black text-white">Rp 2.500</span>
-                  </div>
+
                   <div className="border-t border-zinc-800 pt-4 flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <CreditCard size={16} className="text-[#ef3333]" />
-                      <span className="text-[10px] font-black text-[#ef3333] uppercase tracking-widest">Total Dibayar ({selectedTrx.payment})</span>
+                      <span className="text-[10px] font-black text-[#ef3333] uppercase tracking-widest">Total Transaksi</span>
                     </div>
                     <span className="text-xl font-black text-[#ef3333]">
-                      Rp {(parseInt(selectedTrx.amount.replace(/\D/g, "")) + 27500).toLocaleString("id-ID")}
+                      {toIDR(selectedTrx.grand_total)}
                     </span>
                   </div>
                 </div>
 
-                {/* Admin Actions untuk Transaksi */}
-                {selectedTrx.status === "Dispute" && (
+                {/* Admin Actions */}
+                {selectedTrx.status === "disputed" && (
                   <div className="mt-8 bg-purple-500/10 border border-purple-500/20 rounded-2xl p-5 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <AlertOctagon className="text-purple-500" size={24} />
                       <div>
                         <p className="text-xs font-black text-white uppercase tracking-tight">Transaksi dalam Dispute</p>
-                        <p className="text-[10px] text-zinc-400 font-medium">Buka menu Dispute Center untuk memediasi pembeli dan penjual.</p>
+                        <p className="text-[10px] text-zinc-400 font-medium">Investigasi diperlukan sebelum pelepasan dana.</p>
                       </div>
                     </div>
                     <button className="bg-purple-600 hover:bg-purple-700 text-white text-[9px] font-black uppercase tracking-widest px-4 py-2.5 rounded-xl transition-colors">
-                      Tinjau Kasus
+                      Pusat Resolusi
                     </button>
                   </div>
                 )}
