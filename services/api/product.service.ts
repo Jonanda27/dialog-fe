@@ -8,7 +8,7 @@ export const productService = {
      * @param params Parameter query string (opsional, misal: ?sub_category_id=123-abc&media_grading=NM)
      */
     getAll: async (params?: Record<string, any>): Promise<ApiResponse<Product[]>> => {
-        return await axiosClient.get<any, ApiResponse<Product[]>>('/products', { params });
+        return await axiosClient.get<any, ApiResponse<Product[]>>('/v1/products', { params });
     },
 
     /**
@@ -16,7 +16,7 @@ export const productService = {
      * @param id ID Produk
      */
     getById: async (id: string): Promise<ApiResponse<Product>> => {
-        return await axiosClient.get<any, ApiResponse<Product>>(`/products/${id}`);
+        return await axiosClient.get<any, ApiResponse<Product>>(`/v1/products/${id}`);
     },
 
     /**

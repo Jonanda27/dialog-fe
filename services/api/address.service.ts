@@ -27,7 +27,11 @@ export const shippingService = {
 export const addressService = {
     getMyAddresses: async (): Promise<Address[]> => {
         const response = await axiosClient.get('/v1/addresses');
-        return response.data.data || [];
+
+        // Cek apakah response.data.data ada, jika tidak coba response.data (interceptor case)
+        const actualData = response.data?.data || (response as any).data || response;
+
+        return Array.isArray(actualData) ? actualData : [];
     },
 
     addAddress: async (data: AddressFormPayload): Promise<Address> => {
