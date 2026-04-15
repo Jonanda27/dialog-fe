@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 // INTEGRASI SERVICES
 import { StoreService } from "@/services/api/store.service";
-import { ProductService } from "@/services/api/product.service";
+import { productService } from "@/services/api/product.service";
 import { CategoryService } from "@/services/api/category.service"; // Pastikan path import ini sesuai
 
 // INTEGRASI TYPES
@@ -55,7 +55,7 @@ export default function AnalogLandingPage() {
             // Gunakan catch pada CategoryService agar jika gagal tidak memblokir render produk
             const [storeRes, productRes, categoryRes] = await Promise.all([
                 StoreService.getAllStores({ status: 'approved' }),
-                ProductService.getAll(),
+                productService.getAll(),
                 CategoryService.getAllCategories().catch(() => null) 
             ]);
 

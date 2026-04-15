@@ -49,6 +49,11 @@ export interface Order {
     status: OrderStatus;
     shipping_address: string;
     tracking_number?: string | null;
+
+    // ⚡ BARU: Field logistik sesuai migrasi database Backend
+    courier_company?: string;
+    service_type?: string;
+
     created_at: string;
     updated_at: string;
 
@@ -66,16 +71,30 @@ export interface Order {
 }
 
 /**
+ * ⚡ BARU: Interface untuk DTO (Data Transfer Object) item keranjang saat checkout.
+ * Backend membutuhkan pasangan ID Produk dan Kuantitas untuk validasi stok dan harga.
+ */
+export interface CheckoutItemPayload {
+    product_id: string;
+    qty: number;
+}
+
+/**
  * Payload untuk eksekusi Checkout (POST /api/orders/checkout).
+ * Disinkronkan 100% menggunakan strict snake_case agar lolos validasi Zod Backend.
  */
 export interface CheckoutPayload {
     address_id: string;
     store_id: string;
-    cart_item_ids: string[];
+
+    // ⚡ PERBAIKAN KRUSIAL: Mengganti cart_item_ids (string[]) menjadi array of object
+    items: CheckoutItemPayload[];
+
+    // Field MANDATORY untuk validasi internal (Server-side calc) dan integrasi resi Biteship
     shipping_fee: number;
-    // Field MANDATORY baru untuk integrasi resi Biteship di backend
     courier_code: string;
     service_type: string;
+
     payment_method?: string;
 }
 

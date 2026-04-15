@@ -12,7 +12,7 @@ export const shippingService = {
      */
     getAreas: async (query: string): Promise<BiteshipArea[]> => {
         try {
-            const response = await axiosClient.get(`/api/v1/shipping/areas`, {
+            const response = await axiosClient.get(`/v1/shipping/areas`, {
                 params: { input: query }
             });
 
@@ -35,7 +35,7 @@ export const shippingService = {
      */
     getRates: async (payload: ShippingRatePayload): Promise<CourierOption[]> => {
         try {
-            const response = await axiosClient.post('/api/v1/shipping/rates', payload);
+            const response = await axiosClient.post('/v1/shipping/rates', payload);
 
             return response.data.data || [];
         } catch (error: any) {

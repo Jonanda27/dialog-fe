@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Product } from '../types/product';
 import { CartItem } from '../types/cart';
+import { productService } from '@/services/api/product.service'; // ⚡ IMPORT BARU: Service untuk memanggil API
 
 interface CartState {
     // State
@@ -15,9 +16,10 @@ interface CartState {
     removeItem: (cartItemId: string) => void;
     updateQuantity: (cartItemId: string, quantity: number) => void;
     clearCart: () => void;
-
-    // ⚡ BARU: Alias fungsional untuk memperjelas alur setelah transaksi sukses
     clearCartAfterCheckout: () => void;
+
+    // ⚡ BARU: Fungsi Auto-Healing untuk sinkronisasi data dengan server
+    syncCartItems: () => Promise<boolean>;
 }
 
 export const useCartStore = create<CartState>()(
@@ -38,12 +40,10 @@ export const useCartStore = create<CartState>()(
                 if (items.length > 0) {
                     const currentStoreId = items[0].product.store_id;
                     if (currentStoreId !== product.store_id) {
-                        // Melempar error agar bisa ditangkap & ditampilkan oleh Toast di UI
                         throw new Error('Anda hanya bisa membeli barang dari satu toko yang sama dalam satu checkout. Selesaikan pesanan sebelumnya atau kosongkan keranjang.');
                     }
                 }
 
-                // Cek apakah item sudah ada di dalam keranjang
                 const existingItem = items.find((item) => item.product.id === product.id);
 
                 if (existingItem) {
@@ -59,22 +59,21 @@ export const useCartStore = create<CartState>()(
                                 ? { ...item, quantity: newQuantity }
                                 : item
                         ),
-                        isOpen: true, // Otomatis membuka Drawer Keranjang saat ditambah
+                        isOpen: true,
                     });
                 } else {
-                    // Validasi limit stok untuk item baru
                     if (quantity > product.stock) {
                         throw new Error(`Stok tidak mencukupi. Tersisa ${product.stock} pcs.`);
                     }
 
                     const newItem: CartItem = {
-                        cart_item_id: product.id, // Kita gunakan ID produk sebagai ID unik keranjang
+                        cart_item_id: product.id,
                         product,
                         quantity,
                     };
 
                     set({
-                        items: [newItem, ...items], // Item terbaru muncul di atas
+                        items: [newItem, ...items],
                         isOpen: true,
                     });
                 }
@@ -90,12 +89,10 @@ export const useCartStore = create<CartState>()(
                 const { items } = get();
                 const itemToUpdate = items.find((item) => item.cart_item_id === cartItemId);
 
-                // Mencegah penambahan jika melebihi batas stok via tombol '+'
                 if (itemToUpdate && quantity > itemToUpdate.product.stock) {
                     return;
                 }
 
-                // Jika qty menjadi 0, hapus item dari keranjang
                 if (quantity <= 0) {
                     get().removeItem(cartItemId);
                     return;
@@ -112,11 +109,80 @@ export const useCartStore = create<CartState>()(
 
             clearCart: () => set({ items: [] }),
 
-            // Menggunakan fungsi clearCart untuk membersihkan keranjang pasca-checkout sukses
             clearCartAfterCheckout: () => set({ items: [] }),
+
+            // ====================================================================
+            // ⚡ TAHAP 3: MESIN SINKRONISASI & AUTO-HEALING KERANJANG
+            // ====================================================================
+            syncCartItems: async () => {
+                const { items } = get();
+                if (items.length === 0) return false;
+
+                const productIds = items.map((item) => item.product.id);
+
+                try {
+                    // Panggil endpoint /api/v1/products/sync
+                    const response = await productService.syncProducts(productIds);
+                    const latestData = response.data;
+
+                    let hasChanges = false;
+
+                    const updatedItems = items.map((item) => {
+                        const serverInfo = latestData.find((p: any) => p.id === item.product.id);
+
+                        // Jika produk sudah dihapus dari database oleh penjual
+                        if (!serverInfo) {
+                            hasChanges = true;
+                            // Menandai produk tidak aktif agar UI bisa memblokir checkout
+                            return {
+                                ...item,
+                                product: { ...item.product, is_active: false, stock: 0 }
+                            };
+                        }
+
+                        // Deteksi anomali: Harga berubah, stok kurang dari kuantitas keranjang, atau produk dinonaktifkan
+                        const isPriceChanged = Number(serverInfo.price) !== Number(item.product.price);
+                        const isOutOfStock = serverInfo.stock < item.quantity || !serverInfo.is_active;
+
+                        if (isPriceChanged || isOutOfStock) {
+                            hasChanges = true;
+                        }
+
+                        // Healing Process: Perbarui item di localStorage dengan data absolut dari server
+                        return {
+                            ...item,
+                            // Jika stok server lebih kecil dari qty di keranjang, turunkan qty keranjang
+                            quantity: serverInfo.stock < item.quantity ? serverInfo.stock : item.quantity,
+                            product: {
+                                ...item.product,
+                                price: serverInfo.price,
+                                stock: serverInfo.stock,
+                                is_active: serverInfo.is_active,
+                                product_weight: serverInfo.product_weight // Krusial untuk ongkir Biteship
+                            }
+                        };
+                    });
+
+                    // Bersihkan item yang kuantitasnya menjadi 0 akibat stok server habis
+                    const cleanItems = updatedItems.filter(item => item.quantity > 0);
+
+                    if (cleanItems.length !== updatedItems.length) {
+                        hasChanges = true;
+                    }
+
+                    if (hasChanges) {
+                        set({ items: cleanItems });
+                    }
+
+                    return hasChanges; // Mengembalikan true jika terjadi healing
+                } catch (error) {
+                    console.error('[Cart Auto-Healing] Gagal menyinkronkan data dengan server:', error);
+                    return false;
+                }
+            },
         }),
         {
-            name: 'analog-cart-storage', // Nama Key yang akan muncul di Application > Local Storage Browser
+            name: 'analog-cart-storage', // Nama Key di localStorage
         }
     )
 );
