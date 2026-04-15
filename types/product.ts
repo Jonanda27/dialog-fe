@@ -81,6 +81,11 @@ export interface Product {
     media?: ProductMedia[];
     store?: Store;
     subCategory?: SubCategory; // <--- Relasi Kategori Baru
+    // Atribut Fisik
+    product_weight: number;
+    product_length: number;
+    product_width: number;
+    product_height: number;
 }
 
 /**
@@ -96,6 +101,12 @@ export interface CreateProductPayload {
 
     // Data JSONB (Ditampung di satu objek agar mudah di-JSON.stringify saat submit)
     metadata: Partial<ProductMetadata>;
+
+    // Atribut Fisik (Mandatory Form)
+    product_weight: number;
+    product_length: number;
+    product_width: number;
+    product_height: number;
 
     // Data File (Disimpan terpisah di state React sebelum di-append ke FormData)
     photos: {

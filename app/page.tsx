@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 // INTEGRASI SERVICES
 import { StoreService } from "@/services/api/store.service";
-import { ProductService } from "@/services/api/product.service";
+import { productService } from "@/services/api/product.service";
 import { CategoryService } from "@/services/api/category.service";
 
 // INTEGRASI TYPES
@@ -74,7 +74,7 @@ export default function AnalogLandingPage() {
             setIsLoading(true);
             const [storeRes, productRes, categoryRes] = await Promise.all([
                 StoreService.getAllStores({ status: 'approved' }),
-                ProductService.getAll(),
+                productService.getAll(),
                 CategoryService.getAllCategories().catch(() => null) 
             ]);
 

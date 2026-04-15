@@ -20,6 +20,7 @@ export default function OrderSummary({
     isSubmitting,
     onConfirm
 }: OrderSummaryProps) {
+    // ⚡ THE FINAL WEDDING: Kalkulasi absolut di sisi UI untuk transparansi
     const grandTotal = subtotal + shippingFee + gradingFee;
 
     // ⚡ PROTEKSI LOGIKA: Tombol konfirmasi tidak boleh ditekan jika ongkos kirim belum dikalkulasi

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import ProductCard from '@/components/ui/ProductCard';
-import { ProductService } from '@/services/api/product.service';
+import { productService } from '@/services/api/product.service';
 
 export default function RecommendedFeed() {
     const [products, setProducts] = useState<any[]>([]);
@@ -12,7 +12,7 @@ export default function RecommendedFeed() {
         const fetchRecommended = async () => {
             try {
                 // Mengambil 4 produk secara dinamis di sisi klien
-                const res = await ProductService.getAll({ limit: '4' });
+                const res = await productService.getAll({ limit: '4' });
                 setProducts(res?.data || []);
             } catch (error) {
                 console.error('Gagal memuat rekomendasi:', error);

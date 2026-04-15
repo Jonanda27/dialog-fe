@@ -1,4 +1,4 @@
-import { ProductService } from '@/services/api/product.service';
+import { productService } from '@/services/api/product.service';
 import ProductGallery from '@/components/product/ProductGallery';
 import MetadataRenderer from '@/components/product/MetadataRenderer';
 import ProductActions from '@/components/product/ProductActions';
@@ -17,7 +17,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
     const resolvedParams = await params;
 
     // ⚡ 4. Gunakan ID yang sudah diekstrak untuk memanggil API
-    const response = await ProductService.getById(resolvedParams.id);
+    const response = await productService.getById(resolvedParams.id);
     const product = response.data;
 
     if (!product) notFound();

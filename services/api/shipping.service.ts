@@ -1,15 +1,50 @@
 import axiosClient from './axiosClient';
-import { ApiResponse } from '../../types/api';
-import { CalculateShippingPayload, CourierOption } from '../../types/shipping';
+import { ShippingRatePayload, CourierOption } from '@/types/shipping';
+import { BiteshipArea } from '@/types/address'; // Pastikan path import ini sesuai dengan lokasi interface Anda
 
-export const ShippingService = {
+export const shippingService = {
     /**
-     * [BUYER] Mengkalkulasi opsi ongkos kirim secara real-time.
-     * Endpoint POST digunakan karena payload pencarian bisa kompleks dan tidak ideal jika diekspos via URL parameters (GET).
-     * @param payload berisi origin (Toko), destination (Pembeli), dan akumulasi weight (gram)
+     * [PROXY] Mengambil saran hierarki wilayah geografis dari Biteship.
+     * Endpoint GET ini mem-bypass CORS eksternal dengan menggunakan Backend Analog.id sebagai proxy.
+     * * @param query String kata kunci pencarian wilayah (Kecamatan/Kota). Minimal 3 karakter.
+     * @returns Promise berisi array area (BiteshipArea) untuk di-render pada komponen Autocomplete.
+     * @throws AppError 503 jika server pihak ketiga (Biteship) sedang down.
      */
-    calculateCost: async (payload: CalculateShippingPayload): Promise<ApiResponse<CourierOption[]>> => {
-        // Asumsi rute '/orders/shipping-cost' adalah jembatan (API Gateway) ke layanan logistik di Backend
-        return await axiosClient.post<any, ApiResponse<CourierOption[]>>('/orders/shipping-cost', payload);
+    getAreas: async (query: string): Promise<BiteshipArea[]> => {
+        try {
+            const response = await axiosClient.get(`/v1/shipping/areas`, {
+                params: { input: query }
+            });
+
+            // Standarisasi mapping response berdasarkan struktur apiResponse.js di backend
+            return response.data.data || [];
+        } catch (error: any) {
+            if (error.response?.status === 503) {
+                throw new Error('Layanan pemetaan wilayah logistik sedang dalam pemeliharaan.');
+            }
+            throw new Error(error.response?.data?.message || 'Terjadi kesalahan saat memuat data wilayah.');
+        }
+    },
+
+    /**
+     * [CALCULATOR] Mengkalkulasi opsi ongkos kirim secara real-time via Aggregator (Biteship).
+     * Endpoint POST ini diisolasi dari logic /orders, bertindak sebagai mesin kalkulasi standalone.
+     * Backend secara mandiri akan menerjemahkan address_id dan store_id menjadi biteship_area_id.
+     * * @param payload DTO berisi relasi ID Alamat (Tujuan), ID Toko (Asal), dan array rincian fisik produk.
+     * @returns Promise berisi array opsi kurir (CourierOption) yang telah disaring dan dikurasi oleh Backend.
+     */
+    getRates: async (payload: ShippingRatePayload): Promise<CourierOption[]> => {
+        try {
+            const response = await axiosClient.post('/v1/shipping/rates', payload);
+
+            // [PERBAIKAN]: Ekstraksi data secara dinamis dan kebal terhadap interceptor Axios
+            const payloadData = response.data?.data || response.data || response;
+
+            // Pastikan nilai yang dikembalikan benar-benar sebuah Array
+            return Array.isArray(payloadData) ? payloadData : [];
+
+        } catch (error: any) {
+            throw new Error(error.response?.data?.message || 'Gagal menghitung tarif pengiriman ke rute ini.');
+        }
     }
 };

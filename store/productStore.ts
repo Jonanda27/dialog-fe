@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Product, CreateProductPayload, BulkCreateProductPayload } from '../types/product';
-import { ProductService } from '../services/api/product.service';
+import { productService } from '../services/api/product.service';
 import { ApiError } from '../types/api';
 
 interface ProductState {
@@ -44,7 +44,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
     fetchProducts: async (filters) => {
         set({ isLoading: true, error: null });
         try {
-            const response = await ProductService.getAll(filters);
+            const response = await productService.getAll(filters);
             set({
                 products: response.data,
                 isLoading: false,
@@ -61,7 +61,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
     fetchMyProducts: async (filters) => {
         set({ isLoading: true, error: null });
         try {
-            const response = await ProductService.getMyProducts(filters);
+            const response = await productService.getMyProducts(filters);
             set({
                 myProducts: response.data,
                 isLoading: false,
@@ -78,7 +78,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
     fetchProductById: async (id: string) => {
         set({ isLoading: true, error: null, currentProduct: null });
         try {
-            const response = await ProductService.getById(id);
+            const response = await productService.getById(id);
             set({
                 currentProduct: response.data,
                 isLoading: false,
@@ -95,7 +95,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
     createProduct: async (payload: CreateProductPayload) => {
         set({ isSubmitting: true, error: null });
         try {
-            const response = await ProductService.create(payload);
+            const response = await productService.create(payload);
             const newProduct = response.data;
 
             // Optimistic UI: Tambahkan ke products & myProducts
@@ -122,7 +122,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
     updateProduct: async (id: string, payload: Partial<CreateProductPayload>) => {
         set({ isSubmitting: true, error: null });
         try {
-            const response = await ProductService.update(id, payload);
+            const response = await productService.update(id, payload);
             const updatedProduct = response.data;
 
             set((state) => ({
@@ -146,7 +146,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
     deleteProduct: async (id: string) => {
         set({ isSubmitting: true, error: null });
         try {
-            await ProductService.delete(id);
+            await productService.delete(id);
 
             set((state) => ({
                 products: state.products.filter(p => p.id !== id),
@@ -167,7 +167,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
     bulkCreateProducts: async (payload: BulkCreateProductPayload[]) => {
         set({ isSubmitting: true, error: null });
         try {
-            const response = await ProductService.bulkCreate(payload);
+            const response = await productService.bulkCreate(payload);
             const newProducts = response.data;
 
             set((state) => ({

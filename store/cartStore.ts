@@ -2,26 +2,22 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Product } from '../types/product';
 import { CartItem } from '../types/cart';
+import { productService } from '@/services/api/product.service';
 
 interface CartState {
-    // State
     items: CartItem[];
     isOpen: boolean;
-
-    // Actions
     openCart: () => void;
     closeCart: () => void;
     addItem: (product: Product, quantity?: number) => void;
     removeItem: (cartItemId: string) => void;
     updateQuantity: (cartItemId: string, quantity: number) => void;
     clearCart: () => void;
-
-    // ⚡ BARU: Alias fungsional untuk memperjelas alur setelah transaksi sukses
     clearCartAfterCheckout: () => void;
+    syncCartItems: () => Promise<boolean>;
 }
 
 export const useCartStore = create<CartState>()(
-    // Menggunakan middleware 'persist' untuk auto-save ke localStorage
     persist(
         (set, get) => ({
             items: [],
@@ -34,21 +30,14 @@ export const useCartStore = create<CartState>()(
             addItem: (product, quantity = 1) => {
                 const { items } = get();
 
-                // ⚡ VALIDASI KRUSIAL 1: Aturan Single-Store (1 Pesanan = 1 Toko)
-                if (items.length > 0) {
-                    const currentStoreId = items[0].product.store_id;
-                    if (currentStoreId !== product.store_id) {
-                        // Melempar error agar bisa ditangkap & ditampilkan oleh Toast di UI
-                        throw new Error('Anda hanya bisa membeli barang dari satu toko yang sama dalam satu checkout. Selesaikan pesanan sebelumnya atau kosongkan keranjang.');
-                    }
-                }
+                // ⚡ PERBAIKAN: Validasi Single-Store DIHAPUS agar bisa multi-toko.
 
-                // Cek apakah item sudah ada di dalam keranjang
                 const existingItem = items.find((item) => item.product.id === product.id);
 
                 if (existingItem) {
-                    // ⚡ VALIDASI KRUSIAL 2: Cek Limit Stok (Mencegah Overselling di Frontend)
                     const newQuantity = existingItem.quantity + quantity;
+
+                    // Validasi Stok Tetap Ada
                     if (newQuantity > product.stock) {
                         throw new Error(`Stok tidak mencukupi. Tersisa ${product.stock} pcs.`);
                     }
@@ -59,22 +48,21 @@ export const useCartStore = create<CartState>()(
                                 ? { ...item, quantity: newQuantity }
                                 : item
                         ),
-                        isOpen: true, // Otomatis membuka Drawer Keranjang saat ditambah
+                        isOpen: true,
                     });
                 } else {
-                    // Validasi limit stok untuk item baru
                     if (quantity > product.stock) {
                         throw new Error(`Stok tidak mencukupi. Tersisa ${product.stock} pcs.`);
                     }
 
                     const newItem: CartItem = {
-                        cart_item_id: product.id, // Kita gunakan ID produk sebagai ID unik keranjang
+                        cart_item_id: product.id,
                         product,
                         quantity,
                     };
 
                     set({
-                        items: [newItem, ...items], // Item terbaru muncul di atas
+                        items: [newItem, ...items],
                         isOpen: true,
                     });
                 }
@@ -90,12 +78,10 @@ export const useCartStore = create<CartState>()(
                 const { items } = get();
                 const itemToUpdate = items.find((item) => item.cart_item_id === cartItemId);
 
-                // Mencegah penambahan jika melebihi batas stok via tombol '+'
                 if (itemToUpdate && quantity > itemToUpdate.product.stock) {
                     return;
                 }
 
-                // Jika qty menjadi 0, hapus item dari keranjang
                 if (quantity <= 0) {
                     get().removeItem(cartItemId);
                     return;
@@ -112,11 +98,70 @@ export const useCartStore = create<CartState>()(
 
             clearCart: () => set({ items: [] }),
 
-            // Menggunakan fungsi clearCart untuk membersihkan keranjang pasca-checkout sukses
             clearCartAfterCheckout: () => set({ items: [] }),
+
+            syncCartItems: async () => {
+                const { items } = get();
+                if (items.length === 0) return false;
+
+                const productIds = items.map((item) => item.product.id);
+
+                try {
+                    const response = await productService.syncProducts(productIds);
+                    const latestData = response.data;
+
+                    let hasChanges = false;
+
+                    const updatedItems = items.map((item) => {
+                        const serverInfo = latestData.find((p: any) => p.id === item.product.id);
+
+                        if (!serverInfo) {
+                            hasChanges = true;
+                            return {
+                                ...item,
+                                product: { ...item.product, is_active: false, stock: 0 }
+                            };
+                        }
+
+                        const isPriceChanged = Number(serverInfo.price) !== Number(item.product.price);
+                        const isOutOfStock = serverInfo.stock < item.quantity || !serverInfo.is_active;
+
+                        if (isPriceChanged || isOutOfStock) {
+                            hasChanges = true;
+                        }
+
+                        return {
+                            ...item,
+                            quantity: serverInfo.stock < item.quantity ? serverInfo.stock : item.quantity,
+                            product: {
+                                ...item.product,
+                                price: serverInfo.price,
+                                stock: serverInfo.stock,
+                                is_active: serverInfo.is_active,
+                                product_weight: serverInfo.product_weight
+                            }
+                        };
+                    });
+
+                    const cleanItems = updatedItems.filter(item => item.quantity > 0);
+
+                    if (cleanItems.length !== updatedItems.length) {
+                        hasChanges = true;
+                    }
+
+                    if (hasChanges) {
+                        set({ items: cleanItems });
+                    }
+
+                    return hasChanges;
+                } catch (error) {
+                    console.error('[Cart Auto-Healing] Gagal menyinkronkan data:', error);
+                    return false;
+                }
+            },
         }),
         {
-            name: 'analog-cart-storage', // Nama Key yang akan muncul di Application > Local Storage Browser
+            name: 'analog-cart-storage',
         }
     )
 );

@@ -1,4 +1,4 @@
-import { ProductService } from '@/services/api/product.service';
+import { productService } from '@/services/api/product.service';
 import { CategoryService } from '@/services/api/category.service';
 import CatalogClient from './CatalogClient'; // Komponen Interaktif
 
@@ -24,7 +24,7 @@ export default async function KatalogPage({
 
     // 2. Server-Side Data Fetching
     const [productsRes, categoriesRes] = await Promise.all([
-        ProductService.getAll(queryParams),
+        productService.getAll(queryParams),
         CategoryService.getAllCategories()
     ]);
 
