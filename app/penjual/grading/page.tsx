@@ -21,11 +21,23 @@ export default function GradingDashboard() {
     const fetchRequests = async () => {
         try {
             const token = getCookie("token");
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/grading/store`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/grading/store-requests`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+
+            // ⚡ FIX: Check status SEBELUM parse JSON
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error('API Error:', res.status, errorText);
+                throw new Error(`API Error: ${res.status}`);
+            }
+
             const data = await res.json();
-            if (res.ok) setRequests(data.data);
+            if (data.data) {
+                setRequests(data.data);
+            } else if (Array.isArray(data)) {
+                setRequests(data);
+            }
         } catch (error) {
             console.error("Gagal memuat data grading:", error);
         } finally {
@@ -48,7 +60,7 @@ export default function GradingDashboard() {
             formData.append("video", videoFile);
 
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/grading/${selectedGradingId}/fulfill`, {
-                method: "PUT", // Atau POST sesuai route Anda
+                method: "PATCH", // ⚡ Sesuai dengan grading.service.ts
                 headers: {
                     Authorization: `Bearer ${token}`,
                     // Biarkan browser mengatur batas multipart boundary
@@ -56,17 +68,21 @@ export default function GradingDashboard() {
                 body: formData,
             });
 
-            const data = await res.json();
-            if (res.ok) {
-                alert("Video grading berhasil diunggah!");
-                setSelectedGradingId(null);
-                setVideoFile(null);
-                fetchRequests(); // Rehidrasi tabel
-            } else {
-                throw new Error(data.message);
+            // ⚡ FIX: Check status SEBELUM parse JSON
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error('Upload Error:', res.status, errorText);
+                throw new Error(`Upload gagal: ${res.status}`);
             }
+
+            const data = await res.json();
+            alert("Video grading berhasil diunggah!");
+            setSelectedGradingId(null);
+            setVideoFile(null);
+            fetchRequests(); // Rehidrasi tabel
         } catch (error: any) {
-            alert(error.message || "Gagal mengunggah video.");
+            console.error("Error uploading:", error);
+            alert(error.message || "Gagal mengunggah video. Coba lagi atau hubungi support.");
         } finally {
             setUploading(false);
         }

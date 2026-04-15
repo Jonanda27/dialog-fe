@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AlertCircle } from 'lucide-react';
 import GradingService from '@/services/api/grading.service';
 import { GradingRequest } from '@/types/grading';
 import { toast } from 'sonner';
@@ -9,14 +10,15 @@ import { toast } from 'sonner';
 export default function GradingHub() {
     const [tickets, setTickets] = useState<GradingRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [selectedVideoUrl, setSelectedVideoUrl] = useState<string | null>(null);
 
     // Fetch data tiket aktif saat komponen di-mount
     useEffect(() => {
         const fetchTickets = async () => {
             try {
-                // Asumsi: Service ini memanggil GET /api/grading/my-requests (Endpoint Buyer)
-                // Jika belum ada, Anda bisa menambahkannya di gradingService nanti.
+                setError(null);
+                // Call endpoint: GET /api/grading/my-requests (Endpoint Buyer)
                 const response = await GradingService.getBuyerRequests();
 
                 // Filter hanya tiket yang butuh perhatian (Menunggu video atau Video sudah siap)
@@ -25,8 +27,20 @@ export default function GradingHub() {
                 ) || [];
 
                 setTickets(activeTickets);
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Failed to fetch grading requests:", error);
+
+                // ⚡ Specific error handling untuk 404 endpoint
+                if (error.status === 404) {
+                    setError('Layanan grading sedang mengalami gangguan teknis. Hubungi support jika masalah berlanjut.');
+                } else if (error.message?.includes('not valid JSON')) {
+                    setError('Response dari server tidak valid. Coba refresh halaman.');
+                } else {
+                    setError(error.message || 'Gagal memuat data grading. Coba lagi nanti.');
+                }
+
+                // Reset tickets jika error
+                setTickets([]);
             } finally {
                 setIsLoading(false);
             }
@@ -102,7 +116,25 @@ export default function GradingHub() {
 
             {/* Daftar Tiket Aktif */}
             <div className="space-y-3 max-h-75 overflow-y-auto pr-2 custom-scrollbar">
-                {isLoading ? (
+                {/* ⚡ NEW: Error State */}
+                {error && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="p-4 rounded-2xl border border-red-900/50 bg-red-900/20 flex gap-3 items-start"
+                    >
+                        <AlertCircle size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                            <p className="text-sm text-red-400 font-medium">{error}</p>
+                            <p className="text-[10px] text-red-500/70 mt-1">
+                                Endpoint: <code className="bg-red-950/50 px-1.5 py-0.5 rounded text-xs">/api/grading/my-requests</code>
+                            </p>
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* Loading State */}
+                {isLoading && !error ? (
                     <div className="animate-pulse flex gap-4 p-4 border border-zinc-800/50 rounded-2xl">
                         <div className="w-12 h-12 bg-zinc-800 rounded-lg"></div>
                         <div className="flex-1 space-y-2">
@@ -110,7 +142,7 @@ export default function GradingHub() {
                             <div className="h-4 bg-zinc-800 rounded w-1/2"></div>
                         </div>
                     </div>
-                ) : tickets.length === 0 ? (
+                ) : tickets.length === 0 && !error ? (
                     <div className="text-center py-8 border border-dashed border-zinc-800 rounded-2xl">
                         <p className="text-sm text-zinc-500">Belum ada tiket verifikasi aktif.</p>
                     </div>

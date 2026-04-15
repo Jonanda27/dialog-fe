@@ -2,6 +2,7 @@
 
 import { CartItem } from '@/types/cart';
 import { toIDR } from '@/utils/format';
+import { AlertCircle, Clock } from 'lucide-react';
 
 interface OrderSummaryProps {
     items: CartItem[];
@@ -9,6 +10,8 @@ interface OrderSummaryProps {
     shippingFee: number;
     gradingFee: number;
     isSubmitting: boolean;
+    isValidatingGrading?: boolean;
+    gradingError?: string | null;
     onConfirm: () => void;
 }
 
@@ -18,6 +21,8 @@ export default function OrderSummary({
     shippingFee,
     gradingFee,
     isSubmitting,
+    isValidatingGrading,
+    gradingError,
     onConfirm
 }: OrderSummaryProps) {
     // ⚡ THE FINAL WEDDING: Kalkulasi absolut di sisi UI untuk transparansi
@@ -27,11 +32,40 @@ export default function OrderSummary({
     // Asumsi: Dalam sistem ini, ongkos kirim Rp0 hanya berlaku jika kurir belum dipilih.
     const isReadyToPay = shippingFee > 0;
 
+    // ⚡ NEW: Check jika ada grading error atau masih validating
+    const hasGradingPending = items.some((item) => (item.product.metadata as any)?.request_grading === true);
+    const isGradingBlocking = gradingError || (hasGradingPending && isValidatingGrading);
+
     return (
         <div className="bg-white border border-gray-200 p-6 rounded-sm shadow-sm sticky top-24">
             <h2 className="text-lg font-bold text-gray-900 mb-6 tracking-tight border-b border-gray-100 pb-3 uppercase">
                 Ringkasan Pesanan
             </h2>
+
+            {/* ⚡ NEW: Grading Status Alert */}
+            {hasGradingPending && (
+                <div className={`mb-6 p-4 rounded-lg border flex gap-3 ${gradingError
+                        ? 'bg-red-50 border-red-200 text-red-700'
+                        : isValidatingGrading
+                            ? 'bg-amber-50 border-amber-200 text-amber-700'
+                            : 'bg-green-50 border-green-200 text-green-700'
+                    }`}>
+                    {gradingError ? (
+                        <AlertCircle size={16} className="flex-shrink-0 mt-1" />
+                    ) : (
+                        <Clock size={16} className="flex-shrink-0 mt-1 animate-spin" />
+                    )}
+                    <div className="text-xs font-medium">
+                        {gradingError ? (
+                            <p>{gradingError}</p>
+                        ) : isValidatingGrading ? (
+                            <p>Memvalidasi status grading...</p>
+                        ) : (
+                            <p>✓ Grading video sudah siap untuk checkout</p>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* ⚡ PENINGKATAN UX: Menampilkan rincian barang yang dibeli (Item Preview) */}
             <div className="mb-6 space-y-4 max-h-75 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200">
@@ -89,10 +123,18 @@ export default function OrderSummary({
 
             <button
                 onClick={onConfirm}
-                disabled={isSubmitting || !isReadyToPay}
+                disabled={isSubmitting || !isReadyToPay || !!gradingError || isValidatingGrading}
                 className="w-full bg-black text-white py-4 text-sm font-bold uppercase tracking-widest hover:bg-gray-800 transition-all disabled:bg-gray-300 disabled:text-gray-500 flex items-center justify-center gap-2 group"
             >
-                {isSubmitting ? (
+                {isValidatingGrading ? (
+                    <>
+                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        MEMVALIDASI GRADING...
+                    </>
+                ) : isSubmitting ? (
                     <>
                         <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -111,10 +153,16 @@ export default function OrderSummary({
                 )}
             </button>
 
-            {/* Peringatan eksplisit jika tombol terkunci karena belum memilih kurir */}
+            {/* Peringatan eksplisit */}
             {!isReadyToPay && (
                 <p className="text-[10px] text-center text-red-500 font-bold uppercase tracking-wide mt-3">
                     * Pilih opsi pengiriman untuk melanjutkan
+                </p>
+            )}
+
+            {gradingError && (
+                <p className="text-[10px] text-center text-red-600 font-bold uppercase tracking-wide mt-3">
+                    * {gradingError}
                 </p>
             )}
         </div>

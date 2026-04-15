@@ -69,6 +69,21 @@ axiosClient.interceptors.response.use(
             if (status === 403) {
                 customError.message = data.message || 'Anda tidak memiliki otorisasi untuk tindakan ini.';
             }
+
+            // ⚡ NEW: Specific 404 Handling for Grading Endpoints
+            if (status === 404) {
+                const requestUrl = error.config?.url || '';
+
+                if (requestUrl.includes('/grading')) {
+                    customError.message = 'Layanan grading sedang mengalami gangguan teknis. Coba lagi dalam beberapa saat atau hubungi support.';
+                } else if (requestUrl.includes('/produk') || requestUrl.includes('/product')) {
+                    customError.message = 'Produk tidak ditemukan atau telah dihapus.';
+                } else if (requestUrl.includes('/address')) {
+                    customError.message = 'Alamat pengiriman tidak ditemukan.';
+                } else {
+                    customError.message = data.message || 'Resource yang Anda cari tidak tersedia.';
+                }
+            }
         } else if (error.request) {
             customError.status = 0;
             customError.message = 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';

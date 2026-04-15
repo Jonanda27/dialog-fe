@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Product } from '../types/product';
 import { CartItem } from '../types/cart';
+import { GradingStatus } from '../types/grading';
 import { productService } from '@/services/api/product.service';
 
 interface CartState {
@@ -15,6 +16,10 @@ interface CartState {
     clearCart: () => void;
     clearCartAfterCheckout: () => void;
     syncCartItems: () => Promise<boolean>;
+
+    // ⚡ NEW: Grading tracking methods
+    updateGradingInfo: (cartItemId: string, gradingRequestId: string, status: GradingStatus, requiresGrading: boolean) => void;
+    getItemsByGradingRequirement: () => CartItem[]; // Get items yang require grading
 }
 
 export const useCartStore = create<CartState>()(
@@ -158,6 +163,28 @@ export const useCartStore = create<CartState>()(
                     console.error('[Cart Auto-Healing] Gagal menyinkronkan data:', error);
                     return false;
                 }
+            },
+
+            // ⚡ NEW: Update grading link untuk cart item
+            updateGradingInfo: (cartItemId: string, gradingRequestId: string, status: GradingStatus, requiresGrading: boolean) => {
+                set((state) => ({
+                    items: state.items.map((item) =>
+                        item.cart_item_id === cartItemId
+                            ? {
+                                ...item,
+                                grading_request_id: gradingRequestId,
+                                grading_status: status,
+                                requires_grading: requiresGrading,
+                            }
+                            : item
+                    ),
+                }));
+            },
+
+            // ⚡ NEW: Get items yang memerlukan grading validation sebelum checkout
+            getItemsByGradingRequirement: () => {
+                const { items } = get();
+                return items.filter((item) => item.requires_grading === true);
             },
         }),
         {

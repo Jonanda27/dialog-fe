@@ -8,6 +8,7 @@ import ActiveOrderTracker from '@/components/dashboard/ActiveOrderTracker';
 import CategoryGrid from '@/components/dashboard/CategoryGrid';
 import WishlistPreview from '@/components/dashboard/WishlistPreview';
 import RecommendedFeed from '@/components/dashboard/RecommendedFeed';
+import GradingHub from '@/components/dashboard/GradingHub';
 
 // Catatan Arsitektur: 
 // export const metadata = { ... } dihapus karena Metadata tidak bisa diekspor 
@@ -50,6 +51,15 @@ export default function BuyerDashboard() {
                     <WishlistPreview />
                 </div>
             </div>
+
+            {/* 3.5. ⚡ NEW: Grading Hub (Video Verification Requests) */}
+            <Suspense fallback={
+                <div className="h-48 w-full bg-zinc-950 border border-zinc-800 rounded-3xl animate-pulse flex items-center justify-center">
+                    <span className="text-zinc-600 font-bold uppercase tracking-widest text-xs">Memuat Grading Hub...</span>
+                </div>
+            }>
+                <GradingHub />
+            </Suspense>
 
             {/* 4. Rekomendasi Produk */}
             <Suspense fallback={
