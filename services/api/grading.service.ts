@@ -1,47 +1,63 @@
-// File: dialog-fe/services/api/grading.service.ts
-
 import axiosClient from './axiosClient';
-import { ApiResponse } from '../../types/api';
-import {
-    GradingRequest,
-    RequestGradingPayload,
-    FulfillGradingPayload
-} from '../../types/grading';
+import { ApiResponse } from '@/types/api';
+import { GradingRequest, RequestGradingPayload, FulfillGradingPayload } from '@/types/grading';
 
-export const GradingService = {
-    /**
-     * [BUYER] Meminta penjual untuk mengunggah video detail kondisi fisik (Grading).
-     * @param payload ID Produk yang ingin di-request
-     */
+const gradingService = {
+    // Fase 1: Buyer mengajukan request video
     requestGrading: async (payload: RequestGradingPayload): Promise<ApiResponse<GradingRequest>> => {
-        return await axiosClient.post<any, ApiResponse<GradingRequest>>('/grading/request', payload);
+        const response = await axiosClient.post('/grading/request', payload);
+        return response.data;
     },
 
-    /**
-     * [SELLER] Mengambil daftar permintaan video grading yang masuk ke toko.
-     */
+    // Buyer: Mengambil daftar tiket miliknya untuk GradingHub
+    getBuyerRequests: async (): Promise<ApiResponse<GradingRequest[]>> => {
+        const response = await axiosClient.get('/grading/my-requests');
+        return response.data;
+    },
+
+    // Seller: Mengambil daftar tiket yang masuk ke tokonya
     getStoreRequests: async (): Promise<ApiResponse<GradingRequest[]>> => {
-        return await axiosClient.get<any, ApiResponse<GradingRequest[]>>('/grading/store');
+        const response = await axiosClient.get('/grading/store-requests');
+        return response.data;
     },
 
-    /**
-     * [SELLER] Mengunggah video detail kondisi produk untuk memenuhi request Buyer.
-     * Fungsi ini secara otomatis mengonversi payload file menjadi FormData.
-     * @param gradingId ID dari request grading
-     * @param payload Objek berisi file video
-     */
+    // Fase 2: Seller mengunggah video
     fulfillGrading: async (gradingId: string, payload: FulfillGradingPayload): Promise<ApiResponse<GradingRequest>> => {
         const formData = new FormData();
-
         if (payload.video_file) {
-            // Key 'video' HARUS sama persis dengan yang ada di upload.single('video') milik Backend Multer
             formData.append('video', payload.video_file);
-        } else {
-            return Promise.reject(new Error('File video tidak ditemukan dalam payload.'));
+        }
+        const response = await axiosClient.patch(`/grading/${gradingId}/fulfill`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return response.data;
+    },
+
+    // MAC (Media Access Control): Mendapatkan URL Stream dengan Auth Token
+    getAuthenticatedStreamUrl: (gradingId: string): string => {
+        // Sesuaikan NEXT_PUBLIC_API_URL dengan env Anda (misal: http://localhost:5000/api)
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+        let token = '';
+
+        // Ekstraksi Token JWT dari Client-Side Storage
+        // Asumsi: Anda menggunakan Zustand (authStore) yang di-persist ke localStorage.
+        // Jika nama key localStorage Anda berbeda, ubah 'auth-storage' di bawah ini.
+        if (typeof window !== 'undefined') {
+            const authState = localStorage.getItem('auth-storage');
+            if (authState) {
+                try {
+                    const parsed = JSON.parse(authState);
+                    token = parsed.state?.token || '';
+                } catch (e) {
+                    console.error("Gagal mem-parsing token untuk video stream");
+                }
+            }
         }
 
-        // Eksekusi HTTP Request
-        // axiosClient akan mendeteksi FormData dan membiarkan browser mengatur boundary multipart
-        return await axiosClient.put<any, ApiResponse<GradingRequest>>(`/grading/${gradingId}/fulfill`, formData);
+        const streamUrl = `${baseUrl}/grading/${gradingId}/stream`;
+        // Injeksi token ke query parameter agar terbaca oleh tag <video>
+        return token ? `${streamUrl}?token=${token}` : streamUrl;
     }
 };
+
+export default gradingService;

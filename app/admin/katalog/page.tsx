@@ -68,7 +68,7 @@ export default function KatalogRilisanPage() {
         </div>
 
         {/* SEARCH & FILTER */}
-        <div className="bg-[#111114] border border-zinc-900 rounded-[2rem] p-4 mb-8 flex flex-col lg:flex-row gap-4">
+        <div className="bg-[#111114] border border-zinc-900 rounded-4xl p-4 mb-8 flex flex-col lg:flex-row gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
             <input 
@@ -104,7 +104,7 @@ export default function KatalogRilisanPage() {
               </thead>
               <tbody className="divide-y divide-zinc-900">
                 {masterKatalog.map((item) => (
-                  <tr key={item.id} className="hover:bg-white/[0.01] transition-colors group">
+                  <tr key={item.id} className="hover:bg-white/1 transition-colors group">
                     <td className="py-5 px-8">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-xl bg-[#0a0a0b] border border-zinc-800 flex items-center justify-center text-xl shadow-inner group-hover:border-[#ef3333] transition-colors">
@@ -160,7 +160,7 @@ export default function KatalogRilisanPage() {
 
         {/* MODAL ADD/EDIT MASTER DATA */}
         {isModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/95 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
             
             <div className="relative w-full max-w-2xl bg-[#111114] border border-zinc-800 rounded-[2.5rem] shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">

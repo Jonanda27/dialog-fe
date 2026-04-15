@@ -34,10 +34,11 @@ export default function OrderSummary({
             </h2>
 
             {/* ⚡ PENINGKATAN UX: Menampilkan rincian barang yang dibeli (Item Preview) */}
-            <div className="mb-6 space-y-4 max-h-[300px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200">
+            <div className="mb-6 space-y-4 max-h-75 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200">
                 {items.map((item) => (
                     <div key={item.cart_item_id} className="flex justify-between items-start gap-4">
                         <div className="flex-1">
+                            {/* Perbaikan pemetaan objek: menggunakan item.product.name */}
                             <p className="text-sm font-semibold text-gray-800 line-clamp-2 leading-tight">
                                 {item.product.name}
                             </p>
@@ -46,7 +47,7 @@ export default function OrderSummary({
                             </p>
                         </div>
                         <span className="text-sm font-bold text-gray-900">
-                            {toIDR(Number(item.product.price) * item.quantity)}
+                            {toIDR(Number(item.product.price) * (item.quantity || 1))}
                         </span>
                     </div>
                 ))}
@@ -60,16 +61,17 @@ export default function OrderSummary({
 
                 <div className="flex justify-between text-sm items-center">
                     <span className="text-gray-500 uppercase font-bold text-[10px] tracking-wider">Ongkos Kirim</span>
-                    <span className="font-bold text-gray-900">
+                    <div className="font-bold text-gray-900 flex items-center">
                         {shippingFee > 0 ? (
                             toIDR(shippingFee)
                         ) : (
                             // Visual feedback jika pembeli belum memilih kurir
                             <span className="text-red-500 text-xs italic bg-red-50 px-2 py-1 rounded-sm">Belum Dipilih</span>
                         )}
-                    </span>
+                    </div>
                 </div>
 
+                {/* Dirender secara dinamis hanya jika state memiliki gradingFee (ada tiket aktif) */}
                 {gradingFee > 0 && (
                     <div className="flex justify-between text-sm items-center">
                         <span className="text-blue-600 uppercase font-bold text-[10px] tracking-wider">Biaya Request Grading</span>
