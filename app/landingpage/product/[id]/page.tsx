@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
 // INTEGRASI
-import { ProductService } from "@/services/api/product.service";
+import { productService } from "@/services/api/product.service";
 import { ReviewService } from "@/services/api/review.service"; // Import Service Review [cite: 2713]
 import { Product } from "@/types/product";
 import { Review } from "@/types/review"; // Import Type Review [cite: 2820]
@@ -47,7 +47,7 @@ export default function ProductDetailPage() {
     const fetchProductDetail = useCallback(async () => {
         try {
             setIsLoading(true);
-            const res = await ProductService.getById(productId);
+            const res = await productService.getById(productId);
             if (res.success) setProduct(res.data);
             setActiveImageIndex(0);
         } catch (error) {

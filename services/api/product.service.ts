@@ -53,7 +53,7 @@ export const productService = {
         if (photos.extra1) formData.append('photos', photos.extra1);
         if (photos.extra2) formData.append('photos', photos.extra2);
 
-        return await axiosClient.post('/products', formData, {
+        return await axiosClient.post('/v1/products', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
     },
@@ -92,7 +92,7 @@ export const productService = {
             if (physical instanceof File) formData.append('photos', physical);
         }
 
-        return await axiosClient.put<any, ApiResponse<Product>>(`/products/${id}`, formData, {
+        return await axiosClient.put<any, ApiResponse<Product>>(`/v1/products/${id}`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
     },
@@ -101,21 +101,21 @@ export const productService = {
      * Menghapus produk
      */
     delete: async (id: string): Promise<ApiResponse<null>> => {
-        return await axiosClient.delete<any, ApiResponse<null>>(`/products/${id}`);
+        return await axiosClient.delete<any, ApiResponse<null>>(`/v1/products/${id}`);
     },
 
     /**
      * Mengambil daftar produk spesifik milik seller yang sedang login
      */
     getMyProducts: async (params?: Record<string, any>): Promise<ApiResponse<Product[]>> => {
-        return await axiosClient.get<any, ApiResponse<Product[]>>('/products/my-products', { params });
+        return await axiosClient.get<any, ApiResponse<Product[]>>('/v1/products/my-products', { params });
     },
 
     /**
      * Import produk massal (Kirim array JSON)
      */
     bulkCreate: async (payload: BulkCreateProductPayload[]): Promise<ApiResponse<Product[]>> => {
-        return await axiosClient.post<any, ApiResponse<Product[]>>('/products/bulk', payload);
+        return await axiosClient.post<any, ApiResponse<Product[]>>('/v1/products/bulk', payload);
       },
 
     // Pastikan fungsi ini ada di productService untuk dipanggil Zustand
@@ -127,6 +127,6 @@ export const productService = {
      * [ADMIN] Mengambil seluruh produk dari semua penjual.
      */
     getAllAdmin: async (params?: Record<string, any>): Promise<ApiResponse<Product[]>> => {
-        return await axiosClient.get<any, ApiResponse<Product[]>>('/products/admin/all', { params });
+        return await axiosClient.get<any, ApiResponse<Product[]>>('/v1/products/admin/all', { params });
     },
 };

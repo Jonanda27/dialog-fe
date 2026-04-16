@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { StoreService } from "@/services/api/store.service";
-import { ProductService } from "@/services/api/product.service";
+import { productService } from "@/services/api/product.service";
 import { CategoryService } from "@/services/api/category.service";
 import { Store as StoreType, UpdateStorePayload } from "@/types/store";
 import { 
@@ -15,15 +15,21 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 
-/** * HELPER URL GAMBAR */
+/** * HELPER URL GAMBAR 
+ * Memastikan URL memiliki format: BASE_URL/public/uploads/...
+ */
 const getImageUrl = (path: string | null | undefined): string | null => {
   if (!path || path === "") return null;
   if (path.startsWith("http")) return path;
+  
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
   let cleanPath = path.startsWith("/") ? path : `/${path}`;
+  
+  // Pastikan menyisipkan /public jika belum ada
   if (!cleanPath.startsWith("/public")) {
     cleanPath = `/public${cleanPath}`;
   }
+  
   return `${baseUrl}${cleanPath}`;
 };
 
@@ -65,6 +71,8 @@ export default function PengaturanToko() {
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   const [storeData, setStoreData] = useState<any>({
+    name: "",
+    description: "",
     startDay: "Senin",
     endDay: "Sabtu",
     startTime: "09:00",
@@ -75,7 +83,7 @@ export default function PengaturanToko() {
     website: "",
     banner_preview: null,
     logo_preview: null,
-    createdAt: "2026-04-10T02:50:16.149Z"
+    createdAt: null
   });
 
   const toggleCategory = (catId: string) => {
@@ -97,22 +105,23 @@ export default function PengaturanToko() {
         setOpenCategories({ [finalData[0].id]: true });
       }
     } catch (err) {
-      toast.error("Gagal mengambil kategori");
+      console.error("Gagal mengambil kategori", err);
     } finally {
       setIsLoadingCategories(false);
     }
   };
 
   const initData = async () => {
+    setIsLoading(true);
     try {
       const [storeRes, productRes] = await Promise.all([
         StoreService.getMyStore(),
-        ProductService.getMyProducts(),
+        productService.getMyProducts(),
         handleFetchCategories()
       ]);
       
-      if (storeRes.success) {
-          const data = storeRes.data as StoreType;
+      if (storeRes.success && storeRes.data) {
+          const data = storeRes.data;
           const hoursPart = data.working_hours?.split(" - ") || ["09:00", "17:00"];
           const daysPart = data.working_days?.split(" - ") || ["Senin", "Sabtu"];
 
@@ -130,10 +139,12 @@ export default function PengaturanToko() {
               facebook: data.social_links?.facebook || "",
               youtube: data.social_links?.youtube || "",
               website: data.social_links?.website || "",
-              createdAt: data.created_at || "2026-04-10T02:50:16.149Z"
+              createdAt: data.created_at // Menggunakan format CamelCase sesuai response API Anda
           });
       }
-      if (productRes.success) setProducts(productRes.data);
+      if (productRes.success) {
+        setProducts(productRes.data || []);
+      }
     } catch (error: any) {
       toast.error("Gagal sinkronisasi data");
     } finally {
@@ -192,7 +203,13 @@ export default function PengaturanToko() {
     }
   };
 
- 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="animate-spin text-[#ef3333]" size={32} />
+      </div>
+    );
+  }
 
   return (
       <div className="max-w-[1400px] mx-auto pb-20 px-4">
@@ -320,8 +337,6 @@ export default function PengaturanToko() {
                                     <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em] drop-shadow-md">Responsif</span>
                                 </div>
                            </div>
-                           
-                           {/* JAM OPERASIONAL DI BANNER DIHAPUS SESUAI PERMINTAAN */}
                         </div>
                     </div>
                 </div>
@@ -343,7 +358,7 @@ export default function PengaturanToko() {
                     {/* SIDEBAR (LEFT) */}
                     <div className="lg:col-span-3 space-y-6 sticky top-24">
                        
-                       {/* JAM OPERASIONAL MINI (PERBAIKAN TAMPILAN) */}
+                       {/* JAM OPERASIONAL MINI */}
                        <div className="bg-[#111114] border border-zinc-900 rounded-[2.5rem] p-7 shadow-lg relative overflow-hidden group">
                           <div className="absolute top-0 right-0 w-24 h-24 bg-[#ef3333]/5 rounded-full -mr-10 -mt-10 blur-2xl group-hover:bg-[#ef3333]/10 transition-all duration-700"></div>
                           

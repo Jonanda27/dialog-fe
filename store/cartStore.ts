@@ -7,6 +7,7 @@ import { productService } from '@/services/api/product.service';
 interface CartState {
     items: CartItem[];
     isOpen: boolean;
+    isAnimate: boolean; // ⚡ TAMBAHAN: Untuk trigger animasi di Navbar
     openCart: () => void;
     closeCart: () => void;
     addItem: (product: Product, quantity?: number) => void;
@@ -22,6 +23,7 @@ export const useCartStore = create<CartState>()(
         (set, get) => ({
             items: [],
             isOpen: false,
+            isAnimate: false, // Initial state animasi
 
             openCart: () => set({ isOpen: true }),
 
@@ -30,14 +32,17 @@ export const useCartStore = create<CartState>()(
             addItem: (product, quantity = 1) => {
                 const { items } = get();
 
-                // ⚡ PERBAIKAN: Validasi Single-Store DIHAPUS agar bisa multi-toko.
+                // Trigger Animasi Navbar
+                set({ isAnimate: true });
+                
+                // Reset animasi setelah 500ms agar bisa dipicu kembali nanti
+                setTimeout(() => set({ isAnimate: false }), 500);
 
                 const existingItem = items.find((item) => item.product.id === product.id);
 
                 if (existingItem) {
                     const newQuantity = existingItem.quantity + quantity;
 
-                    // Validasi Stok Tetap Ada
                     if (newQuantity > product.stock) {
                         throw new Error(`Stok tidak mencukupi. Tersisa ${product.stock} pcs.`);
                     }
@@ -48,7 +53,8 @@ export const useCartStore = create<CartState>()(
                                 ? { ...item, quantity: newQuantity }
                                 : item
                         ),
-                        isOpen: true,
+                        // ⚡ PERBAIKAN: isOpen diatur ke false agar tidak muncul drawer otomatis
+                        isOpen: false, 
                     });
                 } else {
                     if (quantity > product.stock) {
@@ -63,7 +69,8 @@ export const useCartStore = create<CartState>()(
 
                     set({
                         items: [newItem, ...items],
-                        isOpen: true,
+                        // ⚡ PERBAIKAN: isOpen diatur ke false agar tidak muncul drawer otomatis
+                        isOpen: false,
                     });
                 }
             },
@@ -162,6 +169,8 @@ export const useCartStore = create<CartState>()(
         }),
         {
             name: 'analog-cart-storage',
+            // Kita tidak mem-persist 'isAnimate' atau 'isOpen' agar tidak aneh saat page refresh
+            partialize: (state) => ({ items: state.items }),
         }
     )
 );

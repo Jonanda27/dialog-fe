@@ -16,26 +16,27 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
     const pathname = usePathname();
 
     // Halaman Publik: Halaman yang bisa diakses tanpa login.
-    // Tambahkan path lain ke array jika ingin membuat halaman lain jadi publik (misal: /katalog)
     const publicPaths = ['/'];
     const isPublicPage = publicPaths.includes(pathname);
 
     // Wrapper Utama UI (The Canvas)
     const content = (
-        <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 selection:bg-[#ef3333]/30 selection:text-[#ef3333] font-sans antialiased">
+        /* ⚡ MENTOR NOTE: Menambahkan 'flex flex-col' untuk struktur layout yang lebih solid */
+        <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 selection:bg-[#ef3333]/30 selection:text-[#ef3333] font-sans antialiased flex flex-col">
 
             {/* 1. Header Navigasi (Fixed on Top) */}
             <BuyerNavbar />
 
-            {/* 
-               2. Main Content Area 
-               Menggunakan min-h-screen agar background hitam menutupi seluruh layar 
-               meskipun kontennya sedikit.
+            {/* 2. Main Content Area 
+               ⚡ PERBAIKAN STRATEGIS: 
+               - Menambahkan pt-24 untuk tampilan mobile (Navbar lebih ringkas).
+               - Menambahkan lg:pt-[180px] untuk tampilan desktop (Mengakomodasi 3-Tier Navbar).
+               Ini memastikan konten di halaman mana pun (Dashboard, Profile, dsb) 
+               otomatis mulai dari bawah navbar tanpa perlu pt-40 lagi di tiap halaman.
             */}
-            <main className="min-h-screen">
-                {/* 
-                   Animate-in memberikan efek muncul perlahan (fade) 
-                   saat berpindah antar halaman buyer.
+            <main className="flex-grow pt-24 lg:pt-[190px]">
+                {/* Animate-in memberikan efek muncul perlahan (fade) 
+                    saat berpindah antar halaman buyer.
                 */}
                 <div className="animate-in fade-in duration-1000">
                     {children}

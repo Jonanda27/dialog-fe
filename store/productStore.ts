@@ -187,7 +187,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
     fetchAllProductsAdmin: async (filters) => {
         set({ isLoading: true, error: null });
         try {
-            const response = await ProductService.getAllAdmin(filters);
+            const response = await productService.getAllAdmin(filters);
             set({
                 adminProducts: response.data,
                 isLoading: false,
