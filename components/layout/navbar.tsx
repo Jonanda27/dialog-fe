@@ -11,24 +11,24 @@ interface NavbarProps {
 }
 
 export default function Navbar({ onMenuClick }: NavbarProps) {
-  // 1. Ambil data user secara reaktif langsung dari store (Logika Bersih dari HEAD)
+  // 1. Ambil data user secara reaktif langsung dari store
   const { user, isInitialized } = useAuthStore();
 
-  // 2. State untuk Wallet (Dari Cabang Incoming)
+  // 2. State untuk Wallet
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [isLoadingWallet, setIsLoadingWallet] = useState(false);
 
   // Fetch Wallet Data dengan dependency yang aman
   useEffect(() => {
     const fetchWallet = async () => {
-      // Pastikan store sudah inisialisasi dan user memiliki hak akses
-      if (isInitialized && (user?.role === 'seller' || user?.role === 'admin')) {
+      // Pastikan hanya role 'seller' yang melakukan fetch data wallet [cite: 2403, 2404]
+      if (isInitialized && user?.role === 'seller') {
         try {
           setIsLoadingWallet(true);
           const res = await StoreService.getWallet();
 
           if (res.data && res.data.balance) {
-            // Konversi aman ke Number
+            // Konversi aman ke Number [cite: 2405]
             const numericBalance = typeof res.data.balance === 'string'
               ? parseFloat(res.data.balance)
               : res.data.balance;
@@ -55,11 +55,11 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
         </button>
       </div>
 
-      {/* KANAN: Search, Wallet, Notif, Profile */}
+      {/* KANAN: Konten Dinamis Berdasarkan Role, Notif, Profile */}
       <div className="flex items-center gap-4 sm:gap-6">
 
-        {/* WALLET SECTION (Fitur dari Incoming) */}
-        {(user?.role === 'seller' || user?.role === 'admin') ? (
+        {/* WALLET SECTION: Hanya muncul untuk role 'seller' saja  */}
+        {isInitialized && user?.role === 'seller' ? (
           <div className="hidden md:flex items-center gap-3 bg-[#111114] border border-zinc-800 rounded-2xl px-4 py-2 group hover:border-zinc-700 transition-all">
             <div className="w-8 h-8 rounded-xl bg-[#ef3333]/10 flex items-center justify-center text-[#ef3333]">
               <Wallet size={16} />
@@ -81,24 +81,17 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
             </div>
           </div>
         ) : (
-          /* SEARCH SECTION (Fallback untuk role selain seller/admin dari HEAD) */
-          <div className="relative hidden md:block">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-            <input
-              type="text"
-              placeholder="Cari transaksi, produk..."
-              className="bg-[#111114] border border-zinc-800 rounded-full pl-10 pr-4 py-2 text-xs font-medium text-white focus:border-[#ef3333] outline-none w-64 transition-colors"
-            />
-          </div>
+          /* SEARCH DAN KONTEN TENGAH DIHAPUS UNTUK BUYER & ADMIN [cite: 2411] */
+          <div className="hidden md:block w-64"></div>
         )}
 
-        {/* NOTIFIKASI */}
+        {/* NOTIFIKASI [cite: 2412] */}
         <button className="relative text-zinc-400 hover:text-white transition-colors">
           <Bell size={20} />
           <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#ef3333] rounded-full border-2 border-[#0a0a0b]"></span>
         </button>
 
-        {/* PROFILE SECTION (Kombinasi Skeleton dari HEAD & Detail dari Incoming) */}
+        {/* PROFILE SECTION [cite: 2413] */}
         <div className="flex items-center gap-3 pl-4 border-l border-zinc-800 group cursor-pointer">
           <div className="relative">
             {isInitialized && user ? (

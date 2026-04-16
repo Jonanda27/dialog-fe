@@ -7,7 +7,8 @@ import {
     RegisterStorePayload,
     KYCUpdatePayload,
     StoreWalletResponse,
-    UpdateStorePayload
+    UpdateStorePayload,
+    BankAccountPayload
 } from '../../types/store';
 
 export const StoreService = {
@@ -61,6 +62,22 @@ export const StoreService = {
      */
     getWallet: async (): Promise<ApiResponse<StoreWalletResponse>> => {
         return await axiosClient.get<any, ApiResponse<StoreWalletResponse>>('/stores/wallet');
+    },
+
+    /**
+     * Menambahkan informasi rekening bank pencairan dana untuk pertama kali
+     * @param payload Objek berisi nama bank, nomor rekening, dan nama pemilik
+     */
+    createBankAccount: async (payload: BankAccountPayload): Promise<ApiResponse<Store>> => {
+        return await axiosClient.post<any, ApiResponse<Store>>('/stores/bank-account', payload);
+    },
+
+    /**
+     * Memperbarui informasi rekening bank toko
+     * @param payload Objek berisi nama bank, nomor rekening, dan nama pemilik
+     */
+    updateBankAccount: async (payload: BankAccountPayload): Promise<ApiResponse<Store>> => {
+        return await axiosClient.patch<any, ApiResponse<Store>>('/stores/bank-account', payload);
     },
 
     /**

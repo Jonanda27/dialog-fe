@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Sidebar from "@/components/layout/sidebar";
 import GradingRequestTable from "@/components/grading/GradingRequestTable";
 import { Loader2, X } from "lucide-react";
 
@@ -89,7 +88,6 @@ export default function GradingDashboard() {
     };
 
     return (
-        <Sidebar>
             <div className="max-w-5xl mx-auto pb-20">
                 <div className="mb-10">
                     <h2 className="text-2xl font-black uppercase tracking-tight text-white">Grading Center</h2>
@@ -140,6 +138,5 @@ export default function GradingDashboard() {
                     </div>
                 )}
             </div>
-        </Sidebar>
     );
 }

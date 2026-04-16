@@ -7,6 +7,7 @@ interface ProductState {
     // State
     products: Product[];
     myProducts: Product[];
+    adminProducts: Product[];
     currentProduct: Product | null;
     isLoading: boolean;      // Loading untuk fetch (GET) data
     isSubmitting: boolean;   // Loading khusus untuk mutasi (POST/PATCH/DELETE) agar UI tidak berkedip
@@ -16,6 +17,7 @@ interface ProductState {
     setInitialProducts: (products: Product[]) => void; // <-- BARU: Untuk Next.js Server-to-Client Handoff
     fetchProducts: (filters?: Record<string, any>) => Promise<void>;
     fetchMyProducts: (filters?: Record<string, any>) => Promise<void>;
+    fetchAllProductsAdmin: (filters?: Record<string, any>) => Promise<void>;
     fetchProductById: (id: string) => Promise<void>;
     createProduct: (payload: CreateProductPayload) => Promise<Product>;
     updateProduct: (id: string, payload: Partial<CreateProductPayload>) => Promise<Product>;
@@ -28,6 +30,7 @@ interface ProductState {
 export const useProductStore = create<ProductState>((set, get) => ({
     products: [],
     myProducts: [],
+    adminProducts: [],
     currentProduct: null,
     isLoading: false,
     isSubmitting: false,
@@ -178,6 +181,22 @@ export const useProductStore = create<ProductState>((set, get) => ({
                 isSubmitting: false
             });
             throw apiErr;
+        }
+    },
+
+    fetchAllProductsAdmin: async (filters) => {
+        set({ isLoading: true, error: null });
+        try {
+            const response = await productService.getAllAdmin(filters);
+            set({
+                adminProducts: response.data,
+                isLoading: false,
+            });
+        } catch (error: any) {
+            set({
+                error: error.message || 'Gagal memuat katalog admin.',
+                isLoading: false
+            });
         }
     },
 

@@ -32,6 +32,31 @@ export default function BulkUpload() {
   // ATURAN 1 & 3: Ambil loading state dan fungsi dari Store (Token diurus otomatis oleh interceptor)
   const { bulkCreateProducts, isLoading: loading, clearError } = useProductStore();
 
+  // --- FUNGSI MAPPING DATA (Mengubah CSV Flat menjadi Nested Metadata) ---
+  const transformParsedData = (rawData: unknown[]): BulkCreateProductPayload[] => {
+    return rawData.map((item) => {
+      // Menggunakan Record<string, unknown> untuk menghindari tipe 'any'
+      const row = item as Record<string, unknown>;
+
+      return {
+        // Pemetaan kolom dasar
+        name: String(row.name || row.Nama || ""),
+        price: Number(row.price || row.Harga || 0),
+        stock: Number(row.stock || row.Stok || 1),
+        sub_category_id: String(row.sub_category_id || ""),
+        
+        // Pemetaan atribut spesifik ke dalam JSONB Metadata
+        metadata: {
+          status: 'active', // Default status
+          artist: row.artist ? String(row.artist) : undefined,
+          // Mapping legacy 'grading' dari CSV ke format baru 'media_grading'
+          media_grading: row.grading ? String(row.grading) : undefined,
+          description: row.description ? String(row.description) : undefined,
+        }
+      };
+    });
+  };
+
   // --- 1. LOGIKA PARSING FILE (CSV & XLSX) ---
   const processFile = (selectedFile: File) => {
     setIsParsing(true);
@@ -43,8 +68,9 @@ export default function BulkUpload() {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
-          // Type casting ke interface yang benar
-          setPreviewData(results.data as BulkCreateProductPayload[]);
+          // Transformasi data sebelum dimasukkan ke state
+          const formattedData = transformParsedData(results.data);
+          setPreviewData(formattedData);
           setIsParsing(false);
         },
         error: () => {
@@ -58,8 +84,12 @@ export default function BulkUpload() {
         const workbook = XLSX.read(data, { type: "binary" });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
+        
         const parsedData = XLSX.utils.sheet_to_json(sheet);
-        setPreviewData(parsedData as BulkCreateProductPayload[]);
+        // Transformasi data sebelum dimasukkan ke state
+        const formattedData = transformParsedData(parsedData);
+        
+        setPreviewData(formattedData);
         setIsParsing(false);
       };
       reader.readAsBinaryString(selectedFile);
@@ -260,10 +290,12 @@ export default function BulkUpload() {
                       {previewData.slice(0, 10).map((row, idx) => (
                         <tr key={idx} className="hover:bg-zinc-900/30 transition-colors">
                           <td className="px-4 py-3 text-[11px] font-bold text-zinc-300 truncate max-w-[150px]">{row.name}</td>
-                          <td className="px-4 py-3 text-[11px] text-zinc-400 font-medium">{row.artist}</td>
+                          {/* MENGAMBIL ARTIST DARI METADATA */}
+                          <td className="px-4 py-3 text-[11px] text-zinc-400 font-medium">{row.metadata?.artist || "-"}</td>
+                          {/* MENGAMBIL GRADING DARI METADATA (media_grading) */}
                           <td className="px-4 py-3 text-[11px]">
                             <span className="bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded text-[9px] font-black uppercase border border-zinc-700">
-                              {row.grading}
+                              {row.metadata?.media_grading || "-"}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-[11px] font-black text-white">Rp {Number(row.price).toLocaleString('id-ID')}</td>

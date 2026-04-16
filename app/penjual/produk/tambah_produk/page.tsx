@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Save, Loader2, AlertCircle, ChevronDown, Check, Disc, FileText, Hash } from "lucide-react";
+import { Save, Loader2, AlertCircle, ChevronDown, Check, Disc, FileText, Hash, Scale, Maximize } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 
@@ -45,6 +45,11 @@ export default function TambahProduk() {
     stock: "1",
     condition_notes: "",
     sub_category_id: "", 
+    // Field Tambahan untuk Pengiriman
+    product_weight: "", // Default 1kg untuk vinyl
+    product_length: "",   // Default size vinyl sleeve
+    product_width: "",
+    product_height: "",
   });
 
   // State Foto - Sesuai dengan key yang di-loop di ProductService
@@ -89,19 +94,10 @@ export default function TambahProduk() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  /**
-   * FIX UNTUK GAMBAR: 
-   * Pastikan PhotoUploadSection memanggil handleFileChange dengan key yang benar 
-   * Contoh: onFileChange(e, 'front')
-   */
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, key: string) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      
-      // Simpan file ke state agar bisa dikirim ke service
       setPhotos((prev) => ({ ...prev, [key]: file }));
-      
-      // Preview untuk UI
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviews((prev) => ({ ...prev, [key]: reader.result as string }));
@@ -113,7 +109,6 @@ export default function TambahProduk() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validasi Foto Utama (Frontend Guard)
     if (!photos.front || !photos.back || !photos.physical) {
       toast.error("Foto Depan, Belakang, dan Fisik wajib diunggah!");
       return;
@@ -135,6 +130,11 @@ export default function TambahProduk() {
         price: priceNum,
         stock: stockNum,
         sub_category_id: formData.sub_category_id,
+        // Konversi string ke number untuk field dimensi dan berat
+        product_weight: Number(formData.product_weight),
+        product_length: Number(formData.product_length),
+        product_width: Number(formData.product_width),
+        product_height: Number(formData.product_height),
         metadata: {
           artist: formData.artist || "Unknown Artist",
           status: "active",
@@ -144,10 +144,8 @@ export default function TambahProduk() {
           matrix_number: formData.catalog_number || "-",
           media_grading: formData.media_grading,
           sleeve_grading: formData.sleeve_grading,
-          // DIAMBIL DARI FIELD FORMAT DI CARD INFORMASI ALBUM
           format: formData.format || "Physical Media" 
         },
-        // MENGIRIM OBJEK PHOTOS BERISI FILE ASLI
         photos: photos 
       });
 
@@ -197,7 +195,7 @@ export default function TambahProduk() {
           </div>
         </section>
 
-        {/* SECTION 2: INFO ALBUM (Berisi field Format) */}
+        {/* SECTION 2: INFO ALBUM */}
         <AlbumInfoSection formData={formData} onChange={handleInputChange} />
 
         {/* SECTION 3: IDENTIFIKASI & KONDISI */}
@@ -208,7 +206,6 @@ export default function TambahProduk() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-             {/* Media Grading */}
              <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <Disc className="text-[#ef3333]" size={16} />
@@ -227,7 +224,6 @@ export default function TambahProduk() {
                 </div>
              </div>
 
-             {/* Sleeve Grading */}
              <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <FileText className="text-[#ef3333]" size={16} />
@@ -249,7 +245,6 @@ export default function TambahProduk() {
 
           <div className="w-full h-px bg-zinc-800/50 my-2" />
 
-          {/* METADATA INPUTS */}
           <div className="bg-[#0a0a0b]/50 border border-zinc-800/50 p-8 rounded-3xl grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
               <div className="flex items-center gap-3 mb-2">
@@ -290,10 +285,40 @@ export default function TambahProduk() {
           </div>
         </section>
 
-        {/* SECTION 4: HARGA & STOK */}
-        <PricingSection formData={formData} onChange={handleInputChange} />
+        {/* SECTION 4: HARGA, STOK & DIMENSI */}
+        <section className="bg-[#111114] border border-zinc-900 rounded-[2.5rem] p-8 lg:p-10 shadow-xl space-y-8">
+            <PricingSection formData={formData} onChange={handleInputChange} />
+            
+            <div className="w-full h-px bg-zinc-900" />
+            
+            <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                    <Scale className="text-[#ef3333]" size={18} />
+                    <h3 className="text-sm font-black uppercase tracking-wider text-white">Informasi Logistik</h3>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-[9px] font-bold text-zinc-500 uppercase ml-1 tracking-widest">Berat (Gram)</label>
+                        <input name="product_weight" type="number" value={formData.product_weight} onChange={handleInputChange} className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:border-[#ef3333] outline-none" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[9px] font-bold text-zinc-500 uppercase ml-1 tracking-widest">Panjang (Cm)</label>
+                        <input name="product_length" type="number" value={formData.product_length} onChange={handleInputChange} className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:border-[#ef3333] outline-none" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[9px] font-bold text-zinc-500 uppercase ml-1 tracking-widest">Lebar (Cm)</label>
+                        <input name="product_width" type="number" value={formData.product_width} onChange={handleInputChange} className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:border-[#ef3333] outline-none" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[9px] font-bold text-zinc-500 uppercase ml-1 tracking-widest">Tinggi (Cm)</label>
+                        <input name="product_height" type="number" value={formData.product_height} onChange={handleInputChange} className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:border-[#ef3333] outline-none" />
+                    </div>
+                </div>
+                <p className="text-[10px] text-zinc-600 italic">*Data ini digunakan untuk kalkulasi otomatis ongkos kirim.</p>
+            </div>
+        </section>
 
-        {/* SECTION 5: UPLOAD FOTO (Key Sinkron dengan Service) */}
+        {/* SECTION 5: UPLOAD FOTO */}
         <PhotoUploadSection previews={previews} onFileChange={handleFileChange} />
 
         {/* ACTION BUTTONS */}

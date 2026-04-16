@@ -6,7 +6,7 @@ import Link from "next/link";
 
 // INTEGRASI SERVICES
 import { StoreService } from "@/services/api/store.service";
-import { ProductService } from "@/services/api/product.service";
+import { productService } from "@/services/api/product.service";
 
 // INTEGRASI TYPES
 import { Product } from "@/types/product";
@@ -60,7 +60,7 @@ export default function StoreDetailPage() {
             // Menambahkan query param { store_id: params.id } untuk filter backend
             const [storeRes, productRes] = await Promise.all([
                 StoreService.getStoreById(params.id as string),
-                ProductService.getAll({ store_id: params.id as string })
+                productService.getAll({ store_id: params.id as string })
             ]);
             
             if (storeRes.success) {

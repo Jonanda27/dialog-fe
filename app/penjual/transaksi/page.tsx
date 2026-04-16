@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Sidebar from "@/components/layout/sidebar";
 import SellerOrderTable from "@/components/order/SellerOrderTable";
 import { Loader2, X } from "lucide-react";
+// Sesuaikan path import di bawah ini dengan struktur foldermu
+import { Order, ShipOrderPayload } from "@/types/order"; 
+import { OrderService } from "@/services/api/order.service"; 
 
 export default function ManajemenPesanan() {
-  const [orders, setOrders] = useState([]);
+  // Menggunakan tipe Order[] bukan array kosong tanpa tipe
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("processing"); // processing, shipped, completed
 
@@ -21,25 +24,20 @@ export default function ManajemenPesanan() {
     { id: "completed", label: "Selesai" },
   ];
 
-  const getCookie = (name: string) => {
-    if (typeof document === "undefined") return null;
-    const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
-    return match ? match[2] : null;
-  };
-
   const fetchOrders = async (statusFilter: string) => {
     setLoading(true);
     try {
-      const token = getCookie("token");
       // Menyesuaikan mapping status (di DB statusnya 'paid' saat baru dibayar)
       let queryStatus = statusFilter;
       if (statusFilter === "processing") queryStatus = "paid";
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/store?status=${queryStatus}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok) setOrders(data.data);
+      // Panggil API lewat service (Tanpa fetch manual & tanpa pasang token manual)
+      const response = await OrderService.getStoreOrders(queryStatus);
+      
+      // Asumsi response dari axios client membungkus data di properti 'data'
+      if (response && response.data) {
+        setOrders(response.data);
+      }
     } catch (error) {
       console.error("Gagal memuat pesanan:", error);
     } finally {
@@ -57,34 +55,28 @@ export default function ManajemenPesanan() {
 
     setSubmitting(true);
     try {
-      const token = getCookie("token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/${selectedOrderId}/ship`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ tracking_number: trackingNumber }),
-      });
+      // Bentuk object payload biasa, tidak perlu FormData
+      const payload: ShipOrderPayload = {
+        tracking_number: trackingNumber
+      };
 
-      const data = await res.json();
-      if (res.ok) {
-        alert("Resi berhasil diinput. Pesanan dipindahkan ke tab 'Sudah Dikirim'.");
-        setSelectedOrderId(null);
-        setTrackingNumber("");
-        fetchOrders(activeTab); // Refresh data
-      } else {
-        throw new Error(data.message);
-      }
-    } catch (error: any) {
-      alert(error.message || "Gagal menginput resi.");
+      // Panggil API lewat service
+      await OrderService.shipOrder(selectedOrderId, payload);
+
+      alert("Resi berhasil diinput. Pesanan dipindahkan ke tab 'Sudah Dikirim'.");
+      setSelectedOrderId(null);
+      setTrackingNumber("");
+      fetchOrders(activeTab); // Refresh data
+    } catch (error: unknown) {
+      // Menghindari penggunaan :any pada catch block
+      const err = error as Error;
+      alert(err.message || "Gagal menginput resi.");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Sidebar>
       <div className="max-w-5xl mx-auto pb-20">
         <div className="mb-10">
           <h2 className="text-2xl font-black uppercase tracking-tight text-white">Manajemen Pesanan</h2>
@@ -152,6 +144,5 @@ export default function ManajemenPesanan() {
           </div>
         )}
       </div>
-    </Sidebar>
   );
 }
