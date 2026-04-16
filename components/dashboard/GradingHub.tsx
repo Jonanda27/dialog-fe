@@ -20,21 +20,27 @@ export default function GradingHub() {
                 setError(null);
 
                 const response = await GradingService.getBuyerRequests();
-                console.log("DEBUG - Raw Response:", response);
 
-                // ⚡ DEFENSIVE PROGRAMMING: Menangani berbagai kemungkinan struktur data
-                // Kita ambil array datanya, entah itu di response.data atau di response itu sendiri
-                const rawData = Array.isArray(response) ? response : (response.data || []);
+                // ⚡ FIX TypeScript TS2339: Menggunakan assertion ke 'any' 
+                // untuk melakukan inspeksi struktur runtime (defensive programming)
+                const safeResponse = response as any;
+                let rawData: GradingRequest[] = [];
 
-                // ⚡ SAFE FILTER: Menggunakan toLowerCase biar gak bentrok requested vs REQUESTED
+                if (Array.isArray(safeResponse)) {
+                    rawData = safeResponse;
+                } else if (safeResponse?.data && Array.isArray(safeResponse.data)) {
+                    rawData = safeResponse.data;
+                } else if (safeResponse?.data?.data && Array.isArray(safeResponse.data.data)) {
+                    rawData = safeResponse.data.data;
+                }
+
+                // ⚡ SAFE FILTER: Mendukung State Baru & Legacy
+                const activeStates = ['requested', 'awaiting_seller_media', 'media_ready', 'fulfilled'];
                 const activeTickets = rawData.filter((t: any) => {
-                    const status = t.status?.toLowerCase();
-                    return status === 'requested' ||
-                        status === 'awaiting_seller_media' ||
-                        status === 'media_ready';
+                    const status = t.status?.toLowerCase() || '';
+                    return activeStates.includes(status);
                 });
 
-                console.log("DEBUG - Filtered Tickets:", activeTickets);
                 setTickets(activeTickets);
             } catch (err: any) {
                 console.error("Failed to fetch grading requests:", err);
@@ -49,10 +55,13 @@ export default function GradingHub() {
 
     const handlePlayVideo = (ticketId: string, status: string) => {
         const s = status.toLowerCase();
-        if (s !== 'media_ready') {
+
+        // Validasi pemutaran untuk status 'ready' (baru) atau 'fulfilled' (legacy)
+        if (s !== 'media_ready' && s !== 'fulfilled') {
             toast.info('Penjual sedang menyiapkan rekaman fisik barang. Mohon tunggu.');
             return;
         }
+
         const streamUrl = GradingService.getAuthenticatedStreamUrl(ticketId);
         setSelectedVideoUrl(streamUrl);
     };
@@ -71,12 +80,15 @@ export default function GradingHub() {
                     </h2>
                     <p className="text-xs text-zinc-500 mt-1">Verifikasi kondisi fisik koleksi Anda</p>
                 </div>
-                {tickets.some(t => t.status?.toLowerCase() === 'media_ready') && (
-                    <span className="flex h-2 w-2 relative">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                    </span>
-                )}
+                {tickets.some(t => {
+                    const s = t.status?.toLowerCase();
+                    return s === 'media_ready' || s === 'fulfilled';
+                }) && (
+                        <span className="flex h-2 w-2 relative">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                    )}
             </div>
 
             {/* Video Player Modal */}
@@ -86,15 +98,21 @@ export default function GradingHub() {
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
-                        className="mb-6 overflow-hidden rounded-2xl bg-black border border-zinc-800 relative"
+                        className="mb-6 overflow-hidden rounded-2xl bg-black border border-zinc-800 relative shadow-2xl"
                     >
                         <button
                             onClick={() => setSelectedVideoUrl(null)}
-                            className="absolute top-4 right-4 z-10 bg-zinc-900/80 text-white p-2 rounded-full hover:bg-red-600 transition"
+                            className="absolute top-4 right-4 z-10 bg-zinc-900/80 text-white w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-600 transition"
                         >
                             ✕
                         </button>
-                        <video src={selectedVideoUrl} controls autoPlay className="w-full aspect-video object-contain" />
+                        <video
+                            src={selectedVideoUrl}
+                            controls
+                            autoPlay
+                            controlsList="nodownload"
+                            className="w-full aspect-video object-contain"
+                        />
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -116,8 +134,8 @@ export default function GradingHub() {
                     </div>
                 ) : (
                     tickets.map((ticket) => {
-                        const isReady = ticket.status?.toLowerCase() === 'media_ready';
-                        const isPending = !isReady;
+                        const s = ticket.status?.toLowerCase();
+                        const isReady = s === 'media_ready' || s === 'fulfilled';
 
                         return (
                             <div
@@ -125,7 +143,7 @@ export default function GradingHub() {
                                 onClick={() => handlePlayVideo(ticket.id, ticket.status)}
                                 className={`p-4 rounded-2xl border transition-all ${isReady
                                     ? 'bg-zinc-900/50 border-zinc-700 hover:border-red-500/50 cursor-pointer group shadow-lg shadow-red-900/5'
-                                    : 'bg-zinc-900/20 border-zinc-800/50 opacity-60'
+                                    : 'bg-zinc-900/20 border-zinc-800/50 opacity-60 cursor-not-allowed'
                                     }`}
                             >
                                 <div className="flex gap-4 items-center">
@@ -148,9 +166,9 @@ export default function GradingHub() {
                                                 {isReady ? 'VIDEO READY' : 'WAITING'}
                                             </span>
                                         </div>
-                                        {/* Metadata Logic */}
                                         <div className="flex flex-wrap gap-x-2 gap-y-1 mt-1">
-                                            <p className="text-[10px] text-zinc-500 font-medium">
+                                            {/* ⚡ FIX Tailwind Class: Menggunakan max-w-30 (canonical) menggantikan max-w-[120px] */}
+                                            <p className="text-[10px] text-zinc-500 font-medium truncate max-w-30">
                                                 {ticket.product?.metadata?.artist || 'Unknown Artist'}
                                             </p>
                                             <span className="text-[10px] text-zinc-700">•</span>
