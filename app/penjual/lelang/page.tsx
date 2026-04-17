@@ -1,285 +1,273 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import {
-    Plus,
-    Gavel,
-    Timer,
-    Calendar,
-    CheckCircle2,
-    XCircle,
-    Search,
-    MoreVertical,
-    ExternalLink,
-    Loader2,
-    AlertCircle,
-    Disc
-} from "lucide-react";
-import { toast } from "sonner";
+    Plus, Gavel, Timer, Calendar, CheckCircle2, XCircle, Search,
+    MoreVertical, ExternalLink, Loader2, AlertCircle, Disc, ArrowUpRight
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Utils & Services
 import { formatRupiah } from "@/utils/format";
 import { getImageUrl } from "@/utils/image";
-// Asumsi Anda akan membuat auctionService untuk handle hit API
-// import { auctionService } from "@/services/api/auction.service"; 
+import { auctionService } from "@/services/api/auction.service";
+
+// Types
+import { Auction, AuctionStatus } from "@/types/auction";
 
 // Components
 import CreateAuctionModal from "@/components/penjual/lelang/CreateAuctionModal";
 
-type AuctionStatus = 'DRAFT' | 'SCHEDULED' | 'ACTIVE' | 'FREEZE' | 'EVALUATION' | 'COMPLETED' | 'HANDOVER_TO_RUNNER_UP' | 'FAILED';
-
-interface AuctionItem {
-    id: string;
-    product_id: string;
-    start_time: string;
-    end_time: string;
-    increment: number;
-    current_price: number;
-    status: AuctionStatus;
-    product: {
-        name: string;
-        media: any[];
-        metadata: any;
-    };
-}
-
 export default function SellerAuctionDashboard() {
-    const [auctions, setAuctions] = useState<AuctionItem[]>([]);
+    const [auctions, setAuctions] = useState<Auction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [filterStatus, setFilterStatus] = useState<string>("ALL");
 
-    // Fetch Data dari Backend
     const fetchAuctions = useCallback(async () => {
         try {
             setIsLoading(true);
-            // Skenario Mock: Ganti dengan auctionService.getStoreAuctions() nantinya
-            // const res = await auctionService.getStoreAuctions();
-            // if (res.success) setAuctions(res.data);
-
-            // Simulasi delay fetch
-            await new Promise(resolve => setTimeout(resolve, 800));
-            setAuctions([]); // Sementara kosong
-        } catch (error) {
-            toast.error("Gagal memuat daftar lelang.");
+            const res: any = await auctionService.getMyStoreAuctions();
+            const finalData = res?.data || (Array.isArray(res) ? res : []);
+            setAuctions(finalData);
+        } catch (error: any) {
+            console.error("Fetch auctions error:", error);
+            toast.error(error.message || "Gagal memuat daftar lelang.");
+            setAuctions([]);
         } finally {
             setIsLoading(false);
         }
     }, []);
 
-    useEffect(() => {
-        fetchAuctions();
-    }, [fetchAuctions]);
+    useEffect(() => { fetchAuctions(); }, [fetchAuctions]);
 
-    // Handler Pembatalan
     const handleCancelAuction = async (id: string) => {
-        const confirm = window.confirm("Apakah Anda yakin ingin membatalkan jadwal lelang ini? Produk akan otomatis di-unlock.");
-        if (!confirm) return;
-
+        if (!window.confirm("Batalkan jadwal lelang? Produk akan dibuka kembali untuk umum.")) return;
         try {
-            // await auctionService.cancelAuction(id);
-            toast.success("Lelang berhasil dibatalkan.");
-            fetchAuctions(); // Refresh data
+            await auctionService.cancelAuction(id);
+            toast.success("Lelang dibatalkan.");
+            fetchAuctions();
         } catch (error: any) {
-            toast.error(error.message || "Gagal membatalkan lelang.");
+            toast.error(error.response?.data?.message || "Gagal membatalkan.");
         }
     };
 
-    // Helper UI: Badge Status
+    const filteredAuctions = useMemo(() => {
+        if (filterStatus === "ALL") return auctions;
+        if (filterStatus === "ENDED") return auctions.filter(a => ['COMPLETED', 'FAILED', 'CANCELLED'].includes(a.status));
+        return auctions.filter(a => a.status === filterStatus);
+    }, [auctions, filterStatus]);
+
     const getStatusBadge = (status: AuctionStatus) => {
         const styles: Record<string, string> = {
-            ACTIVE: "bg-red-500/10 text-red-500 border-red-500/20",
-            SCHEDULED: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-            FREEZE: "bg-amber-500/10 text-amber-500 border-amber-500/20",
-            COMPLETED: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
-            FAILED: "bg-zinc-500/10 text-zinc-500 border-zinc-500/20",
-            EVALUATION: "bg-purple-500/10 text-purple-500 border-purple-500/20",
+            ACTIVE: "bg-red-500 text-white shadow-[0_0_10px_rgba(239,51,51,0.4)]",
+            SCHEDULED: "bg-blue-600 text-white",
+            FREEZE: "bg-amber-500 text-black",
+            COMPLETED: "bg-emerald-600 text-white",
+            FAILED: "bg-zinc-700 text-zinc-300",
+            CANCELLED: "bg-zinc-700 text-zinc-300",
+            EVALUATION: "bg-purple-600 text-white",
         };
-
         return (
-            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${styles[status] || styles.FAILED}`}>
+            <span className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest ${styles[status]}`}>
                 {status.replace(/_/g, ' ')}
             </span>
         );
     };
 
     return (
-        <div className="p-8 space-y-10 bg-[#0a0a0b] min-h-screen text-white">
-            {/* HEADER SECTION */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
-                    <h1 className="text-4xl font-black tracking-tighter uppercase italic flex items-center gap-3">
-                        <Gavel className="text-[#ef3333]" size={36} />
-                        Auction Management
-                    </h1>
-                    <p className="text-zinc-500 text-sm font-medium mt-1">
-                        Kelola sesi lelang produk Anda dan pantau pergerakan harga secara real-time.
-                    </p>
-                </div>
+        <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 p-4 md:p-10 selection:bg-red-500/30">
+            <div className="max-w-7xl mx-auto space-y-10">
 
-                <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="bg-white text-black hover:bg-[#ef3333] hover:text-white transition-all font-black text-xs uppercase tracking-[0.2em] px-8 py-4 rounded-2xl flex items-center justify-center gap-2 shadow-xl active:scale-95"
-                >
-                    <Plus size={18} /> Buat Sesi Lelang
-                </button>
-            </div>
-
-            {/* STATS SUMMARY (Mini) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[
-                    { label: "Active Auctions", value: auctions.filter(a => a.status === 'ACTIVE').length, icon: Timer, color: "text-red-500" },
-                    { label: "Scheduled", value: auctions.filter(a => a.status === 'SCHEDULED').length, icon: Calendar, color: "text-blue-500" },
-                    { label: "Success Handover", value: auctions.filter(a => a.status === 'COMPLETED').length, icon: CheckCircle2, color: "text-emerald-500" },
-                ].map((stat, i) => (
-                    <div key={i} className="bg-[#111114] border border-zinc-800 p-6 rounded-4xl flex items-center gap-5">
-                        <div className={`w-12 h-12 rounded-2xl bg-zinc-900 flex items-center justify-center ${stat.color}`}>
-                            <stat.icon size={24} />
+                {/* TOP BAR: HEADER & ACTION */}
+                <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-red-500 font-bold uppercase tracking-[0.3em] text-xs">
+                            <span className="w-8 h-px bg-red-500"></span> Control Center
                         </div>
-                        <div>
-                            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{stat.label}</p>
-                            <p className="text-2xl font-black">{stat.value}</p>
-                        </div>
+                        <h1 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-white">
+                            Auction <span className="text-zinc-500">Arena</span>
+                        </h1>
                     </div>
-                ))}
-            </div>
 
-            {/* FILTER & SEARCH */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#111114] p-4 rounded-3xl border border-zinc-800">
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                    {['ALL', 'ACTIVE', 'SCHEDULED', 'ENDED'].map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setFilterStatus(tab)}
-                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterStatus === tab ? 'bg-[#ef3333] text-white shadow-lg' : 'text-zinc-500 hover:text-white'
-                                }`}
-                        >
-                            {tab}
-                        </button>
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="group relative flex items-center gap-3 bg-white text-black px-8 py-4 rounded-full font-black text-xs uppercase tracking-widest transition-all hover:bg-red-600 hover:text-white active:scale-95 shadow-2xl shadow-white/5"
+                    >
+                        <Plus size={18} className="transition-transform group-hover:rotate-90" />
+                        Launch New Auction
+                    </button>
+                </header>
+
+                {/* BENTO STATS */}
+                <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[
+                        { label: "Live Now", val: auctions.filter(a => a.status === 'ACTIVE').length, icon: Timer, color: "text-red-500" },
+                        { label: "Upcoming", val: auctions.filter(a => a.status === 'SCHEDULED').length, icon: Calendar, color: "text-blue-500" },
+                        { label: "Completed", val: auctions.filter(a => a.status === 'COMPLETED').length, icon: CheckCircle2, color: "text-emerald-500" },
+                        { label: "Total Asset", val: auctions.length, icon: Disc, color: "text-zinc-500" }
+                    ].map((s, i) => (
+                        <div key={i} className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-3xl hover:border-zinc-700 transition-colors">
+                            <s.icon size={20} className={`${s.color} mb-4`} />
+                            <p className="text-2xl font-black text-white leading-none">{s.val}</p>
+                            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-2">{s.label}</p>
+                        </div>
                     ))}
-                </div>
-                <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={16} />
-                    <input
-                        type="text"
-                        placeholder="Cari Produk..."
-                        className="bg-zinc-900 border border-zinc-800 rounded-xl pl-12 pr-4 py-2.5 text-xs focus:outline-none focus:border-[#ef3333] transition-colors w-full md:w-64"
-                    />
-                </div>
-            </div>
+                </section>
 
-            {/* TABLE SECTION */}
-            <div className="bg-[#111114] border border-zinc-800 rounded-[2.5rem] overflow-hidden shadow-2xl">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="border-b border-zinc-800 bg-zinc-900/50">
-                            <th className="px-8 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Product Info</th>
-                            <th className="px-8 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Current Bid</th>
-                            <th className="px-8 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Timing</th>
-                            <th className="px-8 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Status</th>
-                            <th className="px-8 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {isLoading ? (
-                            <tr>
-                                <td colSpan={5} className="px-8 py-20 text-center">
-                                    <Loader2 className="animate-spin text-[#ef3333] mx-auto mb-4" size={32} />
-                                    <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Menganalisa Data Lelang...</p>
-                                </td>
-                            </tr>
-                        ) : auctions.length === 0 ? (
-                            <tr>
-                                <td colSpan={5} className="px-8 py-20 text-center">
-                                    <div className="w-16 h-16 bg-zinc-900 rounded-3xl flex items-center justify-center mx-auto mb-6 text-zinc-700">
-                                        <AlertCircle size={32} />
-                                    </div>
-                                    <h3 className="text-lg font-black uppercase tracking-tighter mb-2">Belum Ada Sesi Lelang</h3>
-                                    <p className="text-zinc-500 text-xs font-medium max-w-xs mx-auto">
-                                        Mulai lelang pertama Anda untuk mendapatkan penawaran terbaik dari para kolektor.
-                                    </p>
-                                </td>
-                            </tr>
-                        ) : (
-                            auctions.map((auction) => (
-                                <tr key={auction.id} className="border-b border-zinc-900 hover:bg-zinc-900/30 transition-colors group">
-                                    <td className="px-8 py-6">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-14 h-14 rounded-2xl bg-zinc-800 overflow-hidden shrink-0 border border-zinc-700 group-hover:border-[#ef3333] transition-colors">
-                                                {/* Placeholder Image */}
-                                                <div className="w-full h-full flex items-center justify-center text-zinc-600">
-                                                    <Disc size={24} />
+                {/* FILTER & SEARCH BAR */}
+                <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-zinc-900/30 p-2 rounded-2xl border border-zinc-800/50 backdrop-blur-md">
+                    <div className="flex p-1 bg-black rounded-xl w-full md:w-auto overflow-x-auto no-scrollbar">
+                        {['ALL', 'ACTIVE', 'SCHEDULED', 'ENDED'].map((tab) => (
+                            <button
+                                key={tab}
+                                onClick={() => setFilterStatus(tab)}
+                                className={`px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all ${filterStatus === tab ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'
+                                    }`}
+                            >
+                                {tab}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="relative w-full md:w-80 px-2">
+                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600" size={14} />
+                        <input
+                            type="text"
+                            placeholder="Search by collection name..."
+                            className="w-full bg-black border border-zinc-800 rounded-xl pl-12 pr-4 py-3 text-xs text-white focus:outline-none focus:border-red-500 transition-all placeholder:text-zinc-700"
+                        />
+                    </div>
+                </div>
+
+                {/* CONTENT AREA: TABLE (DESKTOP) / CARDS (MOBILE) */}
+                <div className="relative">
+                    {isLoading ? (
+                        <div className="flex flex-col items-center justify-center py-20 gap-4">
+                            <Loader2 className="animate-spin text-red-500" size={40} />
+                            <p className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-500">Syncing with High-Speed Node...</p>
+                        </div>
+                    ) : filteredAuctions.length === 0 ? (
+                        <div className="bg-zinc-900/30 border-2 border-dashed border-zinc-800 rounded-[3rem] py-24 text-center">
+                            <AlertCircle size={48} className="mx-auto text-zinc-800 mb-4" />
+                            <h3 className="text-xl font-black uppercase">No records found</h3>
+                            <p className="text-zinc-600 text-sm mt-2">Start by launching your first auction session.</p>
+                        </div>
+                    ) : (
+                        <>
+                            {/* DESKTOP TABLE */}
+                            <div className="hidden md:block bg-zinc-900/20 border border-zinc-800 rounded-[2.5rem] overflow-hidden">
+                                <table className="w-full text-left border-collapse">
+                                    <thead className="bg-zinc-900/50 border-b border-zinc-800">
+                                        <tr>
+                                            <th className="px-8 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Collection</th>
+                                            <th className="px-8 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-widest text-center">Live Price</th>
+                                            <th className="px-8 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Schedule</th>
+                                            <th className="px-8 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-widest">Status</th>
+                                            <th className="px-8 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-widest text-right">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-zinc-900">
+                                        {filteredAuctions.map((a) => (
+                                            <tr key={a.id} className="hover:bg-white/2 transition-colors group">
+                                                <td className="px-8 py-6">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-14 h-14 rounded-xl overflow-hidden bg-zinc-800 border border-zinc-700 relative">
+                                                            <img
+                                                                src={getImageUrl(a.product?.media?.find((m: any) => m.is_primary)?.media_url || '/vynil.png')}
+                                                                className="object-cover w-full h-full grayscale group-hover:grayscale-0 transition-all duration-500"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-black text-white uppercase leading-tight">{a.product?.name}</p>
+                                                            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter mt-1 italic">ID: {a.id.split('-')[0]}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-6 text-center">
+                                                    <p className="text-sm font-black text-white">{formatRupiah(Number(a.current_price))}</p>
+                                                    <p className="text-[9px] font-bold text-red-500 mt-1 uppercase tracking-widest">+{formatRupiah(Number(a.increment))}</p>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <div className="flex items-center gap-2 text-xs font-bold text-zinc-300">
+                                                        <Calendar size={12} className="text-zinc-600" />
+                                                        {new Date(a.start_time).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-[10px] font-medium text-zinc-500 mt-1 uppercase tracking-tighter">
+                                                        <Timer size={10} /> {new Date(a.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-6">{getStatusBadge(a.status)}</td>
+                                                <td className="px-8 py-6 text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        {(a.status === 'ACTIVE' || a.status === 'FREEZE') && (
+                                                            <Link href={`/penjual/lelang/${a.id}/monitor`} className="p-3 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-lg shadow-red-600/20 transition-all">
+                                                                <ArrowUpRight size={18} />
+                                                            </Link>
+                                                        )}
+                                                        {a.status === 'SCHEDULED' && (
+                                                            <button onClick={() => handleCancelAuction(a.id)} className="p-3 bg-zinc-800 text-zinc-400 hover:text-red-500 rounded-xl transition-colors">
+                                                                <XCircle size={18} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* MOBILE CARDS */}
+                            <div className="md:hidden space-y-4">
+                                {filteredAuctions.map((a) => (
+                                    <div key={a.id} className="bg-zinc-900/40 border border-zinc-800 p-5 rounded-3xl space-y-4">
+                                        <div className="flex gap-4">
+                                            <div className="w-20 h-20 bg-zinc-800 rounded-2xl overflow-hidden shrink-0">
+                                                <img src={getImageUrl(a.product?.media?.find((m: any) => m.is_primary)?.media_url || '/vynil.png')} className="w-full h-full object-cover" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-start mb-1">
+                                                    {getStatusBadge(a.status)}
                                                 </div>
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-black text-white uppercase tracking-tight">{auction.product.name}</p>
-                                                <p className="text-[10px] font-bold text-zinc-500 uppercase italic">ID: {auction.id.substring(0, 8)}</p>
+                                                <h4 className="text-sm font-black text-white uppercase truncate">{a.product?.name}</h4>
+                                                <p className="text-lg font-black text-red-500 mt-2">{formatRupiah(Number(a.current_price))}</p>
                                             </div>
                                         </div>
-                                    </td>
-                                    <td className="px-8 py-6">
-                                        <p className="text-sm font-black text-white">{formatRupiah(auction.current_price)}</p>
-                                        <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Inc: +{formatRupiah(auction.increment)}</p>
-                                    </td>
-                                    <td className="px-8 py-6">
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-400">
-                                                <Calendar size={12} /> {new Date(auction.start_time).toLocaleDateString('id-ID')}
-                                            </div>
-                                            <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-400">
-                                                <Timer size={12} /> {new Date(auction.start_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6">
-                                        {getStatusBadge(auction.status)}
-                                    </td>
-                                    <td className="px-8 py-6 text-right">
-                                        <div className="flex items-center justify-end gap-2">
-                                            {/* Tombol MONITOR (Hanya muncul jika lelang ACTIVE/FREEZE) */}
-                                            {(auction.status === 'ACTIVE' || auction.status === 'FREEZE') && (
-                                                <Link
-                                                    href={`/penjual/lelang/${auction.id}/monitor`}
-                                                    className="p-2.5 bg-[#ef3333]/10 text-[#ef3333] hover:bg-[#ef3333] hover:text-white rounded-xl transition-all shadow-lg"
-                                                    title="Monitor Real-time"
-                                                >
-                                                    <ExternalLink size={18} />
+
+                                        <div className="grid grid-cols-2 gap-2 pt-4 border-t border-zinc-800/50">
+                                            {(a.status === 'ACTIVE' || a.status === 'FREEZE') && (
+                                                <Link href={`/penjual/lelang/${a.id}/monitor`} className="flex items-center justify-center gap-2 bg-red-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest">
+                                                    Monitor <ExternalLink size={14} />
                                                 </Link>
                                             )}
-
-                                            {/* Tombol CANCEL (Hanya jika SCHEDULED) */}
-                                            {auction.status === 'SCHEDULED' && (
-                                                <button
-                                                    onClick={() => handleCancelAuction(auction.id)}
-                                                    className="p-2.5 bg-zinc-800 text-zinc-400 hover:bg-red-500/10 hover:text-red-500 rounded-xl transition-all"
-                                                    title="Batalkan Jadwal"
-                                                >
-                                                    <XCircle size={18} />
+                                            {a.status === 'SCHEDULED' && (
+                                                <button onClick={() => handleCancelAuction(a.id)} className="flex items-center justify-center gap-2 bg-zinc-800 text-zinc-300 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest">
+                                                    Cancel
                                                 </button>
                                             )}
-
-                                            <button className="p-2.5 bg-zinc-900 text-zinc-600 hover:text-white rounded-xl transition-all">
-                                                <MoreVertical size={18} />
+                                            <button className="flex items-center justify-center gap-2 bg-zinc-900 text-zinc-500 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest">
+                                                Details
                                             </button>
                                         </div>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
 
-            {/* MODAL CREATION */}
-            <CreateAuctionModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                onSuccess={() => {
-                    setIsModalOpen(false);
-                    fetchAuctions();
-                }}
-            />
+                {/* MODAL */}
+                <CreateAuctionModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    onSuccess={() => {
+                        setIsModalOpen(false);
+                        fetchAuctions();
+                    }}
+                />
+            </div>
         </div>
     );
 }

@@ -13,30 +13,50 @@ import {
     Clock,
     Package,
     AlertCircle,
-    Activity
+    Activity,
+    Loader2
 } from "lucide-react";
+import { toast } from "sonner";
 
 // Utils & Hooks
 import { formatRupiah } from "@/utils/format";
 import { useAuctionSocket } from "@/hooks/useAuctionSocket";
-
-// Mock Data untuk metadata lelang (nantinya di-fetch dari API)
-const MOCK_AUCTION_DATA = {
-    id: "auc-9921",
-    productName: "Original Pressing: The Beatles - Abbey Road (1969)",
-    startPrice: 2500000,
-    increment: 50000,
-    endTime: new Date(Date.now() + 1000 * 60 * 45).toISOString(), // 45 menit lagi
-    status: "ACTIVE" as const,
-};
+import axiosClient from "@/services/api/axiosClient";
+import { Auction } from "@/types/auction";
 
 export default function LiveAuctionMonitor() {
     const params = useParams();
     const router = useRouter();
     const auctionId = params.id as string;
 
-    // 1. Integrasi Socket (Read-Only Mode)
-    // Kita menggunakan hook yang sama, tapi tidak akan memanggil fungsi submitBid
+    // --- STATE DATA ---
+    const [auction, setAuction] = useState<Auction | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [timeLeft, setTimeLeft] = useState("");
+
+    // 1. Fetch Detail Lelang dari Backend
+    const fetchAuctionDetail = async () => {
+        try {
+            setIsLoading(true);
+            // Endpoint internal atau publik yang mengembalikan detail lelang
+            const response = await axiosClient.get(`/api/v1/auctions/${auctionId}`);
+            if (response.data?.success) {
+                setAuction(response.data.data);
+            }
+        } catch (error: any) {
+            console.error("Gagal memuat detail lelang:", error);
+            toast.error("Gagal mendapatkan informasi lelang.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (auctionId) fetchAuctionDetail();
+    }, [auctionId]);
+
+    // 2. Integrasi Socket (Read-Only Mode)
+    // Hook akan otomatis connect saat auction data tersedia
     const {
         currentPrice,
         highestBidders,
@@ -44,15 +64,16 @@ export default function LiveAuctionMonitor() {
         isConnected
     } = useAuctionSocket({
         auctionId,
-        initialPrice: MOCK_AUCTION_DATA.startPrice
+        initialPrice: auction ? Number(auction.current_price) : 0
     });
 
-    // 2. Countdown Logic
-    const [timeLeft, setTimeLeft] = useState("");
+    // 3. Countdown Logic
     useEffect(() => {
+        if (!auction) return;
+
         const timer = setInterval(() => {
             const now = new Date().getTime();
-            const end = new Date(MOCK_AUCTION_DATA.endTime).getTime();
+            const end = new Date(auction.end_time).getTime();
             const diff = end - now;
 
             if (diff <= 0) {
@@ -65,14 +86,35 @@ export default function LiveAuctionMonitor() {
                 setTimeLeft(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
             }
         }, 1000);
-        return () => clearInterval(timer);
-    }, []);
 
-    // 3. Masking User ID untuk privasi
+        return () => clearInterval(timer);
+    }, [auction]);
+
+    // 4. Masking User ID untuk privasi
     const maskUserId = (id: string) => {
-        if (id.length < 8) return id;
+        if (!id || id.length < 8) return "User ID";
         return `${id.substring(0, 3)}***${id.substring(id.length - 2)}`;
     };
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-[#0a0a0b] flex flex-col items-center justify-center">
+                <Loader2 className="animate-spin text-[#ef3333] mb-4" size={40} />
+                <p className="text-zinc-500 font-black uppercase tracking-widest text-xs">Membangun Koneksi Live Feed...</p>
+            </div>
+        );
+    }
+
+    if (!auction) {
+        return (
+            <div className="min-h-screen bg-[#0a0a0b] flex flex-col items-center justify-center p-6 text-center">
+                <AlertCircle className="text-zinc-700 mb-4" size={64} />
+                <h2 className="text-white text-2xl font-black uppercase italic">Data Tidak Ditemukan</h2>
+                <p className="text-zinc-500 mb-8">Sesi lelang tidak valid atau sudah dihapus.</p>
+                <button onClick={() => router.back()} className="text-[#ef3333] font-black uppercase tracking-widest text-xs border border-[#ef3333]/20 px-6 py-3 rounded-xl">Kembali</button>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-[#0a0a0b] text-white p-6 lg:p-10 font-sans">
@@ -103,18 +145,16 @@ export default function LiveAuctionMonitor() {
                         <div className="h-8 w-px bg-zinc-800" />
                         <div className="px-4 py-2">
                             <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 block">Auction ID</span>
-                            <span className="text-xs font-mono font-bold text-[#ef3333]">{auctionId}</span>
+                            <span className="text-xs font-mono font-bold text-[#ef3333]">{auction.id.substring(0, 8)}</span>
                         </div>
                     </div>
                 </div>
 
-                {/* MAIN MONITORING GRID */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
                     {/* LEFT: LIVE PRICE BOARD */}
                     <div className="lg:col-span-8 space-y-8">
-                        <div className="bg-[#111114] border border-zinc-800 rounded-[3rem] p-10 flex flex-col items-center justify-center text-center space-y-6 relative overflow-hidden shadow-2xl">
-                            {/* Background Glow */}
+                        <div className="bg-[#111114] border border-zinc-800 rounded-4xl p-10 flex flex-col items-center justify-center text-center space-y-6 relative overflow-hidden shadow-2xl">
                             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-[#ef3333]/10 blur-[100px] -z-10" />
 
                             <div className="flex items-center gap-3 px-6 py-2 bg-zinc-900/80 rounded-full border border-zinc-800">
@@ -127,7 +167,7 @@ export default function LiveAuctionMonitor() {
                                     {formatRupiah(currentPrice)}
                                 </h2>
                                 <div className="flex items-center justify-center gap-4 text-emerald-500 font-bold uppercase tracking-widest text-sm">
-                                    <span>+{formatRupiah(MOCK_AUCTION_DATA.increment)} Step</span>
+                                    <span>+{formatRupiah(Number(auction.increment))} Step</span>
                                     <div className="w-1.5 h-1.5 rounded-full bg-zinc-800" />
                                     <span>{highestBidders.length} Total Bids</span>
                                 </div>
@@ -136,7 +176,7 @@ export default function LiveAuctionMonitor() {
                             <div className="grid grid-cols-2 w-full max-w-md gap-4 pt-6">
                                 <div className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800/50">
                                     <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1">Starting Price</p>
-                                    <p className="text-sm font-bold">{formatRupiah(MOCK_AUCTION_DATA.startPrice)}</p>
+                                    <p className="text-sm font-bold">{formatRupiah(Number(auction.start_price))}</p>
                                 </div>
                                 <div className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800/50">
                                     <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1">Time Remaining</p>
@@ -145,17 +185,18 @@ export default function LiveAuctionMonitor() {
                             </div>
                         </div>
 
-                        {/* PRODUCT INFO SUMMARY */}
-                        <div className="bg-[#111114] border border-zinc-800 rounded-[2.5rem] p-8 flex items-center gap-6 shadow-xl">
+                        <div className="bg-[#111114] border border-zinc-800 rounded-4xl p-8 flex items-center gap-6 shadow-xl">
                             <div className="w-24 h-24 bg-zinc-900 rounded-3xl border border-zinc-800 flex items-center justify-center text-zinc-700 shrink-0">
                                 <Package size={40} />
                             </div>
                             <div className="flex-1">
                                 <h3 className="text-xl font-black uppercase tracking-tighter text-white">
-                                    {MOCK_AUCTION_DATA.productName}
+                                    {auction.product?.name || "Product Item"}
                                 </h3>
                                 <div className="flex items-center gap-4 mt-2">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 bg-zinc-900 px-3 py-1 rounded-full border border-zinc-800">Vinyl LP</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 bg-zinc-900 px-3 py-1 rounded-full border border-zinc-800">
+                                        {auction.product?.metadata?.format || "Analog Collectible"}
+                                    </span>
                                     <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 bg-zinc-900 px-3 py-1 rounded-full border border-zinc-800 italic">Seller View Only</span>
                                 </div>
                             </div>
@@ -164,7 +205,7 @@ export default function LiveAuctionMonitor() {
 
                     {/* RIGHT: LIVE BID FEED */}
                     <div className="lg:col-span-4 space-y-6">
-                        <div className="bg-[#111114] border border-zinc-800 rounded-[2.5rem] flex flex-col h-full shadow-2xl overflow-hidden">
+                        <div className="bg-[#111114] border border-zinc-800 rounded-4xl flex flex-col h-full shadow-2xl overflow-hidden">
                             <div className="p-6 border-b border-zinc-800 bg-zinc-900/30 flex items-center justify-between">
                                 <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400 flex items-center gap-2">
                                     <Users size={16} className="text-[#ef3333]" /> Live Bidders
@@ -216,7 +257,6 @@ export default function LiveAuctionMonitor() {
                                 )}
                             </div>
 
-                            {/* Masa Tenang Indicator */}
                             {isFrozen && (
                                 <div className="p-6 bg-amber-500/10 border-t border-amber-500/20">
                                     <div className="flex items-center gap-3 text-amber-500">
@@ -230,7 +270,7 @@ export default function LiveAuctionMonitor() {
                             )}
                         </div>
 
-                        {/* WINNER SUMMARY CARD (HANYA MUNCUL JIKA SELESAI) */}
+                        {/* WINNER SUMMARY CARD */}
                         {timeLeft === "BERAKHIR" && highestBidders.length > 0 && (
                             <div className="bg-emerald-500 border border-emerald-400 rounded-4xl p-6 text-white shadow-xl shadow-emerald-900/20 animate-in slide-in-from-bottom duration-700">
                                 <div className="flex items-start justify-between mb-6">
@@ -265,13 +305,8 @@ export default function LiveAuctionMonitor() {
             </main>
 
             <style jsx>{`
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
         </div>
     );

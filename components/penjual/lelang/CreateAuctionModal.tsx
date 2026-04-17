@@ -9,10 +9,14 @@ import {
     Clock,
     AlertCircle,
     ChevronRight,
-    Info
+    Info,
+    Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatRupiah } from "@/utils/format";
+import { auctionService } from "@/services/api/auction.service";
+import axiosClient from "@/services/api/axiosClient";
+import { Product } from "@/types/product";
 
 interface CreateAuctionModalProps {
     isOpen: boolean;
@@ -20,17 +24,13 @@ interface CreateAuctionModalProps {
     onSuccess: () => void;
 }
 
-// MOCK DATA: Nantinya diganti dengan fetching ke endpoint /api/products?seller_id=xxx&is_locked=false
-const ELIGIBLE_PRODUCTS = [
-    { id: "prod-1", name: "The Beatles - Abbey Road (Vinyl LP)", price: 2500000, stock: 1 },
-    { id: "prod-2", name: "Daft Punk - Discovery (2xLP)", price: 1800000, stock: 2 },
-    { id: "prod-3", name: "Pink Floyd - Dark Side of The Moon", price: 3200000, stock: 1 },
-];
-
 const INCREMENT_OPTIONS = [10000, 25000, 50000, 100000];
 
 export default function CreateAuctionModal({ isOpen, onClose, onSuccess }: CreateAuctionModalProps) {
     // --- FORM STATE ---
+    const [eligibleProducts, setEligibleProducts] = useState<Product[]>([]);
+    const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(false);
+
     const [selectedProductId, setSelectedProductId] = useState<string>("");
     const [startPrice, setStartPrice] = useState<number>(0);
     const [increment, setIncrement] = useState<number>(25000);
@@ -42,36 +42,59 @@ export default function CreateAuctionModal({ isOpen, onClose, onSuccess }: Creat
 
     // Mengambil detail produk terpilih untuk context UI
     const selectedProduct = useMemo(() => {
-        return ELIGIBLE_PRODUCTS.find(p => p.id === selectedProductId) || null;
-    }, [selectedProductId]);
+        return eligibleProducts.find(p => p.id === selectedProductId) || null;
+    }, [selectedProductId, eligibleProducts]);
 
     // Set default start price ketika produk dipilih
     useEffect(() => {
         if (selectedProduct) {
-            setStartPrice(selectedProduct.price);
+            setStartPrice(Number(selectedProduct.price));
         } else {
             setStartPrice(0);
         }
     }, [selectedProduct]);
 
-    // Set default Start Time (Current Time + 15 Mins) saat modal dibuka
+    // Fetch daftar produk milik seller yang valid untuk dilelang
+    const fetchEligibleProducts = async () => {
+        setIsLoadingProducts(true);
+        try {
+            // ⚡ FIX 1: Gunakan URL yang bener sesuai route Backend (misal /api/v1/products/my-store)
+            const response: any = await axiosClient.get('/v1/products/my-store');
+
+            // ⚡ FIX 2: Karena Interceptor, data aslinya ada di response.data
+            const allProducts: Product[] = response.data || [];
+
+            console.log("Daftar Produk Diterima:", allProducts);
+
+            // Filter: Hanya produk yang belum di-lock dan stok > 0
+            const availableProducts = allProducts.filter(p => !p.is_locked && p.stock > 0);
+
+            setEligibleProducts(availableProducts);
+        } catch (error) {
+            console.error("Gagal memuat produk:", error);
+            toast.error("Gagal memuat daftar produk toko Anda.");
+        } finally {
+            setIsLoadingProducts(false);
+        }
+    };
+
+    // Set default Start Time (Current Time + 15 Mins) & Fetch Data saat modal dibuka
     useEffect(() => {
         if (isOpen) {
+            fetchEligibleProducts();
+
             const now = new Date();
             now.setMinutes(now.getMinutes() + 15);
 
-            // Format to YYYY-MM-DDThh:mm (Format standar input datetime-local)
             const tzOffset = now.getTimezoneOffset() * 60000;
             const localISOTime = (new Date(now.getTime() - tzOffset)).toISOString().slice(0, 16);
 
             setStartTime(localISOTime);
 
-            // Default end time = start time + 24 hours
             const nextDay = new Date(now.getTime() + 24 * 60 * 60 * 1000);
             const endLocalISOTime = (new Date(nextDay.getTime() - tzOffset)).toISOString().slice(0, 16);
             setEndTime(endLocalISOTime);
 
-            // Reset state
             setSelectedProductId("");
             setValidationError(null);
         }
@@ -85,13 +108,11 @@ export default function CreateAuctionModal({ isOpen, onClose, onSuccess }: Creat
         const end = new Date(endTime).getTime();
         const now = new Date().getTime();
 
-        // Validasi 1: Start Time tidak boleh di masa lalu (dengan buffer 5 menit dari sekarang)
         if (start < now + 5 * 60000) {
             setValidationError("Waktu mulai minimal 5 menit dari sekarang.");
             return;
         }
 
-        // Validasi 2: Durasi Lelang (1 Jam - 24 Jam)
         const durationHours = (end - start) / (1000 * 60 * 60);
 
         if (durationHours < 1) {
@@ -99,7 +120,7 @@ export default function CreateAuctionModal({ isOpen, onClose, onSuccess }: Creat
         } else if (durationHours > 24) {
             setValidationError("Durasi lelang maksimal 24 Jam.");
         } else {
-            setValidationError(null); // Lolos validasi
+            setValidationError(null);
         }
     }, [startTime, endTime]);
 
@@ -114,24 +135,27 @@ export default function CreateAuctionModal({ isOpen, onClose, onSuccess }: Creat
         setIsSubmitting(true);
 
         try {
-            // MOCK: Proses pengiriman ke Backend
-            // const payload = { product_id: selectedProductId, start_price: startPrice, increment, start_time: new Date(startTime).toISOString(), end_time: new Date(endTime).toISOString() };
-            // await auctionService.createAuction(payload);
+            const payload = {
+                product_id: selectedProductId,
+                start_price: startPrice,
+                increment: increment,
+                start_time: new Date(startTime).toISOString(),
+                end_time: new Date(endTime).toISOString()
+            };
 
-            await new Promise(resolve => setTimeout(resolve, 1500)); // Simulasi network delay
+            await auctionService.createAuction(payload);
 
             toast.success("Jadwal Lelang berhasil dibuat!", {
                 description: "Produk telah dikunci dan tidak bisa di-checkout reguler."
             });
             onSuccess();
         } catch (error: any) {
-            // Menangkap Conflict 409 (Race Condition) dari Backend
             if (error.response?.status === 409) {
                 toast.error("Konflik Transaksi!", {
                     description: "Produk ini baru saja dibeli secara reguler atau sudah dikunci."
                 });
             } else {
-                toast.error(error.message || "Gagal membuat jadwal lelang.");
+                toast.error(error.response?.data?.message || "Gagal membuat jadwal lelang. Silakan coba lagi.");
             }
         } finally {
             setIsSubmitting(false);
@@ -142,6 +166,7 @@ export default function CreateAuctionModal({ isOpen, onClose, onSuccess }: Creat
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+            {/* FIX TAILWIND: rounded-[2rem] diubah menjadi rounded-4xl */}
             <div className="bg-[#0a0a0b] border border-zinc-800 w-full max-w-2xl rounded-4xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
 
                 {/* HEADER */}
@@ -168,22 +193,31 @@ export default function CreateAuctionModal({ isOpen, onClose, onSuccess }: Creat
 
                     {/* 1. Pemilihan Produk */}
                     <div className="space-y-3">
-                        <label className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-zinc-400">
-                            <Package size={16} className="text-zinc-500" /> Pilih Produk
+                        <label className="flex items-center justify-between text-xs font-black uppercase tracking-widest text-zinc-400">
+                            <span className="flex items-center gap-2"><Package size={16} className="text-zinc-500" /> Pilih Produk</span>
+                            {isLoadingProducts && <Loader2 size={14} className="animate-spin text-[#ef3333]" />}
                         </label>
                         <select
                             value={selectedProductId}
                             onChange={(e) => setSelectedProductId(e.target.value)}
-                            className="w-full bg-[#111114] border border-zinc-800 text-white rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:border-[#ef3333] transition-colors appearance-none"
+                            disabled={isLoadingProducts}
+                            className="w-full bg-[#111114] border border-zinc-800 text-white rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:border-[#ef3333] transition-colors appearance-none disabled:opacity-50"
                             required
                         >
-                            <option value="" disabled>-- Pilih dari Katalog Tersedia --</option>
-                            {ELIGIBLE_PRODUCTS.map(product => (
+                            <option value="" disabled>
+                                {isLoadingProducts ? "-- Memuat Katalog Produk... --" : "-- Pilih dari Katalog Tersedia --"}
+                            </option>
+                            {eligibleProducts.map(product => (
                                 <option key={product.id} value={product.id}>
                                     {product.name} (Stok: {product.stock})
                                 </option>
                             ))}
                         </select>
+                        {eligibleProducts.length === 0 && !isLoadingProducts && (
+                            <p className="text-[10px] text-red-500 flex items-center gap-1">
+                                <AlertCircle size={12} /> Anda tidak memiliki produk yang tersedia (stok kosong/terkunci).
+                            </p>
+                        )}
                         <p className="text-[10px] text-zinc-500 flex items-center gap-1">
                             <Info size={12} /> Hanya produk dengan stok {'>'} 0 dan tidak terkunci yang ditampilkan.
                         </p>
@@ -206,7 +240,7 @@ export default function CreateAuctionModal({ isOpen, onClose, onSuccess }: Creat
                             />
                             {selectedProduct && (
                                 <p className="text-[10px] font-bold text-zinc-500">
-                                    Harga Reguler: <span className="line-through">{formatRupiah(selectedProduct.price)}</span>
+                                    Harga Reguler: <span className="line-through">{formatRupiah(Number(selectedProduct.price))}</span>
                                 </p>
                             )}
                         </div>
@@ -234,6 +268,7 @@ export default function CreateAuctionModal({ isOpen, onClose, onSuccess }: Creat
                             <label className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-zinc-400">
                                 <Clock size={16} className="text-zinc-500" /> Waktu Mulai
                             </label>
+                            {/* FIX TAILWIND: [color-scheme:dark] diubah menjadi scheme-dark */}
                             <input
                                 type="datetime-local"
                                 value={startTime}
@@ -248,6 +283,7 @@ export default function CreateAuctionModal({ isOpen, onClose, onSuccess }: Creat
                             <label className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-zinc-400">
                                 <Clock size={16} className="text-zinc-500" /> Waktu Berakhir
                             </label>
+                            {/* FIX TAILWIND: [color-scheme:dark] diubah menjadi scheme-dark */}
                             <input
                                 type="datetime-local"
                                 value={endTime}
@@ -279,7 +315,7 @@ export default function CreateAuctionModal({ isOpen, onClose, onSuccess }: Creat
                     </button>
                     <button
                         onClick={handleSubmit}
-                        disabled={isSubmitting || !!validationError || !selectedProductId}
+                        disabled={isSubmitting || !!validationError || !selectedProductId || eligibleProducts.length === 0}
                         className="bg-white text-black hover:bg-[#ef3333] hover:text-white transition-all font-black text-xs uppercase tracking-[0.2em] px-8 py-3.5 rounded-xl flex items-center gap-2 shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-black active:scale-95"
                     >
                         {isSubmitting ? "Memproses..." : "Buat Sesi Lelang"} <ChevronRight size={16} />
@@ -288,19 +324,17 @@ export default function CreateAuctionModal({ isOpen, onClose, onSuccess }: Creat
 
             </div>
 
-            {/* Internal Component Helper Icon (Karena tidak di-import di atas untuk ringkasnya) */}
             <style jsx global>{`
-        /* Menghilangkan calendar icon bawaan browser jika diperlukan, meski [color-scheme:dark] cukup membantu */
-        ::-webkit-calendar-picker-indicator {
-          filter: invert(1);
-          cursor: pointer;
-        }
-      `}</style>
+                ::-webkit-calendar-picker-indicator {
+                    filter: invert(1);
+                    cursor: pointer;
+                }
+            `}</style>
         </div>
     );
 }
 
-// Helper kecil pengganti import TrendingUp yang terlewat di blok import utama
+// Helper SVG Icon
 function TrendingUpIcon(props: any) {
     return (
         <svg
