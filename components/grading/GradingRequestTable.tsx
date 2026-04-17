@@ -61,19 +61,27 @@ export default function GradingRequestTable({ requests, onUploadClick }: Props) 
                                 </div>
                             </td>
                             <td className="px-6 py-5 text-white font-medium">{req.buyer.name}</td>
+
+                            {/* Pembaruan Logika Status Render */}
                             <td className="px-6 py-5">
-                                {req.status === 'fulfilled' ? (
+                                {(req.status === 'fulfilled' || req.status === 'MEDIA_READY') ? (
                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
                                         <CheckCircle size={12} /> Selesai
                                     </span>
-                                ) : (
+                                ) : (req.status === 'AWAITING_SELLER_MEDIA' || req.status === 'requested') ? (
                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-500 border border-amber-500/20">
                                         <Clock size={12} /> Menunggu Video
                                     </span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-zinc-500/10 text-zinc-500 border border-zinc-500/20">
+                                        {req.status}
+                                    </span>
                                 )}
                             </td>
+
+                            {/* Pembaruan Logika Action Button */}
                             <td className="px-6 py-5 text-right">
-                                {req.status !== 'fulfilled' && (
+                                {(req.status === 'AWAITING_SELLER_MEDIA' || req.status === 'requested') && (
                                     <button
                                         onClick={() => onUploadClick(req.id)}
                                         className="inline-flex items-center gap-2 bg-[#ef3333] hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-red-900/20"

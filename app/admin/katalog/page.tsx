@@ -2,15 +2,15 @@
 
 import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/layout/sidebar";
-import { 
-  Search, 
-  Plus, 
-  Filter, 
-  Edit3, 
-  Trash2, 
-  Disc, 
-  Music, 
-  Globe, 
+import {
+  Search,
+  Plus,
+  Filter,
+  Edit3,
+  Trash2,
+  Disc,
+  Music,
+  Globe,
   Layers,
   MoreVertical,
   CheckCircle2,
@@ -30,11 +30,11 @@ export default function KatalogRilisanPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // 1. Injeksi State & Action dari useProductStore
-  const { 
-    adminProducts, 
-    fetchAllProductsAdmin, 
-    isLoading, 
-    deleteProduct 
+  const {
+    adminProducts,
+    fetchAllProductsAdmin,
+    isLoading,
+    deleteProduct
   } = useProductStore();
 
   // 2. Fetch data saat komponen dimuat
@@ -48,18 +48,18 @@ export default function KatalogRilisanPage() {
   const getImageUrl = (path: string | null | undefined): string | null => {
     if (!path) return null;
     if (path.startsWith("http")) return path;
-    
+
     // Mengambil base URL backend (http://localhost:5000) 
     const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || "http://localhost:5000";
-    
+
     // Bersihkan path agar tidak double slash atau mengandung kata public berlebih
     let cleanPath = path.startsWith("/") ? path : `/${path}`;
-    
-    // Jika path dari DB belum menyertakan /public, tambahkan secara manual [cite: 519]
+
+    // Jika path dari DB belum menyertakan /public, tambahkan secara manual
     if (!cleanPath.startsWith("/public")) {
-        cleanPath = `/public${cleanPath}`;
+      cleanPath = `/public${cleanPath}`;
     }
-    
+
     return `${baseUrl}${cleanPath}`;
   };
 
@@ -83,7 +83,7 @@ export default function KatalogRilisanPage() {
   return (
     <Sidebar>
       <div className="max-w-7xl mx-auto pb-20 animate-in fade-in duration-500">
-        
+
         {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
@@ -96,7 +96,7 @@ export default function KatalogRilisanPage() {
             </p>
           </div>
 
-          <button 
+          <button
             onClick={() => setIsModalOpen(true)}
             className="flex items-center justify-center gap-2 bg-[#ef3333] hover:bg-red-700 text-white shadow-lg shadow-red-900/20 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
           >
@@ -105,12 +105,12 @@ export default function KatalogRilisanPage() {
         </div>
 
         {/* SEARCH & FILTER */}
-        <div className="bg-[#111114] border border-zinc-900 rounded-[2rem] p-4 mb-8 flex flex-col lg:flex-row gap-4">
+        <div className="bg-[#111114] border border-zinc-900 rounded-4xl p-4 mb-8 flex flex-col lg:flex-row gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
-            <input 
-              type="text" 
-              placeholder="Cari Judul Album, Artis, atau Label..." 
+            <input
+              type="text"
+              placeholder="Cari Judul Album, Artis, atau Label..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="bg-[#0a0a0b] border border-zinc-900 rounded-xl py-3.5 pl-12 pr-6 text-xs text-white focus:border-[#ef3333] outline-none transition-all w-full"
@@ -158,10 +158,10 @@ export default function KatalogRilisanPage() {
                           <div className="w-12 h-12 rounded-xl bg-[#0a0a0b] border border-zinc-800 flex items-center justify-center text-xl shadow-inner group-hover:border-[#ef3333] transition-colors overflow-hidden">
                             {/* PERBAIKAN: Menggunakan getImageUrl helper agar URL absolut ke backend */}
                             {item.media?.[0]?.media_url ? (
-                              <img 
-                                src={getImageUrl(item.media[0].media_url)!} 
-                                className="w-full h-full object-cover" 
-                                alt={item.name} 
+                              <img
+                                src={getImageUrl(item.media[0].media_url)!}
+                                className="w-full h-full object-cover"
+                                alt={item.name}
                               />
                             ) : (
                               <Disc className="text-zinc-700 group-hover:text-[#ef3333] transition-colors" size={24} />
@@ -195,7 +195,7 @@ export default function KatalogRilisanPage() {
                           <button className="p-2.5 rounded-xl bg-[#1a1a1e] text-zinc-600 hover:text-white border border-zinc-800 transition-all">
                             <Edit3 size={14} />
                           </button>
-                          <button 
+                          <button
                             onClick={() => handleDelete(item.id)}
                             className="p-2.5 rounded-xl bg-[#1a1a1e] text-zinc-600 hover:text-[#ef3333] border border-zinc-800 transition-all"
                           >
@@ -209,7 +209,7 @@ export default function KatalogRilisanPage() {
               </table>
             )}
           </div>
-          
+
           <div className="p-8 border-t border-zinc-900 bg-[#0d0d0f] flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-[9px] font-black text-zinc-700 uppercase tracking-[0.3em]">
               Analog.id Master Database • Total {filteredProducts.length} Rilisan Global
@@ -223,9 +223,9 @@ export default function KatalogRilisanPage() {
 
         {/* MODAL ADD/EDIT MASTER DATA */}
         {isModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/95 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-            
+
             <div className="relative w-full max-w-2xl bg-[#111114] border border-zinc-800 rounded-[2.5rem] shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
               <div className="px-8 py-6 border-b border-zinc-900 flex justify-between items-center bg-[#1a1a1e]/50">
                 <div className="flex items-center gap-3">

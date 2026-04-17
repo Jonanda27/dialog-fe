@@ -5,8 +5,16 @@ import { User } from './auth';
 
 /**
  * Literal Type untuk status permintaan video detail
+ * Diperbarui untuk mengakomodasi State Machine Anti-Spam dan Escrow
  */
-export type GradingStatus = 'requested' | 'fulfilled';
+export type GradingStatus =
+    | 'requested'             // Legacy
+    | 'fulfilled'             // Legacy
+    | 'cancelled'             // Legacy
+    | 'AWAITING_SELLER_MEDIA' // Fase 1: Menunggu penjual unggah video
+    | 'MEDIA_READY'           // Fase 2: Video siap, menunggu pembeli checkout
+    | 'EXPIRED'               // Fase 3: Tiket hangus (Cronjob 3x24 Jam)
+    | 'SYSTEM_CANCELLED';     // Fase 3: Resolusi Race Condition (Barang Sold Out)
 
 /**
  * Representasi tabel GradingRequests di Database
@@ -22,7 +30,7 @@ export interface GradingRequest {
 
     // Relasi (Eager Loading)
     product?: Product;
-    buyer?: Pick<User, 'id' | 'name'>;
+    buyer?: Pick<User, 'id' | 'full_name'>;
 }
 
 /**

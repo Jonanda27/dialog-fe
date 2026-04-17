@@ -1,3 +1,5 @@
+// File: dialog-fe/types/order.ts
+
 import { Product } from './product';
 import { User } from './auth';
 
@@ -29,6 +31,10 @@ export interface OrderItem {
     // Grading diambil secara dinamis dari metadata produk saat transaksi terjadi
     grading_at_purchase: string;
 
+    // ⚡ INJEKSI BARU: Biaya add-on video detail (Premium Verification)
+    // Diisi secara otomatis oleh Backend (Server-side calculation) saat checkout
+    grading_fee: string | number;
+
     created_at: string;
 
     // Relasi opsional untuk detail item di UI
@@ -51,7 +57,7 @@ export interface Order {
     shipping_address: string;
     tracking_number?: string | null;
 
-    // ⚡ BARU: Field logistik sesuai migrasi database Backend
+    // Field logistik sesuai migrasi database Backend
     courier_company?: string;
     service_type?: string;
 
@@ -59,7 +65,6 @@ export interface Order {
     updated_at: string;
 
     // Relasi Eager Loading
-    // Menggunakan 'full_name' sesuai identitas user di sistem
     buyer?: Pick<User, 'id' | 'full_name' | 'email'>;
     items?: OrderItem[];
 
@@ -72,7 +77,7 @@ export interface Order {
 }
 
 /**
- * ⚡ BARU: Interface untuk DTO (Data Transfer Object) item keranjang saat checkout.
+ * Interface untuk DTO (Data Transfer Object) item keranjang saat checkout.
  * Backend membutuhkan pasangan ID Produk dan Kuantitas untuk validasi stok dan harga.
  */
 export interface CheckoutItemPayload {
@@ -88,7 +93,6 @@ export interface CheckoutPayload {
     address_id: string;
     store_id: string;
 
-    // ⚡ PERBAIKAN KRUSIAL: Mengganti cart_item_ids (string[]) menjadi array of object
     items: CheckoutItemPayload[];
 
     // Field MANDATORY untuk validasi internal (Server-side calc) dan integrasi resi Biteship

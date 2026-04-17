@@ -2,7 +2,7 @@
 
 import { CartItem } from '@/types/cart';
 import { toIDR } from '@/utils/format';
-import { ArrowRight, ShieldCheck } from 'lucide-react';
+import { AlertCircle, Clock, ArrowRight, ShieldCheck } from 'lucide-react';
 
 interface OrderSummaryProps {
     items: CartItem[];
@@ -10,6 +10,8 @@ interface OrderSummaryProps {
     shippingFee: number;
     gradingFee: number;
     isSubmitting: boolean;
+    isValidatingGrading?: boolean;
+    gradingError?: string | null;
     onConfirm: () => void;
 }
 
@@ -19,10 +21,16 @@ export default function OrderSummary({
     shippingFee,
     gradingFee,
     isSubmitting,
+    isValidatingGrading,
+    gradingError,
     onConfirm
 }: OrderSummaryProps) {
     const grandTotal = subtotal + shippingFee + gradingFee;
     const isReadyToPay = shippingFee > 0;
+
+    // ⚡ CHECK: Deteksi status grading (Logical gatekeeper dari HEAD)
+    const hasGradingPending = items.some((item) => (item.product.metadata as any)?.request_grading === true);
+    const isGradingBlocking = gradingError || (hasGradingPending && isValidatingGrading);
 
     return (
         <div className="bg-[#111114] border border-zinc-800 p-6 md:p-8 rounded-[2rem] shadow-2xl sticky top-28">
@@ -30,7 +38,32 @@ export default function OrderSummary({
                 Order Summary
             </h2>
 
-            {/* Item Preview */}
+            {/* ⚡ INTEGRASI: Grading Status Alert (Diadaptasi ke skema warna Dark Mode) */}
+            {hasGradingPending && (
+                <div className={`mb-6 p-4 rounded-xl border flex gap-3 items-start ${gradingError
+                    ? 'bg-red-500/10 border-red-500/20 text-red-500'
+                    : isValidatingGrading
+                        ? 'bg-amber-500/10 border-amber-500/20 text-amber-500'
+                        : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
+                    }`}>
+                    {gradingError ? (
+                        <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+                    ) : (
+                        <Clock size={16} className={`flex-shrink-0 mt-0.5 ${isValidatingGrading ? 'animate-spin' : ''}`} />
+                    )}
+                    <div className="text-xs font-bold uppercase tracking-wide">
+                        {gradingError ? (
+                            <p className="leading-relaxed">{gradingError}</p>
+                        ) : isValidatingGrading ? (
+                            <p className="leading-relaxed">Memvalidasi status grading...</p>
+                        ) : (
+                            <p className="leading-relaxed">✓ Grading video siap untuk checkout</p>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Item Preview (Estetika dari branch UI bd2214c dengan fallback safe quantity HEAD) */}
             <div className="mb-6 space-y-5 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
                 {items.map((item) => (
                     <div key={item.cart_item_id} className="flex justify-between items-start gap-4">
@@ -43,13 +76,13 @@ export default function OrderSummary({
                             </p>
                         </div>
                         <span className="text-xs font-black text-white shrink-0">
-                            {toIDR(Number(item.product.price) * item.quantity)}
+                            {toIDR(Number(item.product.price) * (item.quantity || 1))}
                         </span>
                     </div>
                 ))}
             </div>
 
-            {/* Calculations */}
+            {/* Calculations (Estetika tipografi tajam dari branch bd2214c) */}
             <div className="space-y-4 mb-8 pt-6 border-t border-dashed border-zinc-800">
                 <div className="flex justify-between items-center">
                     <span className="text-zinc-500 uppercase font-bold text-[10px] tracking-widest">Subtotal Produk</span>
@@ -67,6 +100,7 @@ export default function OrderSummary({
                     </span>
                 </div>
 
+                {/* Grading Fee dynamic render dari HEAD */}
                 {gradingFee > 0 && (
                     <div className="flex justify-between items-center">
                         <span className="text-blue-500 uppercase font-bold text-[10px] tracking-widest">Biaya Request Grading</span>
@@ -83,18 +117,26 @@ export default function OrderSummary({
                 </div>
             </div>
 
-            {/* Checkout Button */}
+            {/* Checkout Button (Integrasi full logic multi-state HEAD ke dalam style button modern bd2214c) */}
             <button
                 onClick={onConfirm}
-                disabled={isSubmitting || !isReadyToPay}
+                disabled={isSubmitting || !isReadyToPay || !!gradingError || isValidatingGrading}
                 className={`w-full py-4 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 group shadow-xl 
-                    ${isReadyToPay && !isSubmitting 
-                        ? 'bg-[#ef3333] text-white hover:bg-red-700 hover:shadow-[0_10px_30px_rgba(239,51,51,0.3)]' 
+                    ${isReadyToPay && !isSubmitting && !gradingError && !isValidatingGrading
+                        ? 'bg-[#ef3333] text-white hover:bg-red-700 hover:shadow-[0_10px_30px_rgba(239,51,51,0.3)]'
                         : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'}`}
             >
-                {isSubmitting ? (
+                {isValidatingGrading ? (
                     <>
-                        <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <svg className="animate-spin h-4 w-4 text-zinc-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        MEMVALIDASI GRADING...
+                    </>
+                ) : isSubmitting ? (
+                    <>
+                        <svg className="animate-spin h-4 w-4 text-zinc-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
@@ -108,20 +150,26 @@ export default function OrderSummary({
                 )}
             </button>
 
-            {/* Trust Badges / Info */}
+            {/* Trust Badges & Error Messages (Sinkronisasi error eksplisit HEAD dengan layout bd2214c) */}
             <div className="mt-6 flex flex-col gap-3">
                 {!isReadyToPay && (
-                    <p className="text-[10px] text-center text-[#ef3333] font-bold uppercase tracking-widest mb-2">
-                        * Pilih kurir di semua toko untuk lanjut
+                    <p className="text-[10px] text-center text-[#ef3333] font-bold uppercase tracking-widest">
+                        * Pilih kurir pengiriman untuk melanjutkan
                     </p>
                 )}
-                <div className="flex items-center justify-center gap-2 text-zinc-500 text-[10px] font-bold uppercase tracking-widest">
+                {gradingError && (
+                    <p className="text-[10px] text-center text-[#ef3333] font-bold uppercase tracking-widest">
+                        * {gradingError}
+                    </p>
+                )}
+
+                <div className="flex items-center justify-center gap-2 text-zinc-500 text-[10px] font-bold uppercase tracking-widest mt-2">
                     <ShieldCheck size={14} className="text-emerald-500" />
                     <span>Transaksi Aman & Terenkripsi</span>
                 </div>
             </div>
-            
-            {/* Custom Scrollbar Styling (Khusus List Barang di Summary) */}
+
+            {/* Custom Scrollbar Styling */}
             <style jsx>{`
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }

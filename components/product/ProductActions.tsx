@@ -3,41 +3,41 @@
 import { useState } from 'react';
 import { useCartStore } from '@/store/cartStore';
 import { toast } from 'sonner';
+import GradingService from '@/services/api/grading.service';
 
 export default function ProductActions({ product }: { product: any }) {
     const [isRequesting, setIsRequesting] = useState(false);
     const addItem = useCartStore((state) => state.addItem);
-    const toggleCart = useCartStore((state) => state.toggleCart);
+    const openCart = useCartStore((state) => state.openCart);
 
     const primaryMedia = product.media?.find((m: any) => m.is_primary)?.media_url || '/vynil.png';
 
     const handleAddToCart = () => {
-        const result = addItem({
-            id: product.id,
-            name: product.name,
-            artist: product.artist,
-            price: Number(product.price),
-            mediaUrl: primaryMedia,
-            store_id: product.store_id,
-            store_name: product.store?.name || 'Toko Analog',
-            stock: product.stock,
-        });
-
-        if (result.success) {
-            toast.success(result.message);
-            toggleCart(); // Buka keranjang otomatis setelah berhasil
-        } else {
-            toast.error(result.message);
+        try {
+            addItem(product);
+            toast.success('Produk berhasil ditambahkan ke keranjang');
+            openCart(); // Buka keranjang otomatis setelah berhasil
+        } catch (error: any) {
+            toast.error(error.message || 'Gagal menambahkan ke keranjang');
         }
     };
 
     const handleRequestGrading = async () => {
+        if (!product?.id) return;
+
         setIsRequesting(true);
         try {
-            // Logic pemanggilan API /api/grading/request
-            toast.success('Permintaan grading berhasil diajukan! Menunggu video dari seller.');
-        } catch (error) {
-            toast.error('Gagal mengajukan grading.');
+            // Memanggil endpoint integrasi POST /api/grading/request
+            const response = await GradingService.requestGrading({ product_id: product.id });
+
+            // Menggunakan struktur successResponse dari backend
+            if (response.success || response.data) {
+                toast.success('Permintaan verifikasi premium berhasil diajukan! Penjual telah dinotifikasi.');
+            }
+        } catch (error: any) {
+            // Menangkap pesan error dari backend secara presisi (khususnya untuk proteksi limit 3 tiket)
+            const errorMessage = error.response?.data?.message || 'Gagal mengajukan grading. Silakan coba lagi.';
+            toast.error(errorMessage);
         } finally {
             setIsRequesting(false);
         }
@@ -62,16 +62,21 @@ export default function ProductActions({ product }: { product: any }) {
                 </button>
             </div>
 
-            {/* Fitur Grading */}
+            {/* Fitur Verifikasi Premium (Grading Add-on) */}
             <div className="p-4 border border-zinc-800 rounded-xl bg-zinc-900/50 flex items-center justify-between">
                 <div>
                     <p className="text-sm font-medium text-white">Ragu dengan kondisinya?</p>
-                    <p className="text-xs text-zinc-500 mt-1">Minta video detail barang ke penjual. (Gratis)</p>
+                    <p className="text-xs text-zinc-400 mt-1">Minta video detail fisik ke penjual.</p>
+                    {/* Copywriting UX untuk menjelaskan model bisnis Post-Paid */}
+                    <p className="text-[10px] text-zinc-500 mt-1 font-medium italic">
+                        *Gratis pengajuan. Biaya Rp 15.000 hanya ditagihkan jika Anda checkout.
+                    </p>
                 </div>
                 <button
                     onClick={handleRequestGrading}
-                    disabled={isRequesting}
-                    className="text-xs font-semibold px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition"
+                    // Validasi ganda: Nonaktifkan tombol jika sedang memproses atau jika stok habis
+                    disabled={isRequesting || product.stock < 1}
+                    className="text-xs font-semibold px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition disabled:opacity-50 min-w-32.5"
                 >
                     {isRequesting ? 'Memproses...' : 'Request Grading'}
                 </button>

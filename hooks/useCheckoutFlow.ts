@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useOrderStore } from '../store/orderStore';
 import { useCartStore } from '../store/cartStore';
+import { useGradingValidation } from './useGradingValidation';
 import { ShippingService } from '../services/api/shipping.service';
 import { CourierOption } from '../types/shipping';
 import { CheckoutPayload } from '../types/order';
@@ -23,10 +24,14 @@ export const useCheckoutFlow = () => {
         clearError
     } = useOrderStore();
 
+    // -- GRADING VALIDATION --
+    const { validateCartItemsGrading, isValidating: isValidatingGrading } = useGradingValidation();
+
     // -- LOCAL UI STATE --
     const [shippingOptions, setShippingOptions] = useState<CourierOption[]>([]);
     const [isCalculatingShipping, setIsCalculatingShipping] = useState<boolean>(false);
     const [shippingError, setShippingError] = useState<string | null>(null);
+    const [gradingError, setGradingError] = useState<string | null>(null);
 
     // -- COMPUTED PROPERTIES (Business Logic) --
 
@@ -97,6 +102,7 @@ export const useCheckoutFlow = () => {
 
     /**
      * Eksekusi Final Checkout (Submit ke Backend).
+     * ⚡ SEKARANG DENGAN MANDATORY GRADING VALIDATION
      */
     const submitOrder = useCallback(async () => {
         // ⚡ PERBAIKAN: Destructuring untuk Type Narrowing yang akurat
@@ -116,8 +122,26 @@ export const useCheckoutFlow = () => {
         }
 
         clearError();
+        setGradingError(null);
 
-        // 2. Data Mapping (Sekarang TypeScript tahu variabel di bawah ini bertipe strict string & number)
+        // ⚡ NEW: 2a. MANDATORY GRADING VALIDATION
+        // Sebelum submit order, validasi semua grading requirements
+        try {
+            const gradingValidation = await validateCartItemsGrading(cartItems);
+
+            if (!gradingValidation.isValid) {
+                const errorMsg = gradingValidation.errorMessage ||
+                    'Tunggu sampai grading video selesai diunggah oleh penjual sebelum checkout.';
+                setGradingError(errorMsg);
+                throw new Error(errorMsg);
+            }
+        } catch (validationError: any) {
+            console.error('[Grading Validation] Checkout blocked:', validationError);
+            setGradingError(validationError.message || 'Validasi grading gagal');
+            throw validationError;
+        }
+
+        // 2b. Data Mapping (Sekarang TypeScript tahu variabel di bawah ini bertipe strict string & number)
         const payload: CheckoutPayload = {
             items: cartItems.map(item => ({
                 product_id: item.product.id,
@@ -141,7 +165,7 @@ export const useCheckoutFlow = () => {
             console.error('Checkout failed:', error);
             throw error;
         }
-    }, [cartItems, draftCheckout, checkout, clearCartAfterCheckout, router, clearError]);
+    }, [cartItems, draftCheckout, checkout, clearCartAfterCheckout, router, clearError, validateCartItemsGrading]);
 
 
     // -- EXPOSE API TO UI COMPONENTS --
@@ -156,6 +180,8 @@ export const useCheckoutFlow = () => {
         shippingError,
         isSubmitting,
         checkoutError,
+        isValidatingGrading,
+        gradingError,
         handleAddressChange,
         handleCourierSelection,
         submitOrder

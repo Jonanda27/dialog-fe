@@ -2,18 +2,19 @@
 
 import React, { Suspense, useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
-import { 
-  Heart, 
-  Bell, 
-  ShieldCheck,
-  ArrowRight,
-  ChevronRight,
-  Store as StoreIcon,
-  Loader2,
-  Star
+import {
+    Heart,
+    Bell,
+    ShieldCheck,
+    ArrowRight,
+    ChevronRight,
+    Store as StoreIcon,
+    Loader2,
+    Star
 } from 'lucide-react';
 import WishlistPreview from '@/components/dashboard/WishlistPreview';
 import RecommendedFeed from '@/components/dashboard/RecommendedFeed';
+import GradingHub from '@/components/dashboard/GradingHub';
 import { StoreService } from "@/services/api/store.service";
 import Link from 'next/link';
 
@@ -58,9 +59,9 @@ const VerifiedStores = () => {
                         <div className="bg-[#111114] border border-zinc-800 rounded-[2rem] p-8 flex flex-col items-center justify-center text-center transition-all hover:border-[#ef3333]/50 hover:bg-zinc-900/50 shadow-xl">
                             <div className="w-20 h-20 rounded-full bg-zinc-800 border-2 border-zinc-700 overflow-hidden mb-4 group-hover:scale-110 transition-transform duration-500">
                                 {store.logo_url ? (
-                                    <img 
-                                        src={`http://localhost:5000/public${store.logo_url}`} 
-                                        alt={store.name} 
+                                    <img
+                                        src={`http://localhost:5000/public${store.logo_url}`}
+                                        alt={store.name}
                                         className="w-full h-full object-cover"
                                     />
                                 ) : (
@@ -91,13 +92,13 @@ export default function BuyerDashboard() {
     return (
         <div className="w-full pb-20 space-y-16">
             <div className="max-w-full px-6 lg:px-10 space-y-16">
-                
+
                 {/* 1. VERIFIED STORES (Atas sesuai gambar) */}
                 <VerifiedStores />
 
                 {/* 2. MAIN CONTENT AREA (Market Highlights) */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                    
+
                     {/* LEFT COLUMN: PRODUCT FEED */}
                     <div className="lg:col-span-8 space-y-12">
                         <div className="space-y-8">
@@ -106,25 +107,24 @@ export default function BuyerDashboard() {
                                 <h2 className="text-2xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
                                     <span className="w-2 h-8 bg-[#ef3333] rounded-full" /> Market Highlights
                                 </h2>
-                                
+
                                 {/* Category Filters */}
                                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 md:pb-0">
                                     {categories.map((cat) => (
                                         <button
                                             key={cat}
                                             onClick={() => setActiveCategory(cat)}
-                                            className={`px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${
-                                                activeCategory === cat 
-                                                ? "bg-[#ef3333] border-[#ef3333] text-white shadow-lg shadow-red-900/20" 
-                                                : "bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-700"
-                                            }`}
+                                            className={`px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${activeCategory === cat
+                                                    ? "bg-[#ef3333] border-[#ef3333] text-white shadow-lg shadow-red-900/20"
+                                                    : "bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-700"
+                                                }`}
                                         >
                                             {cat}
                                         </button>
                                     ))}
                                 </div>
                             </div>
-                            
+
                             <Suspense fallback={
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                                     {[1, 2, 3, 4, 5, 6].map((n) => (
@@ -141,18 +141,18 @@ export default function BuyerDashboard() {
                     {/* RIGHT COLUMN: PERSONAL SELECTION */}
                     <div className="lg:col-span-4 space-y-10">
                         <div className="sticky top-44 space-y-10">
-                            
+
                             {/* Wishlist Highlight */}
                             <div className="bg-[#111114] border border-zinc-800 rounded-[3rem] p-10 shadow-2xl overflow-hidden relative">
-                                 <div className="absolute top-0 left-0 w-full h-1.5 bg-[#ef3333]" />
-                                 <div className="flex items-center justify-between mb-10">
+                                <div className="absolute top-0 left-0 w-full h-1.5 bg-[#ef3333]" />
+                                <div className="flex items-center justify-between mb-10">
                                     <div className="flex items-center gap-4">
                                         <Heart size={24} className="text-[#ef3333]" fill="#ef3333" />
                                         <h4 className="text-sm font-black text-white uppercase tracking-[0.2em]">Wishlist</h4>
                                     </div>
                                     <span className="text-[10px] font-black text-zinc-500 bg-zinc-900 px-4 py-1.5 rounded-full border border-zinc-800">Your Picks</span>
-                                 </div>
-                                 <WishlistPreview />
+                                </div>
+                                <WishlistPreview />
                             </div>
 
                             {/* Alert Card */}
@@ -170,7 +170,25 @@ export default function BuyerDashboard() {
                     </div>
                 </div>
             </div>
-            
+
+            {/* 3.5. ⚡ NEW: Grading Hub (Video Verification Requests) */}
+            <Suspense fallback={
+                <div className="h-48 w-full bg-zinc-950 border border-zinc-800 rounded-3xl animate-pulse flex items-center justify-center">
+                    <span className="text-zinc-600 font-bold uppercase tracking-widest text-xs">Memuat Grading Hub...</span>
+                </div>
+            }>
+                <GradingHub />
+            </Suspense>
+
+            {/* 4. Rekomendasi Produk */}
+            <Suspense fallback={
+                <div className="h-96 w-full bg-[#111114] border border-zinc-800 rounded-2xl animate-pulse mt-8 flex items-center justify-center">
+                    <span className="text-zinc-600 font-bold uppercase tracking-widest text-xs">Memuat Rekomendasi...</span>
+                </div>
+            }>
+                <RecommendedFeed />
+            </Suspense>
+
             <style jsx>{`
                 .no-scrollbar::-webkit-scrollbar { display: none; }
                 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
