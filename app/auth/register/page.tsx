@@ -16,6 +16,9 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
 
+  // State untuk menangani error jika logo.png tidak ditemukan
+  const [logoError, setLogoError] = useState(false);
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage({ type: "", text: "" });
@@ -26,7 +29,7 @@ export default function RegisterPage() {
         type: "error", 
         text: "Password minimal harus 8 karakter!" 
       });
-      return; // Berhenti di sini, tidak lanjut ke fetch
+      return; 
     }
 
     setIsLoading(true);
@@ -81,9 +84,21 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 font-sans selection:bg-[#ef3333] flex flex-col">
+      {/* Navigation Header */}
       <nav className="w-full py-8 flex justify-center border-b border-zinc-900 bg-[#0a0a0b] shrink-0">
-        <Link href="/" className="text-3xl font-black text-[#ef3333] tracking-tighter uppercase transition-transform hover:scale-105">
-          Analog<span className="text-white">.id</span>
+        <Link href="/" className="transition-transform hover:scale-105">
+          {!logoError ? (
+            <img 
+              src="/logo.png" 
+              alt="Analog.id Logo" 
+              className="h-10 md:h-12 w-auto object-contain"
+              onError={() => setLogoError(true)} 
+            />
+          ) : (
+            <div className="text-3xl font-black text-[#ef3333] tracking-tighter uppercase">
+              Analog<span className="text-white">.id</span>
+            </div>
+          )}
         </Link>
       </nav>
 
@@ -176,7 +191,7 @@ export default function RegisterPage() {
                 <button 
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-300 transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-300 transition-colors text-lg"
                 >
                   {showPassword ? "🙈" : "👁️"}
                 </button>

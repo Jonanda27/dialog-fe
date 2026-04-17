@@ -56,6 +56,9 @@ export default function AnalogLandingPage() {
     const [showLeftArrow, setShowLeftArrow] = useState(false);
     const [showRightArrow, setShowRightArrow] = useState(false);
 
+    // STATE UNTUK FALLBACK LOGO (Jika logo.png tidak ditemukan)
+    const [logoError, setLogoError] = useState(false);
+
     useEffect(() => {
         const handleScroll = () => setScrolled(window.scrollY > 20);
         window.addEventListener("scroll", handleScroll);
@@ -147,8 +150,19 @@ export default function AnalogLandingPage() {
             {/* NAVBAR */}
             <nav className={`fixed top-0 w-full z-[100] transition-all duration-300 px-6 ${scrolled ? "bg-[#111114] shadow-xl py-2 border-b border-zinc-800" : "bg-[#0a0a0b] py-4"}`}>
                 <div className="w-full flex items-center justify-between">
-                    <Link href="/" className="text-2xl font-black text-[#ef3333] tracking-tighter cursor-pointer uppercase shrink-0">
-                        Analog<span className="text-white">.id</span>
+                    <Link href="/" className="cursor-pointer shrink-0">
+                        {!logoError ? (
+                            <img 
+                                src="/logo.png" 
+                                alt="Analog.id Logo" 
+                                className="h-8 md:h-10 w-auto object-contain"
+                                onError={() => setLogoError(true)} 
+                            />
+                        ) : (
+                            <div className="text-2xl font-black text-[#ef3333] tracking-tighter uppercase">
+                                Analog<span className="text-white">.id</span>
+                            </div>
+                        )}
                     </Link>
 
                     <div className="hidden md:flex flex-1 max-w-xl mx-10 relative">
@@ -167,17 +181,15 @@ export default function AnalogLandingPage() {
                 
                 {/* HERO BANNER SECTION */}
                 <section className="flex flex-col md:flex-row gap-3 mb-12">
-                    {/* Banner Utama - Menggunakan object-position top agar gambar naik ke atas */}
                     <div className="w-full md:w-2/3 h-[200px] sm:h-[250px] md:h-[300px] rounded-xl overflow-hidden border border-white/5 shadow-xl bg-[#121214]">
                         <img 
                             src="/banner.png" 
                             className="w-full h-full object-cover" 
-                            style={{ objectPosition: 'center top' }} // Mendorong gambar ke atas
+                            style={{ objectPosition: 'center top' }}
                             alt="Main Banner"
                         />
                     </div>
 
-                    {/* Banner Samping */}
                     <div className="w-full md:w-1/3 flex flex-col gap-3 h-[200px] sm:h-[250px] md:h-[300px]">
                         <div className="flex-1 rounded-xl overflow-hidden border border-white/5 shadow-xl bg-[#121214]">
                             <img 
@@ -288,7 +300,7 @@ export default function AnalogLandingPage() {
                         </div>
                     </div>
 
-                    {/* PRODUCT GRID - 5 COLUMNS */}
+                    {/* PRODUCT GRID */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
                         {isLoading ? (
                             Array.from({ length: 10 }).map((_, i) => (
@@ -352,8 +364,15 @@ export default function AnalogLandingPage() {
             <footer className="py-12 border-t border-white/5 bg-zinc-950/50">
                 <div className="max-w-7xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-4">
                     <div className="flex items-center gap-2">
-                        <Disc className="text-[#ef3333]" size={16} />
-                        <span className="text-xs font-black uppercase tracking-tighter">Analog<span className="text-[#ef3333]">.id</span></span>
+                        {/* Menggunakan logo yang sama di footer */}
+                        {!logoError ? (
+                            <img src="/logo.png" alt="Analog.id" className="h-6 w-auto grayscale opacity-80 hover:grayscale-0 transition-all" />
+                        ) : (
+                            <>
+                                <Disc className="text-[#ef3333]" size={16} />
+                                <span className="text-xs font-black uppercase tracking-tighter">Analog<span className="text-[#ef3333]">.id</span></span>
+                            </>
+                        )}
                     </div>
                     <p className="text-zinc-600 text-[8px] font-black uppercase tracking-[0.4em] text-center">
                         &copy; 2026 Analog.id — Authenticated Audio Artifacts.
