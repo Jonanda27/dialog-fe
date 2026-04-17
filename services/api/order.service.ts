@@ -4,7 +4,8 @@ import {
     Order,
     CheckoutPayload,
     ShipOrderPayload,
-    OrderAdminResponse
+    OrderAdminResponse,
+    CheckoutResponse
 } from '../../types/order';
 
 export const OrderService = {
@@ -12,9 +13,9 @@ export const OrderService = {
      * [BUYER] Melakukan checkout keranjang belanja.
      * Operasi ini bersifat atomik di backend: memotong stok, membuat tagihan, dan menyiapkan Escrow.
      */
-    checkout: async (payload: CheckoutPayload): Promise<ApiResponse<{ order_id: string, grand_total: number }>> => {
-        return await axiosClient.post<any, ApiResponse<{ order_id: string, grand_total: number }>>('/orders/checkout', payload);
-    },
+checkout: async (payload: CheckoutPayload): Promise<ApiResponse<CheckoutResponse>> => {
+    return await axiosClient.post<any, ApiResponse<CheckoutResponse>>('/orders/checkout', payload);
+},
 
     /**
      * [BUYER/SELLER] Mengambil detail pesanan spesifik.

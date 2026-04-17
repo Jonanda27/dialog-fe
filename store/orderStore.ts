@@ -20,6 +20,7 @@ interface OrderState {
     buyerOrders: Order[]; 
     adminOrders: OrderAdminResponse[];   // Digunakan oleh Buyer (Riwayat Belanja)
     currentOrder: Order | null;
+    
 
     // ⚡ BARU: State untuk mengikat data sementara di halaman Checkout
     draftCheckout: Partial<DraftCheckoutData>;
@@ -95,12 +96,19 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         try {
             const response = await OrderService.checkout(payload);
             set({ isSubmitting: false });
-            // Mengembalikan ID pesanan untuk di-redirect oleh komponen UI ke halaman pembayaran
-            return response.data.order_id;
+            
+            // ⚡ Sekarang mengembalikan billing_id (ID Induk Pembayaran)
+            return response.data.billing_id; 
         } catch (error: any) {
             const err = error as ApiError;
-            set({ error: err.message || 'Gagal melakukan checkout.', isSubmitting: false });
-            throw err;
+            
+            // Tangkap flag khusus refresh shipping jika backend mengirimkannya
+            if (error.response?.data?.action === 'REFRESH_SHIPPING') {
+                set({ error: 'REFRESH_SHIPPING', isSubmitting: false });
+            } else {
+                set({ error: err.message || 'Gagal melakukan checkout.', isSubmitting: false });
+            }
+            throw error;
         }
     },
 

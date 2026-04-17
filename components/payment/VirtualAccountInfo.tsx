@@ -8,8 +8,8 @@ import { toast } from 'sonner';
 interface VAProps {
     vaNumber: string;
     bankName: string;
-    totalAmount: number | string; // Mengakomodasi string jika nilai dari DB belum di-parse
-    expiryTime: string; // ⚡ BARU: Waktu kadaluarsa dalam format ISO String dari Backend
+    totalAmount: number | string; 
+    expiryTime: string; 
 }
 
 export default function VirtualAccountInfo({ vaNumber, bankName, totalAmount, expiryTime }: VAProps) {
@@ -18,13 +18,16 @@ export default function VirtualAccountInfo({ vaNumber, bankName, totalAmount, ex
     const [isExpired, setIsExpired] = useState(false);
 
     const copyToClipboard = () => {
+        if (!vaNumber || vaNumber.includes("detail")) {
+            toast.error("Selesaikan pilihan pembayaran di panel Midtrans terlebih dahulu.");
+            return;
+        }
         navigator.clipboard.writeText(vaNumber);
         setCopied(true);
         toast.success('Nomor Virtual Account berhasil disalin!');
         setTimeout(() => setCopied(false), 2000);
     };
 
-    // ⚡ LOGIKA BISNIS: Countdown Timer
     useEffect(() => {
         if (!expiryTime) return;
 
@@ -54,10 +57,11 @@ export default function VirtualAccountInfo({ vaNumber, bankName, totalAmount, ex
     }, [expiryTime]);
 
     return (
-        <div className="bg-white border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white border border-gray-200 shadow-sm overflow-hidden rounded-2xl">
             {/* Header / Timer Section */}
-            <div className={`p-4 flex items-center justify-center gap-2 border-b ${isExpired ? 'bg-red-50 border-red-100 text-red-600' : 'bg-orange-50 border-orange-100 text-orange-700'
-                }`}>
+            <div className={`p-4 flex items-center justify-center gap-2 border-b ${
+                isExpired ? 'bg-red-50 border-red-100 text-red-600' : 'bg-orange-50 border-orange-100 text-orange-700'
+            }`}>
                 {isExpired ? <AlertCircle size={18} /> : <Clock size={18} />}
                 <p className="text-sm font-bold uppercase tracking-widest">
                     {isExpired ? 'WAKTU PEMBAYARAN HABIS' : `SISA WAKTU: ${timeLeft}`}
@@ -73,7 +77,6 @@ export default function VirtualAccountInfo({ vaNumber, bankName, totalAmount, ex
                 </div>
 
                 <div className="space-y-4 relative">
-                    {/* Overlay jika waktu habis (Mencegah interaksi lebih lanjut) */}
                     {isExpired && (
                         <div className="absolute inset-0 z-10 bg-white/60 backdrop-blur-[1px] flex items-center justify-center">
                             <span className="bg-red-600 text-white px-4 py-1 text-xs font-bold uppercase tracking-widest">Kadaluarsa</span>
@@ -81,20 +84,20 @@ export default function VirtualAccountInfo({ vaNumber, bankName, totalAmount, ex
                     )}
 
                     <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-500 font-bold uppercase">Bank</span>
+                        <span className="text-sm text-gray-500 font-bold uppercase">Bank / Channel</span>
                         <span className="font-black text-gray-900 uppercase tracking-wider">{bankName}</span>
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-xs text-gray-500 font-bold uppercase tracking-wide">Nomor Virtual Account</label>
-                        <div className="flex items-center justify-between bg-gray-50 p-4 border border-gray-200 rounded-sm">
-                            <span className="text-xl font-mono font-bold tracking-widest text-gray-900">
+                        <label className="text-xs text-gray-500 font-bold uppercase tracking-wide">Nomor Virtual Account / Kode</label>
+                        <div className="flex items-center justify-between bg-gray-50 p-4 border border-gray-200 rounded-xl">
+                            <span className="text-xl font-mono font-bold tracking-widest text-gray-900 truncate mr-2">
                                 {vaNumber}
                             </span>
                             <button
                                 onClick={copyToClipboard}
                                 disabled={isExpired}
-                                className="flex items-center gap-2 text-xs font-bold uppercase text-gray-600 hover:text-black transition-colors disabled:opacity-50"
+                                className="flex items-center gap-2 text-xs font-bold uppercase text-gray-600 hover:text-black transition-colors disabled:opacity-50 shrink-0"
                             >
                                 {copied ? <CheckCircle2 size={16} className="text-green-600" /> : <Copy size={16} />}
                                 {copied ? <span className="text-green-600">Tersalin</span> : 'Salin'}
@@ -104,7 +107,7 @@ export default function VirtualAccountInfo({ vaNumber, bankName, totalAmount, ex
                 </div>
 
                 <div className="pt-4 border-t border-gray-100 mt-6">
-                    <p className="text-xs text-gray-500 leading-relaxed text-center">
+                    <p className="text-[10px] text-gray-400 leading-relaxed text-center uppercase font-bold tracking-tight">
                         Sistem memverifikasi pembayaran secara otomatis. Simpan struk/bukti transfer sebagai referensi yang sah.
                     </p>
                 </div>

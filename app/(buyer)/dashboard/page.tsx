@@ -55,7 +55,7 @@ const VerifiedStores = () => {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 {stores.map((store) => (
-                    <Link key={store.id} href={`/stores/${store.id}`} className="group">
+                    <Link key={store.id} href={`/store/${store.id}`} className="group">
                         <div className="bg-[#111114] border border-zinc-800 rounded-[2rem] p-8 flex flex-col items-center justify-center text-center transition-all hover:border-[#ef3333]/50 hover:bg-zinc-900/50 shadow-xl">
                             <div className="w-20 h-20 rounded-full bg-zinc-800 border-2 border-zinc-700 overflow-hidden mb-4 group-hover:scale-110 transition-transform duration-500">
                                 {store.logo_url ? (
