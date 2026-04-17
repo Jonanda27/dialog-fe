@@ -1,47 +1,42 @@
 import { Order } from './order';
 
 /**
- * Definisi Metode Pembayaran yang didukung.
+ * Metadata untuk Master Billing
  */
-export type PaymentMethod = 'va_bca' | 'va_mandiri' | 'va_bni' | 'qris' | 'wallet';
-
-/**
- * Informasi detail pembayaran untuk ditampilkan ke Buyer (Virtual Account Info).
- */
-export interface PaymentDetails {
-    bank_name?: string;
-    va_number?: string;
-    qr_url?: string; // Jika menggunakan QRIS
-    expiry_time: string; // ISO Date string
-    amount: number | string;
-    instructions?: string[]; // Langkah-langkah pembayaran
+export interface Billing {
+    id: string;
+    buyer_id: string;
+    total_amount: number | string;
+    status: 'unpaid' | 'paid' | 'expired' | 'cancelled';
+    snap_token?: string;
+    payment_method?: string | null;
+    payment_reference?: string | null;
+    created_at: string;
+    updated_at: string; // Tambahkan ini agar sinkron dengan DB
 }
 
 /**
- * Response saat API payment mengembalikan data status terkini.
- */
-export interface PaymentResult {
-    order: Order;
-    payment_status: 'pending' | 'success' | 'failure' | 'expired';
-    payment_details?: PaymentDetails;
-}
-
-/**
- * Payload untuk simulasi status pembayaran (Internal/Development only).
- */
-export interface SimulateWebhookPayload {
-    order_id: string;
-    payment_method: string;
-    payment_reference: string;
-    status: 'success' | 'failure';
-}
-
-/**
- * Integrasi dengan Payment Gateway (Midtrans/Xendit).
+ * Response saat membuat sesi pembayaran Midtrans
  */
 export interface PaymentGatewayResponse {
-    token?: string;       // Snap Token (Midtrans)
-    redirect_url?: string;
-    transaction_id?: string;
-    status?: string;
+    token: string;          // Midtrans Snap Token
+    redirect_url: string;   // URL halaman pembayaran Midtrans
+}
+
+/**
+ * Payload untuk simulasi webhook
+ */
+export interface SimulateWebhookPayload {
+    order_id: string; 
+    payment_method: string;
+    payment_reference: string;
+}
+
+/**
+ * Response status pembayaran untuk UI
+ */
+export interface PaymentResult {
+    billing: Billing; // Dibuat non-optional karena backend selalu kirim ini
+    orders: Order[];  // Detail order yang dibayar
+    payment_status: 'pending' | 'success' | 'failure' | 'expired';
 }

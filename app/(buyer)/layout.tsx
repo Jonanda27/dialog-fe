@@ -2,6 +2,7 @@
 
 import React, { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
+import Script from 'next/script'; // ⚡ Impor komponen Script untuk loading SDK Midtrans
 import BuyerNavbar from '@/components/layout/BuyerNavbar';
 import CartDrawer from '@/components/cart/CartDrawer';
 import AuthGuard from '@/components/layout/AuthGuard';
@@ -23,16 +24,27 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
     const content = (
         /* ⚡ MENTOR NOTE: Menambahkan 'flex flex-col' untuk struktur layout yang lebih solid */
         <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 selection:bg-[#ef3333]/30 selection:text-[#ef3333] font-sans antialiased flex flex-col">
+            
+            {/* ⚡ MIDTRANS SNAP SDK 
+                Script ini wajib dimuat di awal agar window.snap tersedia di halaman pembayaran.
+                Karena tidak ada ENV di FE, Client Key dimasukkan langsung di sini.
+            */}
+            <Script 
+    src="https://app.sandbox.midtrans.com/snap/snap.js"
+    data-client-key="Mid-client-1CNrIu-xdMwp3Zva"
+    strategy="lazyOnload" // ⚡ Mengurangi beban awal dan mencegah inisialisasi ganda yang agresif
+    onLoad={() => {
+        console.log("Midtrans SDK Loaded Successfully");
+    }}
+/>
 
             {/* 1. Header Navigasi (Fixed on Top) */}
             <BuyerNavbar />
 
             {/* 2. Main Content Area 
-               ⚡ PERBAIKAN STRATEGIS: 
-               - Menambahkan pt-24 untuk tampilan mobile (Navbar lebih ringkas).
-               - Menambahkan lg:pt-[180px] untuk tampilan desktop (Mengakomodasi 3-Tier Navbar).
-               Ini memastikan konten di halaman mana pun (Dashboard, Profile, dsb) 
-               otomatis mulai dari bawah navbar tanpa perlu pt-40 lagi di tiap halaman.
+                ⚡ PERBAIKAN STRATEGIS: 
+                - Menambahkan pt-24 untuk tampilan mobile (Navbar lebih ringkas).
+                - Menambahkan lg:pt-[180px] untuk tampilan desktop (Mengakomodasi 3-Tier Navbar).
             */}
             <main className="flex-grow pt-24 lg:pt-[190px]">
                 {/* Animate-in memberikan efek muncul perlahan (fade) 

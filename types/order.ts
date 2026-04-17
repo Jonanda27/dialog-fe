@@ -40,6 +40,7 @@ export interface OrderItem {
  */
 export interface Order {
     id: string;
+    billing_id?: string | null;
     buyer_id: string;
     store_id: string;
     subtotal: string | number;
@@ -129,4 +130,31 @@ export interface OrderAdminResponse {
         name: string;
     };
     items: OrderItem[];
+}
+
+// Tambahkan interface baru untuk grup per toko
+export interface StoreOrderPayload {
+    store_id: string;
+    items: CheckoutItemPayload[];
+    shipping_fee: number;
+    courier_code: string;
+    service_type: string;
+    grading_fee?: number;
+}
+
+/**
+ * Payload untuk eksekusi Checkout (POST /api/orders/checkout).
+ * Mendukung Single Billing untuk Multiple Stores.
+ */
+export interface CheckoutPayload {
+    address_id: string;
+    // ⚡ PERBAIKAN: Sekarang menggunakan array 'orders'
+    orders: StoreOrderPayload[];
+}
+
+// Tambahkan interface untuk menangkap response Billing
+export interface CheckoutResponse {
+    billing_id: string;
+    grand_total: number;
+    order_count: number;
 }

@@ -4,24 +4,42 @@ import axiosClient from './axiosClient';
 import { ApiResponse } from '../../types/api';
 import {
     SimulateWebhookPayload,
-    PaymentResult
+    PaymentResult,
+    PaymentGatewayResponse
 } from '../../types/payment';
 
 export const PaymentService = {
     /**
-     * Mensimulasikan notifikasi Webhook dari Payment Gateway (misal: Midtrans/Xendit).
-     * Digunakan untuk mengubah status pesanan dari 'pending_payment' menjadi 'paid'.
+     * Mengambil Snap Token Midtrans berdasarkan Billing ID.
+     * Digunakan untuk memicu window.snap.pay(token)
      */
-    simulateWebhook: async (payload: SimulateWebhookPayload): Promise<ApiResponse<PaymentResult>> => {
-        return await axiosClient.post<any, ApiResponse<PaymentResult>>('/payments/webhook', payload);
+    createPaymentSession: async (billingId: string): Promise<ApiResponse<PaymentGatewayResponse>> => {
+        return await axiosClient.post<any, ApiResponse<PaymentGatewayResponse>>('/payments/create-session', { 
+            billing_id: billingId 
+        });
     },
 
     /**
-     * [FUNGSI MASA DEPAN] Mengambil Token Pembayaran saat pengguna menekan tombol "Bayar".
-     * Endpoint ini biasanya me-return Snap Token (Midtrans) atau Invoice URL.
-     * @param orderId ID pesanan yang baru saja di-checkout
+     * Mengambil detail status billing.
+     * Digunakan oleh Polling di halaman pembayaran untuk mendeteksi kapan user selesai bayar.
      */
-    getPaymentToken: async (orderId: string): Promise<ApiResponse<{ token: string, redirect_url: string }>> => {
-        return await axiosClient.get<any, ApiResponse<{ token: string, redirect_url: string }>>(`/payments/${orderId}/token`);
+    getBillingStatus: async (billingId: string): Promise<ApiResponse<PaymentResult>> => {
+        return await axiosClient.get<any, ApiResponse<PaymentResult>>(`/payments/billing/${billingId}`);
+    },
+
+    /**
+     * [DEVELOPMENT ONLY] Mensimulasikan pembayaran berhasil.
+     * Berguna untuk testing alur 'paid' tanpa harus buka Simulator Midtrans.
+     */
+    simulateWebhook: async (payload: SimulateWebhookPayload): Promise<ApiResponse<any>> => {
+        return await axiosClient.post<any, ApiResponse<any>>('/payments/webhook-simulation', payload);
+    },
+
+    /**
+     * (Tambahan) Memberitahu backend untuk memverifikasi status ke Midtrans secara manual.
+     * Kadang webhook telat, fungsi ini memaksa backend mengecek ke API Midtrans.
+     */
+    verifyPayment: async (billingId: string): Promise<ApiResponse<PaymentResult>> => {
+        return await axiosClient.post<any, ApiResponse<PaymentResult>>(`/payments/verify/${billingId}`);
     }
 };
