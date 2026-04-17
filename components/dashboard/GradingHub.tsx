@@ -98,11 +98,11 @@ export default function GradingHub() {
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
-                        className="mb-6 overflow-hidden rounded-2xl bg-black border border-zinc-800 relative shadow-2xl"
+                        className="mb-6 overflow-hidden rounded-2xl bg-black border border-zinc-800 relative"
                     >
                         <button
                             onClick={() => setSelectedVideoUrl(null)}
-                            className="absolute top-4 right-4 z-10 bg-zinc-900/80 text-white w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-600 transition"
+                            className="absolute top-4 right-4 z-10 bg-zinc-900/80 text-white p-2 rounded-full hover:bg-red-600 transition"
                         >
                             ✕
                         </button>
@@ -110,7 +110,8 @@ export default function GradingHub() {
                             src={selectedVideoUrl}
                             controls
                             autoPlay
-                            controlsList="nodownload"
+                            crossOrigin="anonymous" // ⚡ FIX: Tambahkan ini untuk mengatasi NotSameOrigin Policy
+                            controlsList="nodownload" // Ekstra pengamanan
                             className="w-full aspect-video object-contain"
                         />
                     </motion.div>

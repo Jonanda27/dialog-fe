@@ -1,3 +1,5 @@
+// File: services/api/grading.service.ts
+
 import axiosClient from './axiosClient';
 import { ApiResponse } from '@/types/api';
 import { GradingRequest, RequestGradingPayload, FulfillGradingPayload } from '@/types/grading';
@@ -35,22 +37,32 @@ const gradingService = {
 
     // MAC (Media Access Control): Mendapatkan URL Stream dengan Auth Token
     getAuthenticatedStreamUrl: (gradingId: string): string => {
-        // Sesuaikan NEXT_PUBLIC_API_URL dengan env Anda (misal: http://localhost:5000/api)
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
         let token = '';
 
-        // Ekstraksi Token JWT dari Client-Side Storage
-        // Asumsi: Anda menggunakan Zustand (authStore) yang di-persist ke localStorage.
-        // Jika nama key localStorage Anda berbeda, ubah 'auth-storage' di bawah ini.
+        // ⚡ FIX: Ekstraksi Token dari Local Storage
         if (typeof window !== 'undefined') {
-            const authState = localStorage.getItem('auth-storage');
-            if (authState) {
-                try {
-                    const parsed = JSON.parse(authState);
-                    token = parsed.state?.token || '';
-                } catch (e) {
-                    console.error("Gagal mem-parsing token untuk video stream");
+            try {
+                // Skenario 1: Jika disimpan langsung dengan key 'token'
+                const rawToken = localStorage.getItem('token');
+
+                // Skenario 2: Jika disimpan via state manager seperti Zustand (auth-storage)
+                const authStorage = localStorage.getItem('auth-storage');
+                let parsedToken = '';
+
+                if (authStorage) {
+                    const parsed = JSON.parse(authStorage);
+                    parsedToken = parsed?.state?.token; // Sesuaikan path ini dengan struktur state Anda
                 }
+
+                // Ambil mana yang tersedia
+                token = rawToken || parsedToken || '';
+
+                if (!token) {
+                    console.error("Token tidak ditemukan di Local Storage.");
+                }
+            } catch (error) {
+                console.error("Gagal mengekstrak token dari Local Storage:", error);
             }
         }
 
