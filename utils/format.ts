@@ -10,3 +10,12 @@ export const toIDR = (amount: number | string): string => {
         minimumFractionDigits: 0,
     }).format(numericAmount);
 };
+
+export const formatRupiah = (number: number): string => {
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    }).format(number);
+};
