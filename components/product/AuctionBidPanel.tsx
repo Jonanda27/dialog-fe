@@ -1,12 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-// Asumsi Anda memiliki utility formatRupiah. Jika tidak, bisa gunakan Intl.NumberFormat bawaan JS
 import { formatRupiah } from '@/utils/format';
-// Hook ini akan kita buat di langkah selanjutnya
 import { useAuctionSocket } from '@/hooks/useAuctionSocket';
-// Asumsi menggunakan react-hot-toast atau sonner untuk notifikasi (standard industri)
-import toast from 'react-hot-toast';
+import { toast } from 'sonner'; // Konsistensi menggunakan sonner
+import { Gavel, Clock, AlertCircle, TrendingUp, Trophy } from 'lucide-react';
 
 interface BidderHistory {
     userId: string;
@@ -29,12 +27,12 @@ export default function AuctionBidPanel({
     endTime
 }: AuctionBidPanelProps) {
 
-    // 1. Delegasi Logika Jaringan ke Custom Hook (Low Coupling)
+    // 1. Delegasi Logika Jaringan ke Custom Hook (Decoupled & High Cohesion)
     const {
         currentPrice,
         highestBidders,
         isFrozen,
-        isSyncing, // ⚡ FIX: Ambil state isSyncing dari hook
+        isSyncing,
         socketError,
         submitBid
     } = useAuctionSocket({ auctionId, initialPrice });
@@ -43,7 +41,7 @@ export default function AuctionBidPanel({
     const [cooldown, setCooldown] = useState<number>(0);
     const [timeLeft, setTimeLeft] = useState<string>('--:--:--');
     const [isAuctionEnded, setIsAuctionEnded] = useState<boolean>(false);
-    const [isBidding, setIsBidding] = useState<boolean>(false); // Indikator loading saat klik
+    const [isBidding, setIsBidding] = useState<boolean>(false);
 
     // 3. Sistem Hitung Mundur (Countdown Timer)
     useEffect(() => {
@@ -54,14 +52,13 @@ export default function AuctionBidPanel({
 
             if (distance < 0) {
                 clearInterval(interval);
-                setTimeLeft('LELANG BERAKHIR');
+                setTimeLeft('00:00:00');
                 setIsAuctionEnded(true);
             } else {
                 const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                 const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-                // Format HH:MM:SS
                 setTimeLeft(
                     `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
                 );
@@ -82,128 +79,132 @@ export default function AuctionBidPanel({
     // 5. Menangkap Error dari Socket (Jebakan Harga / Race Condition)
     useEffect(() => {
         if (socketError) {
-            toast.error(socketError);
+            toast.error("Gagal melakukan penawaran", { description: socketError });
             setIsBidding(false);
-            // Jika error karena 'Harga telah meloncat', batalkan cooldown agar user bisa klik lagi
             if (socketError.includes('meloncat')) {
-                setCooldown(0);
+                setCooldown(0); // Buka gembok cooldown agar user bisa langsung bid harga baru
             }
         }
     }, [socketError]);
 
-    // 6. Eksekusi Bid (Information Expert: Tombol ini tahu harga ekspektasi)
+    // 6. Eksekusi Bid (Payload Independen)
     const handlePlaceBid = useCallback(() => {
-        // ⚡ FIX: Cegah bid jika sedang syncing
         if (cooldown > 0 || isFrozen || isAuctionEnded || isSyncing) return;
 
         setIsBidding(true);
         const expectedPrice = currentPrice + increment;
 
-        // Lempar payload ke Socket.io
+        // Lempar payload ke Socket.io (Murni nominal dan increment, ID diurus hook)
         submitBid(expectedPrice, increment);
 
-        // Langsung pasang cooldown lokal 5 detik (Optimistic Lock)
-        setCooldown(5);
+        toast.success("Tawaran berhasil dikirim!", {
+            description: `Anda menawar di angka ${formatRupiah(expectedPrice)}`
+        });
 
-        // Matikan efek loading tombol setelah 500ms untuk ilusi kecepatan
+        // Optimistic Lock 5 detik
+        setCooldown(5);
         setTimeout(() => setIsBidding(false), 500);
     }, [cooldown, isFrozen, isAuctionEnded, isSyncing, currentPrice, increment, submitBid]);
 
-    // ================== RENDERING UI ==================
 
-    // ⚡ FIX: Tambahkan isSyncing sebagai kondisi disable tombol
     const isButtonDisabled = cooldown > 0 || isFrozen || isAuctionEnded || isBidding || isSyncing;
 
     return (
-        <div className="w-full bg-white border border-gray-200 rounded-xl shadow-sm p-5 space-y-6">
+        <div className="w-full bg-[#111114] p-8 space-y-8">
             {/* HEAD: Status dan Timer */}
-            <div className="flex justify-between items-center border-b pb-4">
+            <div className="flex justify-between items-start border-b border-zinc-800 pb-6">
                 <div>
-                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Status Lelang</h3>
-                    <div className="flex items-center gap-2 mt-1">
+                    <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                        <Gavel size={12} /> Status Arena
+                    </h3>
+                    <div className="flex items-center gap-2 mt-2">
                         <span className={`relative flex h-3 w-3 ${isFrozen || isAuctionEnded || isSyncing ? 'hidden' : ''}`}>
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
                         </span>
-                        <span className="font-bold text-gray-800">
-                            {/* ⚡ FIX: Tambahkan label khusus saat sedang menunggu sinkronisasi Redis */}
-                            {isAuctionEnded ? 'Berakhir' : isSyncing ? 'Menunggu Lelang...' : isFrozen ? 'Masa Tenang (Sinkronisasi...)' : 'Sedang Berlangsung'}
+                        <span className="text-sm font-bold text-white uppercase tracking-wider">
+                            {isAuctionEnded ? 'Berakhir' : isSyncing ? 'Menyinkronkan...' : isFrozen ? 'Masa Tenang...' : 'Sedang Berlangsung'}
                         </span>
                     </div>
                 </div>
                 <div className="text-right">
-                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Sisa Waktu</h3>
-                    <span className="font-mono text-xl font-bold text-red-600 tracking-tight">
+                    <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center justify-end gap-2">
+                        <Clock size={12} /> Sisa Waktu
+                    </h3>
+                    <span className="font-mono text-2xl font-black text-red-500 tracking-tighter mt-1 block">
                         {timeLeft}
                     </span>
                 </div>
             </div>
 
             {/* BODY: Harga Saat Ini */}
-            <div className="bg-gray-50 p-4 rounded-lg flex flex-col items-center justify-center space-y-1">
-                <span className="text-sm text-gray-500 font-medium">Harga Tertinggi Saat Ini</span>
-                {/* Animasi pulse saat harga berubah */}
-                <span key={currentPrice} className="text-4xl font-extrabold text-gray-900 animate-pulse transition-all">
+            <div className="bg-zinc-900/50 border border-zinc-800/50 p-6 rounded-2xl flex flex-col items-center justify-center space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Current Highest Bid</span>
+                <span key={currentPrice} className="text-5xl font-black text-white italic tracking-tighter animate-in zoom-in duration-300">
                     {formatRupiah(currentPrice)}
                 </span>
             </div>
 
             {/* ACTION: Tombol Bid */}
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
                 <button
                     onClick={handlePlaceBid}
                     disabled={isButtonDisabled}
                     className={`
-                        w-full py-4 rounded-lg font-bold text-lg flex items-center justify-center gap-2 transition-all duration-200
+                        w-full py-5 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 transition-all duration-200 shadow-xl
                         ${isButtonDisabled
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            : 'bg-black text-white hover:bg-gray-800 active:scale-[0.98] shadow-md hover:shadow-lg'
+                            ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                            : 'bg-white text-black hover:bg-[#ef3333] hover:text-white active:scale-[0.98] shadow-white/5 hover:shadow-red-600/20'
                         }
                     `}
                 >
                     {isBidding ? (
                         <span>Memproses...</span>
                     ) : isSyncing ? (
-                        /* ⚡ FIX: Tampilan tombol saat Redis belum siap */
-                        <span>Menunggu Server...</span>
+                        <span>Menunggu Node...</span>
                     ) : isFrozen ? (
-                        <span>Lelang Dikunci</span>
+                        <span>Arena Dikunci</span>
+                    ) : isAuctionEnded ? (
+                        <span>Lelang Ditutup</span>
                     ) : cooldown > 0 ? (
-                        <span>Tunggu {cooldown} Detik...</span>
+                        <span>Cooldown: {cooldown}s</span>
                     ) : (
                         <>
-                            <span>Bid +{formatRupiah(increment)}</span>
+                            <TrendingUp size={18} /> Bid +{formatRupiah(increment)}
                         </>
                     )}
                 </button>
-                <p className="text-xs text-center text-gray-400">
-                    Dengan menekan tombol bid, Anda setuju untuk membeli produk ini jika menang.
+                <p className="text-[9px] text-center font-bold text-zinc-600 uppercase tracking-widest flex items-center justify-center gap-1">
+                    <AlertCircle size={10} /> Konfirmasi Mutlak. Tidak bisa dibatalkan.
                 </p>
             </div>
 
             {/* FOOTER: Histori Bidder */}
-            <div className="pt-4 border-t">
-                <h4 className="text-sm font-bold text-gray-800 mb-3">Histori Penawaran (Live)</h4>
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+            <div className="pt-6 border-t border-zinc-800">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4 flex items-center gap-2">
+                    <Trophy size={12} /> Live Leaderboard
+                </h4>
+                <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                     {highestBidders.length === 0 ? (
-                        <p className="text-sm text-gray-400 italic text-center py-4">Belum ada penawaran.</p>
+                        <p className="text-xs text-zinc-600 font-bold italic text-center py-4 bg-zinc-900/30 rounded-xl border border-zinc-800/50">Belum ada penawaran.</p>
                     ) : (
                         highestBidders.map((bid: BidderHistory, index: number) => (
                             <div
-                                key={index}
-                                className={`flex justify-between items-center p-2 rounded ${index === 0 ? 'bg-green-50 border border-green-100' : 'bg-gray-50'}`}
+                                key={`${bid.userId}-${bid.timestamp}`}
+                                className={`flex justify-between items-center p-3 rounded-xl border ${index === 0 ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-zinc-900/30 border-zinc-800/50'
+                                    }`}
                             >
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-3">
                                     {index === 0 && (
-                                        <span className="text-xs font-bold bg-green-500 text-white px-2 py-0.5 rounded-full">
-                                            Highest
+                                        <span className="text-[9px] font-black bg-emerald-500 text-black px-2 py-0.5 rounded-sm uppercase tracking-widest">
+                                            1ST
                                         </span>
                                     )}
-                                    <span className="text-sm font-medium text-gray-600">
+                                    <span className={`text-xs font-bold uppercase tracking-widest ${index === 0 ? 'text-emerald-500' : 'text-zinc-400'}`}>
                                         User {bid.userId.substring(0, 5)}***
                                     </span>
                                 </div>
-                                <span className={`text-sm font-bold ${index === 0 ? 'text-green-700' : 'text-gray-800'}`}>
+                                <span className={`text-sm font-black tracking-wider ${index === 0 ? 'text-emerald-400' : 'text-zinc-300'}`}>
                                     {formatRupiah(bid.amount)}
                                 </span>
                             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
     Gavel,
@@ -20,6 +20,7 @@ import { toast } from "sonner";
 
 // Utils & Hooks
 import { formatRupiah } from "@/utils/format";
+import { getImageUrl } from "@/utils/image";
 import { useAuctionSocket } from "@/hooks/useAuctionSocket";
 import axiosClient from "@/services/api/axiosClient";
 import { Auction } from "@/types/auction";
@@ -38,10 +39,14 @@ export default function LiveAuctionMonitor() {
     const fetchAuctionDetail = async () => {
         try {
             setIsLoading(true);
-            // Endpoint internal atau publik yang mengembalikan detail lelang
-            const response = await axiosClient.get(`/api/v1/auctions/${auctionId}`);
-            if (response.data?.success) {
-                setAuction(response.data.data);
+            const response: any = await axiosClient.get(`/v1/auctions/${auctionId}`);
+
+            // 🔥 ROBUST EXTRACTION: Mengatasi efek unboxing Axios Interceptor
+            // Jika response.success ada, berarti interceptor unwrap payload. Jika tidak, ambil dari response.data
+            const payload = response.success !== undefined ? response : response.data;
+
+            if (payload?.success) {
+                setAuction(payload.data);
             }
         } catch (error: any) {
             console.error("Gagal memuat detail lelang:", error);
@@ -56,7 +61,6 @@ export default function LiveAuctionMonitor() {
     }, [auctionId]);
 
     // 2. Integrasi Socket (Read-Only Mode)
-    // Hook akan otomatis connect saat auction data tersedia
     const {
         currentPrice,
         highestBidders,
@@ -116,10 +120,11 @@ export default function LiveAuctionMonitor() {
         );
     }
 
+    const primaryMedia = auction.media?.find(m => m.is_primary)?.media_url || auction.media?.[0]?.media_url;
+
     return (
         <div className="min-h-screen bg-[#0a0a0b] text-white p-6 lg:p-10 font-sans">
             <main className="max-w-7xl mx-auto space-y-8">
-
                 {/* HEADER & NAVIGATION */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="space-y-2">
@@ -135,7 +140,7 @@ export default function LiveAuctionMonitor() {
                         </h1>
                     </div>
 
-                    <div className="flex items-center gap-4 bg-zinc-900/50 border border-zinc-800 p-2 rounded-2xl">
+                    <div className="flex items-center gap-4 bg-zinc-900/50 border border-zinc-800 p-2 rounded-2xl shrink-0">
                         <div className="flex items-center gap-2 px-4 py-2">
                             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 animate-ping' : 'bg-red-500'}`} />
                             <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
@@ -151,7 +156,6 @@ export default function LiveAuctionMonitor() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-
                     {/* LEFT: LIVE PRICE BOARD */}
                     <div className="lg:col-span-8 space-y-8">
                         <div className="bg-[#111114] border border-zinc-800 rounded-4xl p-10 flex flex-col items-center justify-center text-center space-y-6 relative overflow-hidden shadow-2xl">
@@ -163,7 +167,7 @@ export default function LiveAuctionMonitor() {
                             </div>
 
                             <div key={currentPrice} className="space-y-2 animate-in fade-in zoom-in duration-500">
-                                <h2 className="text-7xl lg:text-8xl font-black tracking-tighter italic">
+                                <h2 className="text-7xl lg:text-8xl font-black tracking-tighter italic text-white drop-shadow-md">
                                     {formatRupiah(currentPrice)}
                                 </h2>
                                 <div className="flex items-center justify-center gap-4 text-emerald-500 font-bold uppercase tracking-widest text-sm">
@@ -176,7 +180,7 @@ export default function LiveAuctionMonitor() {
                             <div className="grid grid-cols-2 w-full max-w-md gap-4 pt-6">
                                 <div className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800/50">
                                     <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1">Starting Price</p>
-                                    <p className="text-sm font-bold">{formatRupiah(Number(auction.start_price))}</p>
+                                    <p className="text-sm font-bold text-white">{formatRupiah(Number(auction.start_price))}</p>
                                 </div>
                                 <div className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800/50">
                                     <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1">Time Remaining</p>
@@ -185,19 +189,29 @@ export default function LiveAuctionMonitor() {
                             </div>
                         </div>
 
-                        <div className="bg-[#111114] border border-zinc-800 rounded-4xl p-8 flex items-center gap-6 shadow-xl">
-                            <div className="w-24 h-24 bg-zinc-900 rounded-3xl border border-zinc-800 flex items-center justify-center text-zinc-700 shrink-0">
-                                <Package size={40} />
+                        {/* SECTION: INFO BARANG INDEPENDEN */}
+                        <div className="bg-[#111114] border border-zinc-800 rounded-4xl p-8 flex flex-col md:flex-row items-center gap-6 shadow-xl">
+                            <div className="w-24 h-24 bg-zinc-900 rounded-3xl border border-zinc-800 flex items-center justify-center text-zinc-700 shrink-0 overflow-hidden">
+                                {primaryMedia ? (
+                                    <img src={getImageUrl(primaryMedia)} alt={auction.item_name} className="w-full h-full object-cover" />
+                                ) : (
+                                    <Package size={40} />
+                                )}
                             </div>
-                            <div className="flex-1">
+                            <div className="flex-1 text-center md:text-left">
                                 <h3 className="text-xl font-black uppercase tracking-tighter text-white">
-                                    {auction.product?.name || "Product Item"}
+                                    {auction.item_name}
                                 </h3>
-                                <div className="flex items-center gap-4 mt-2">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 bg-zinc-900 px-3 py-1 rounded-full border border-zinc-800">
-                                        {auction.product?.metadata?.format || "Analog Collectible"}
+                                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-3">
+                                    <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${auction.condition === 'NEW' ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-500 bg-amber-500/10 border-amber-500/20'}`}>
+                                        {auction.condition === 'NEW' ? 'Baru' : 'Pernah Dipakai'}
                                     </span>
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 bg-zinc-900 px-3 py-1 rounded-full border border-zinc-800 italic">Seller View Only</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 bg-zinc-900 px-3 py-1 rounded-full border border-zinc-800">
+                                        Berat: {auction.weight}gr
+                                    </span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 bg-zinc-900 px-3 py-1 rounded-full border border-zinc-800 italic">
+                                        Seller View Only
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -205,8 +219,8 @@ export default function LiveAuctionMonitor() {
 
                     {/* RIGHT: LIVE BID FEED */}
                     <div className="lg:col-span-4 space-y-6">
-                        <div className="bg-[#111114] border border-zinc-800 rounded-4xl flex flex-col h-full shadow-2xl overflow-hidden">
-                            <div className="p-6 border-b border-zinc-800 bg-zinc-900/30 flex items-center justify-between">
+                        <div className="bg-[#111114] border border-zinc-800 rounded-4xl flex flex-col h-full shadow-2xl overflow-hidden min-h-[500px]">
+                            <div className="p-6 border-b border-zinc-800 bg-zinc-900/30 flex items-center justify-between shrink-0">
                                 <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400 flex items-center gap-2">
                                     <Users size={16} className="text-[#ef3333]" /> Live Bidders
                                 </h3>
@@ -215,24 +229,15 @@ export default function LiveAuctionMonitor() {
                                 </div>
                             </div>
 
-                            <div className="flex-1 p-6 space-y-4 max-h-125 overflow-y-auto no-scrollbar">
+                            <div className="flex-1 p-6 space-y-4 overflow-y-auto no-scrollbar">
                                 {highestBidders.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center py-20 text-center opacity-30">
+                                    <div className="flex flex-col items-center justify-center h-full text-center opacity-30 pt-10">
                                         <Gavel size={48} className="mb-4" />
                                         <p className="text-[10px] font-black uppercase tracking-widest">Waiting for first bid...</p>
                                     </div>
                                 ) : (
                                     highestBidders.map((bid, index) => (
-                                        <div
-                                            key={index}
-                                            className={`
-                          group p-4 rounded-2xl border transition-all duration-300 flex items-center justify-between
-                          ${index === 0
-                                                    ? 'bg-emerald-500/5 border-emerald-500/20 shadow-lg shadow-emerald-500/5'
-                                                    : 'bg-zinc-900/50 border-zinc-800'
-                                                }
-                        `}
-                                        >
+                                        <div key={index} className={`group p-4 rounded-2xl border transition-all duration-300 flex items-center justify-between ${index === 0 ? 'bg-emerald-500/5 border-emerald-500/20 shadow-lg shadow-emerald-500/5' : 'bg-zinc-900/50 border-zinc-800'}`}>
                                             <div className="space-y-1">
                                                 <div className="flex items-center gap-2">
                                                     {index === 0 && <Trophy size={14} className="text-yellow-500" />}
@@ -258,7 +263,7 @@ export default function LiveAuctionMonitor() {
                             </div>
 
                             {isFrozen && (
-                                <div className="p-6 bg-amber-500/10 border-t border-amber-500/20">
+                                <div className="p-6 bg-amber-500/10 border-t border-amber-500/20 shrink-0">
                                     <div className="flex items-center gap-3 text-amber-500">
                                         <Clock size={18} className="animate-spin" />
                                         <div>
@@ -293,7 +298,10 @@ export default function LiveAuctionMonitor() {
                                             <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Final Price</p>
                                             <p className="text-2xl font-black italic">{formatRupiah(currentPrice)}</p>
                                         </div>
-                                        <button className="bg-black text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-zinc-900 transition-colors flex items-center gap-2">
+                                        <button
+                                            onClick={() => router.push('/penjual/transaksi')}
+                                            className="bg-black text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-zinc-900 transition-colors flex items-center gap-2"
+                                        >
                                             <ShieldCheck size={14} /> Lihat Order
                                         </button>
                                     </div>
