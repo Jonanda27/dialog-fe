@@ -15,6 +15,9 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  
+  // State untuk menangani fallback jika logo.png tidak ditemukan
+  const [logoError, setLogoError] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +42,17 @@ export default function LoginPage() {
       else if (userRole === "seller") {
         const store = (userData as any).store;
 
-        // Pengecekan status toko: Jika sudah disetujui masuk dashboard, jika belum masuk pendaftaran
+        /**
+         * ⚡ LOGIKA SUSPENDED:
+         * Jika toko ada dan statusnya adalah 'suspended', 
+         * arahkan langsung ke halaman khusus penangguhan.
+         */
+        if (store && store.status === "suspended") {
+          router.push("/penjual/suspend");
+          return; // Hentikan eksekusi redirect lainnya
+        }
+
+        // Pengecekan status toko normal: Jika sudah disetujui masuk dashboard, jika belum masuk pendaftaran
         if (store && store.status === "approved") {
           router.push("/penjual/dashboard");
         } else {
@@ -48,11 +61,9 @@ export default function LoginPage() {
       }
       else if (userRole === "buyer") {
         // ⚡ SESUAI DISKUSI: Buyer diarahkan ke Pusat Dashboard (/dashboard)
-        // Halaman ini mengorkestrasi ActiveOrderTracker & ShoppingSummary
         router.push("/dashboard");
       }
       else {
-        // Fallback jika role tidak terdefinisi
         router.push("/");
       }
 
@@ -68,8 +79,19 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 font-sans selection:bg-[#ef3333] flex flex-col">
       {/* Navigation Header */}
       <nav className="w-full py-8 flex justify-center border-b border-zinc-900 bg-[#0a0a0b] shrink-0">
-        <Link href="/" className="text-3xl font-black text-[#ef3333] tracking-tighter uppercase transition-transform hover:scale-105">
-          Analog<span className="text-white">.id</span>
+        <Link href="/" className="transition-transform hover:scale-105">
+          {!logoError ? (
+            <img 
+              src="/logo.png" 
+              alt="Analog.id Logo" 
+              className="h-10 md:h-12 w-auto object-contain"
+              onError={() => setLogoError(true)} 
+            />
+          ) : (
+            <span className="text-3xl font-black text-[#ef3333] tracking-tighter uppercase">
+              Analog<span className="text-white">.id</span>
+            </span>
+          )}
         </Link>
       </nav>
 

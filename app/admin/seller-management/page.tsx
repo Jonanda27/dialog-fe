@@ -17,7 +17,9 @@ import {
   MessageSquare,
   Plus,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Clock,
+  ShieldCheck
 } from "lucide-react";
 
 // INTEGRASI SERVICES & TYPES
@@ -26,6 +28,7 @@ import { OrderService } from "@/services/api/order.service";
 import { Store, StoreWalletResponse } from "@/types/store";
 import { Order } from "@/types/order";
 import { toast } from "react-hot-toast";
+import { useAdminStore } from "@/store/adminStore";
 
 export default function SellerManagementPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -33,16 +36,28 @@ export default function SellerManagementPage() {
   const [selectedSeller, setSelectedSeller] = useState<Store | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
+  // State untuk Suspend Modal
+  const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false);
+  const [suspendSellerId, setSuspendSellerId] = useState<string | null>(null);
+  const [suspendForm, setSuspendForm] = useState({
+    duration: 1,
+    unit: 'days' as 'hours' | 'days' | 'permanent',
+    reason: ''
+  });
+
+  const { suspendStore, unsuspendStore, isLoading: isAdminActionLoading } = useAdminStore();
+
   // State untuk Data Preview (Wallet & Orders per Seller)
   const [previewWallet, setPreviewWallet] = useState<StoreWalletResponse | null>(null);
   const [previewOrders, setPreviewOrders] = useState<Order[]>([]);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
-  // 1. FETCH SEMUA TOKO (Public/Admin Access)
+  // 1. FETCH SEMUA TOKO (PERBAIKAN: Mengirim string kosong agar filter status di backend terabaikan)
   const fetchSellers = async () => {
     try {
       setIsLoading(true);
-      const response = await StoreService.getAllStores();
+      // Mengirim status: "" agar backend mengembalikan semua status, bukan cuma 'approved'
+      const response = await StoreService.getAllStores({ status: "" }); 
       if (response.success) {
         setSellers(response.data);
       }
@@ -57,17 +72,13 @@ export default function SellerManagementPage() {
     fetchSellers();
   }, []);
 
-  // 2. FETCH DETAIL PREVIEW SAAT MODAL DIBUKA
-  // Catatan: Di sistem asli, Admin mungkin perlu endpoint khusus untuk melihat wallet seller lain.
-  // Di sini kita asumsikan admin bisa mengintip ringkasan data.
+  // 2. FETCH DETAIL PREVIEW
   const handleOpenPreview = async (seller: Store) => {
     setSelectedSeller(seller);
     setIsLoadingPreview(true);
     try {
-      // Simulasi pengambilan data spesifik toko
-      // Karena keterbatasan API 'MyStore', idealnya ada AdminService.getSellerStats(id)
       const [orderRes] = await Promise.all([
-        OrderService.getStoreOrders() // Placeholder: Idealnya filter by sellerId
+        OrderService.getStoreOrders() 
       ]);
 
       if (orderRes.success) {
@@ -77,6 +88,35 @@ export default function SellerManagementPage() {
       console.error("Gagal memuat data preview");
     } finally {
       setIsLoadingPreview(false);
+    }
+  };
+
+  // 3. HANDLER SUSPEND & UNSUSPEND
+  const handleSuspendSubmit = async () => {
+    if (!suspendSellerId) return;
+    try {
+      await suspendStore(
+        suspendSellerId, 
+        suspendForm.duration, 
+        suspendForm.unit, 
+        suspendForm.reason
+      );
+      toast.success("Toko berhasil disuspensi");
+      setIsSuspendModalOpen(false);
+      fetchSellers(); 
+    } catch (error: any) {
+      toast.error(error.message || "Gagal mensuspensi toko");
+    }
+  };
+
+  const handleUnsuspend = async (id: string) => {
+    if (!confirm("Apakah Anda yakin ingin mengaktifkan kembali toko ini?")) return;
+    try {
+      await unsuspendStore(id);
+      toast.success("Suspensi telah dicabut");
+      fetchSellers();
+    } catch (error: any) {
+      toast.error(error.message || "Gagal mencabut suspensi");
     }
   };
 
@@ -140,49 +180,77 @@ export default function SellerManagementPage() {
                       <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Tidak ada penjual ditemukan</p>
                     </td>
                   </tr>
-                ) : filteredSellers.map((seller) => (
-                  <tr key={seller.id} className="hover:bg-white/[0.01] transition-colors group">
-                    <td className="py-5 px-8">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-[#0a0a0b] border border-zinc-800 flex items-center justify-center text-lg overflow-hidden group-hover:border-[#ef3333] transition-colors">
-                          {seller.logo_url ? (
-                            <img src={`${process.env.NEXT_PUBLIC_API_URL}${seller.logo_url}`} className="w-full h-full object-cover" alt="" />
-                          ) : "🏪"}
+                ) : filteredSellers.map((seller) => {
+                  const status = seller.status as string;
+
+                  return (
+                    <tr key={seller.id} className="hover:bg-white/[0.01] transition-colors group">
+                      <td className="py-5 px-8">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-[#0a0a0b] border border-zinc-800 flex items-center justify-center text-lg overflow-hidden group-hover:border-[#ef3333] transition-colors">
+                            {seller.logo_url ? (
+                              <img src={`${process.env.NEXT_PUBLIC_API_URL}${seller.logo_url}`} className="w-full h-full object-cover" alt="" />
+                            ) : "🏪"}
+                          </div>
+                          <div>
+                            <p className="text-xs font-black text-white uppercase tracking-tight group-hover:text-[#ef3333] transition-colors">{seller.name}</p>
+                            <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">ID: {seller.id.split('-')[0]}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-xs font-black text-white uppercase tracking-tight group-hover:text-[#ef3333] transition-colors">{seller.name}</p>
-                          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">ID: {seller.id.split('-')[0]}</p>
+                      </td>
+                      <td className="py-5 px-4">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                          (status === 'approved' || status === 'active')
+                          ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/10' 
+                          : status === 'suspended'
+                          ? 'bg-red-500/5 text-red-500 border-red-500/10'
+                          : status === 'pending'
+                          ? 'bg-amber-500/5 text-amber-500 border-amber-500/10'
+                          : 'bg-zinc-500/5 text-zinc-500 border-zinc-500/10'
+                        }`}>
+                          {status}
+                        </span>
+                      </td>
+                      <td className="py-5 px-4 text-xs font-bold text-zinc-400">
+                        {new Date(seller.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </td>
+                      <td className="py-5 px-4 text-xs font-black text-white tracking-tight">
+                        Rp {parseFloat(seller.balance?.toString() || "0").toLocaleString('id-ID')}
+                      </td>
+                      <td className="py-5 px-8">
+                        <div className="flex items-center justify-end gap-2">
+                          <button 
+                            onClick={() => handleOpenPreview(seller)}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1a1a1e] text-zinc-400 hover:text-white border border-zinc-800 hover:border-zinc-700 transition-all text-[9px] font-black uppercase tracking-widest"
+                          >
+                            <Eye size={14} /> Preview
+                          </button>
+                          
+                          {status === 'suspended' ? (
+                            <button 
+                              onClick={() => handleUnsuspend(seller.id)}
+                              className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 transition-all"
+                              title="Unsuspend Store"
+                            >
+                              <ShieldCheck size={14} />
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => {
+                                setSuspendSellerId(seller.id);
+                                setIsSuspendModalOpen(true);
+                              }}
+                              className="p-2 rounded-lg bg-[#1a1a1e] text-zinc-600 hover:text-red-500 border border-zinc-800 transition-all"
+                              title="Suspend Store"
+                            >
+                              <ShieldOff size={14} />
+                            </button>
+                          )}
                         </div>
-                      </div>
-                    </td>
-                    <td className="py-5 px-4">
-                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                        seller.status === 'approved' ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/10' : 'bg-amber-500/5 text-amber-500 border-amber-500/10'
-                      }`}>
-                        {seller.status}
-                      </span>
-                    </td>
-                    <td className="py-5 px-4 text-xs font-bold text-zinc-400">
-                      {new Date(seller.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </td>
-                    <td className="py-5 px-4 text-xs font-black text-white tracking-tight">
-                      Rp {parseFloat(seller.balance?.toString() || "0").toLocaleString('id-ID')}
-                    </td>
-                    <td className="py-5 px-8">
-                      <div className="flex items-center justify-end gap-2">
-                        <button 
-                          onClick={() => handleOpenPreview(seller)}
-                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1a1a1e] text-zinc-400 hover:text-white border border-zinc-800 hover:border-zinc-700 transition-all text-[9px] font-black uppercase tracking-widest"
-                        >
-                          <Eye size={14} /> Preview
-                        </button>
-                        <button className="p-2 rounded-lg bg-[#1a1a1e] text-zinc-600 hover:text-red-500 border border-zinc-800 transition-all">
-                          <ShieldOff size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -274,6 +342,77 @@ export default function SellerManagementPage() {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL SUSPEND FORM */}
+        {isSuspendModalOpen && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsSuspendModalOpen(false)} />
+            <div className="relative bg-[#111114] border border-zinc-800 w-full max-w-md rounded-[2rem] overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-3 bg-red-500/10 rounded-2xl">
+                    <ShieldOff className="text-red-500" size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-white uppercase tracking-tight">Suspend Toko</h3>
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Batasi aktivitas toko sementara</p>
+                  </div>
+                </div>
+
+                <div className="space-y-5">
+                  <div>
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 block">Durasi & Unit</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <input 
+                        type="number" 
+                        disabled={suspendForm.unit === 'permanent'}
+                        value={suspendForm.duration}
+                        onChange={(e) => setSuspendForm({...suspendForm, duration: parseInt(e.target.value)})}
+                        className="bg-[#0a0a0b] border border-zinc-800 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-red-500 transition-all"
+                        placeholder="Angka"
+                      />
+                      <select 
+                        value={suspendForm.unit}
+                        onChange={(e) => setSuspendForm({...suspendForm, unit: e.target.value as any})}
+                        className="bg-[#0a0a0b] border border-zinc-800 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-red-500 transition-all appearance-none"
+                      >
+                        <option value="hours">Jam</option>
+                        <option value="days">Hari</option>
+                        <option value="permanent">Selamanya</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 block">Alasan Penangguhan</label>
+                    <textarea 
+                      value={suspendForm.reason}
+                      onChange={(e) => setSuspendForm({...suspendForm, reason: e.target.value})}
+                      className="bg-[#0a0a0b] border border-zinc-800 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-red-500 transition-all w-full h-24 resize-none"
+                      placeholder="Contoh: Melanggar aturan produk digital..."
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button 
+                      onClick={() => setIsSuspendModalOpen(false)}
+                      className="flex-1 py-4 bg-zinc-900 text-zinc-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all"
+                    >
+                      Batal
+                    </button>
+                    <button 
+                      onClick={handleSuspendSubmit}
+                      disabled={isAdminActionLoading}
+                      className="flex-1 py-4 bg-red-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isAdminActionLoading ? <Loader2 size={14} className="animate-spin" /> : "Terapkan Suspend"}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

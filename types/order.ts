@@ -161,4 +161,5 @@ export interface CheckoutResponse {
     billing_id: string;
     grand_total: number;
     order_count: number;
+    orders: any[];
 }

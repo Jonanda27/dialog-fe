@@ -51,20 +51,25 @@ export default function RegisterStorePage() {
           const user = result.data;
           
           /** * PERBAIKAN LOGIKA STEP:
-           * Berdasarkan JSON Anda, data toko ada di 'user.store'
+           * Kita cek status yang paling akhir dulu (Approved/Pending) 
+           * baru kemudian cek kelengkapan data (Step 1/2)
            */
           if (!user.store) {
-            // Jika objek store tidak ada sama sekali
+            // Belum punya toko sama sekali
             setCurrentStep(1);
-          } else if (!user.store.ktp_url) {
-            // Jika sudah daftar nama tapi belum upload KTP
-            setCurrentStep(2);
-          } else if (user.store.status === "pending") {
-            // Jika sudah upload dan menunggu moderasi
-            setCurrentStep(3);
           } else if (user.store.status === "approved") {
-            // Jika sudah diapprove, langsung lempar ke dashboard
+            // Sudah aktif, langsung ke dashboard
             router.push("/penjual/dashboard"); 
+          } else if (user.store.status === "pending") {
+            // SUDAH SUBMIT (KTP sudah diupload atau dalam proses review)
+            // Ini akan mengunci user di Step 3 meskipun di-refresh
+            setCurrentStep(3);
+          } else if (!user.store.ktp_url) {
+            // Nama toko sudah ada, tapi KTP kosong
+            setCurrentStep(2);
+          } else {
+            // Default fallback jika ada data store tapi status belum jelas
+            setCurrentStep(1);
           }
         }
       } catch (error) {
@@ -124,7 +129,8 @@ export default function RegisterStorePage() {
       });
 
       if (response.ok) {
-        setCurrentStep(3); // Pindah ke step final (menunggu admin)
+        // Berhasil upload, status di DB harusnya otomatis jadi 'pending'
+        setCurrentStep(3); 
       } else {
         const result = await response.json();
         alert(result.message || "Gagal mengunggah KTP.");

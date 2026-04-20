@@ -6,15 +6,11 @@ import {
     Heart,
     Bell,
     ShieldCheck,
-    ArrowRight,
     ChevronRight,
     Store as StoreIcon,
-    Loader2,
-    Star
 } from 'lucide-react';
 import WishlistPreview from '@/components/dashboard/WishlistPreview';
 import RecommendedFeed from '@/components/dashboard/RecommendedFeed';
-import GradingHub from '@/components/dashboard/GradingHub';
 import { StoreService } from "@/services/api/store.service";
 import Link from 'next/link';
 
@@ -26,9 +22,7 @@ const VerifiedStores = () => {
     useEffect(() => {
         const fetchStores = async () => {
             try {
-                // Mengambil daftar toko (asumsi endpoint getAll ada di StoreService)
                 const res: any = await StoreService.getAllStores?.() || { data: [] };
-                // Filter toko yang berstatus approved/verified dan ambil 4 saja
                 const verifiedOnes = (res.data || []).filter((s: any) => s.status === 'approved').slice(0, 4);
                 setStores(verifiedOnes);
             } catch (error) {
@@ -93,7 +87,7 @@ export default function BuyerDashboard() {
         <div className="w-full pb-20 space-y-16">
             <div className="max-w-full px-6 lg:px-10 space-y-16">
 
-                {/* 1. VERIFIED STORES (Atas sesuai gambar) */}
+                {/* 1. VERIFIED STORES */}
                 <VerifiedStores />
 
                 {/* 2. MAIN CONTENT AREA (Market Highlights) */}
@@ -102,7 +96,6 @@ export default function BuyerDashboard() {
                     {/* LEFT COLUMN: PRODUCT FEED */}
                     <div className="lg:col-span-8 space-y-12">
                         <div className="space-y-8">
-                            {/* Header Section like Image */}
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-zinc-900 pb-8">
                                 <h2 className="text-2xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
                                     <span className="w-2 h-8 bg-[#ef3333] rounded-full" /> Market Highlights
@@ -132,7 +125,6 @@ export default function BuyerDashboard() {
                                     ))}
                                 </div>
                             }>
-                                {/* RecommendedFeed akan merender produk-produk yang difilter atau rekomendasi */}
                                 <RecommendedFeed />
                             </Suspense>
                         </div>
@@ -170,15 +162,6 @@ export default function BuyerDashboard() {
                     </div>
                 </div>
             </div>
-
-            {/* 3.5. ⚡ NEW: Grading Hub (Video Verification Requests) */}
-            <Suspense fallback={
-                <div className="h-48 w-full bg-zinc-950 border border-zinc-800 rounded-3xl animate-pulse flex items-center justify-center">
-                    <span className="text-zinc-600 font-bold uppercase tracking-widest text-xs">Memuat Grading Hub...</span>
-                </div>
-            }>
-                <GradingHub />
-            </Suspense>
 
             {/* 4. Rekomendasi Produk */}
             <Suspense fallback={
