@@ -34,6 +34,7 @@ export default function AuctionBidPanel({
         currentPrice,
         highestBidders,
         isFrozen,
+        isSyncing, // ⚡ FIX: Ambil state isSyncing dari hook
         socketError,
         submitBid
     } = useAuctionSocket({ auctionId, initialPrice });
@@ -92,7 +93,8 @@ export default function AuctionBidPanel({
 
     // 6. Eksekusi Bid (Information Expert: Tombol ini tahu harga ekspektasi)
     const handlePlaceBid = useCallback(() => {
-        if (cooldown > 0 || isFrozen || isAuctionEnded) return;
+        // ⚡ FIX: Cegah bid jika sedang syncing
+        if (cooldown > 0 || isFrozen || isAuctionEnded || isSyncing) return;
 
         setIsBidding(true);
         const expectedPrice = currentPrice + increment;
@@ -105,11 +107,12 @@ export default function AuctionBidPanel({
 
         // Matikan efek loading tombol setelah 500ms untuk ilusi kecepatan
         setTimeout(() => setIsBidding(false), 500);
-    }, [cooldown, isFrozen, isAuctionEnded, currentPrice, increment, submitBid]);
+    }, [cooldown, isFrozen, isAuctionEnded, isSyncing, currentPrice, increment, submitBid]);
 
     // ================== RENDERING UI ==================
 
-    const isButtonDisabled = cooldown > 0 || isFrozen || isAuctionEnded || isBidding;
+    // ⚡ FIX: Tambahkan isSyncing sebagai kondisi disable tombol
+    const isButtonDisabled = cooldown > 0 || isFrozen || isAuctionEnded || isBidding || isSyncing;
 
     return (
         <div className="w-full bg-white border border-gray-200 rounded-xl shadow-sm p-5 space-y-6">
@@ -118,12 +121,13 @@ export default function AuctionBidPanel({
                 <div>
                     <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Status Lelang</h3>
                     <div className="flex items-center gap-2 mt-1">
-                        <span className={`relative flex h-3 w-3 ${isFrozen || isAuctionEnded ? 'hidden' : ''}`}>
+                        <span className={`relative flex h-3 w-3 ${isFrozen || isAuctionEnded || isSyncing ? 'hidden' : ''}`}>
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
                         </span>
                         <span className="font-bold text-gray-800">
-                            {isAuctionEnded ? 'Berakhir' : isFrozen ? 'Masa Tenang (Sinkronisasi...)' : 'Sedang Berlangsung'}
+                            {/* ⚡ FIX: Tambahkan label khusus saat sedang menunggu sinkronisasi Redis */}
+                            {isAuctionEnded ? 'Berakhir' : isSyncing ? 'Menunggu Lelang...' : isFrozen ? 'Masa Tenang (Sinkronisasi...)' : 'Sedang Berlangsung'}
                         </span>
                     </div>
                 </div>
@@ -159,6 +163,9 @@ export default function AuctionBidPanel({
                 >
                     {isBidding ? (
                         <span>Memproses...</span>
+                    ) : isSyncing ? (
+                        /* ⚡ FIX: Tampilan tombol saat Redis belum siap */
+                        <span>Menunggu Server...</span>
                     ) : isFrozen ? (
                         <span>Lelang Dikunci</span>
                     ) : cooldown > 0 ? (

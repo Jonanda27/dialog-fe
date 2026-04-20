@@ -20,6 +20,7 @@ interface AuctionState {
     currentPrice: number;
     highestBidders: BidderHistory[];
     isFrozen: boolean;
+    isSyncing: boolean; // ⚡ FIX: Flag baru untuk melacak apakah Worker sudah mengaktifkan lelang di Redis
     socketError: string | null;
     isConnected: boolean;
 }
@@ -32,7 +33,8 @@ export function useAuctionSocket({ auctionId, initialPrice }: UseAuctionSocketPr
     const [auctionState, setAuctionState] = useState<AuctionState>({
         currentPrice: initialPrice,
         highestBidders: [],
-        isFrozen: false,
+        isFrozen: true, // ⚡ FIX: Default true, kunci interaksi sampai ada kepastian data dari Socket
+        isSyncing: true, // ⚡ FIX: Default true, asumsikan sedang mengambil/menunggu data Redis
         socketError: null,
         isConnected: false,
     });
@@ -75,11 +77,24 @@ export function useAuctionSocket({ auctionId, initialPrice }: UseAuctionSocketPr
 
         // EVENT: Sinkronisasi awal saat baru bergabung (Mencegah user melihat harga usang)
         socket.on('SYNC_AUCTION_STATE', (payload: { currentPrice: number, winnerId: string, isFrozen: boolean }) => {
-            setAuctionState(prev => ({
-                ...prev,
-                currentPrice: payload.currentPrice > 0 ? payload.currentPrice : prev.currentPrice,
-                isFrozen: payload.isFrozen
-            }));
+
+            // ⚡ TAMBAHKAN BARIS INI: Cek apa yang diterima komponen
+            console.log('[FE DEBUG] Menerima event SYNC_AUCTION_STATE dari server:', payload);
+            setAuctionState(prev => {
+                // ⚡ FIX: Deteksi apakah state lelang di Redis sudah ada (Diinisialisasi Worker)
+                const isUninitialized = payload.currentPrice === 0;
+
+                return {
+                    ...prev,
+                    // Tetap pertahankan initialPrice dari DB untuk pajangan visual, tapi jangan timpa jika 0
+                    currentPrice: isUninitialized ? prev.currentPrice : payload.currentPrice,
+                    // Paksa Freeze jika Worker belum menyala, jika sudah menyala ikuti payload
+                    isFrozen: isUninitialized ? true : payload.isFrozen,
+                    // Indikator ke UI untuk mengubah tombol menjadi "Menunggu Sinkronisasi..." 
+                    // atau mendisable tombol bid.
+                    isSyncing: isUninitialized
+                };
+            });
         });
 
         // EVENT: Ada bid baru yang sah dari siapapun (termasuk diri sendiri)
@@ -99,6 +114,8 @@ export function useAuctionSocket({ auctionId, initialPrice }: UseAuctionSocketPr
                         ...prev,
                         currentPrice: payload.newPrice,
                         highestBidders: updatedBidders,
+                        isSyncing: false, // Jika sudah ada pergerakan, dipastikan sinkron
+                        isFrozen: false,
                         socketError: null // Reset error jika ada update harga sukses
                     };
                 });
@@ -133,11 +150,26 @@ export function useAuctionSocket({ auctionId, initialPrice }: UseAuctionSocketPr
             return;
         }
 
-        socketRef.current.emit('SUBMIT_BID', {
-            auctionId,
-            expectedPrice,
-            increment
+        // ⚡ FIX: Tambahkan layer proteksi di klien agar tidak mem-bypass UI state
+        setAuctionState(prev => {
+            if (prev.isSyncing) {
+                return { ...prev, socketError: 'Mohon tunggu, sedang menunggu sinkronisasi dari server.' };
+            }
+
+            if (prev.isFrozen) {
+                return { ...prev, socketError: 'Lelang sedang dalam masa tenang atau telah berakhir.' };
+            }
+
+            // Lolos pengecekan klien, tembak ke Redis
+            socketRef.current?.emit('SUBMIT_BID', {
+                auctionId,
+                expectedPrice,
+                increment
+            });
+
+            return prev;
         });
+
     }, [auctionId]);
 
     // Mengembalikan properti yang telah diekstrak (Destructured) untuk kemudahan integrasi di UI
