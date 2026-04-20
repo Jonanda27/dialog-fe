@@ -7,7 +7,6 @@ import {
     MoreVertical, ExternalLink, Loader2, AlertCircle, Disc, ArrowUpRight
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
 
 // Utils & Services
 import { formatRupiah } from "@/utils/format";
@@ -44,13 +43,14 @@ export default function SellerAuctionDashboard() {
     useEffect(() => { fetchAuctions(); }, [fetchAuctions]);
 
     const handleCancelAuction = async (id: string) => {
-        if (!window.confirm("Batalkan jadwal lelang? Produk akan dibuka kembali untuk umum.")) return;
+        // PERBAIKAN TEKS: Sesuai logika baru (tidak ada produk reguler yang di-unlock)
+        if (!window.confirm("Apakah Anda yakin ingin membatalkan jadwal lelang ini secara permanen?")) return;
         try {
             await auctionService.cancelAuction(id);
-            toast.success("Lelang dibatalkan.");
+            toast.success("Lelang berhasil dibatalkan.");
             fetchAuctions();
         } catch (error: any) {
-            toast.error(error.response?.data?.message || "Gagal membatalkan.");
+            toast.error(error.response?.data?.message || "Gagal membatalkan lelang.");
         }
     };
 
@@ -71,7 +71,7 @@ export default function SellerAuctionDashboard() {
             EVALUATION: "bg-purple-600 text-white",
         };
         return (
-            <span className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest ${styles[status]}`}>
+            <span className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest ${styles[status] || styles['DRAFT']}`}>
                 {status.replace(/_/g, ' ')}
             </span>
         );
@@ -174,13 +174,16 @@ export default function SellerAuctionDashboard() {
                                                 <td className="px-8 py-6">
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-14 h-14 rounded-xl overflow-hidden bg-zinc-800 border border-zinc-700 relative">
+                                                            {/* PERBAIKAN: Gunakan a.media bukan a.product?.media */}
                                                             <img
-                                                                src={getImageUrl(a.product?.media?.find((m: any) => m.is_primary)?.media_url || '/vynil.png')}
+                                                                src={getImageUrl(a.media?.find((m: any) => m.is_primary)?.media_url || '/vynil.png')}
                                                                 className="object-cover w-full h-full grayscale group-hover:grayscale-0 transition-all duration-500"
+                                                                alt={a.item_name}
                                                             />
                                                         </div>
                                                         <div>
-                                                            <p className="text-sm font-black text-white uppercase leading-tight">{a.product?.name}</p>
+                                                            {/* PERBAIKAN: Gunakan a.item_name bukan a.product?.name */}
+                                                            <p className="text-sm font-black text-white uppercase leading-tight">{a.item_name}</p>
                                                             <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter mt-1 italic">ID: {a.id.split('-')[0]}</p>
                                                         </div>
                                                     </div>
@@ -225,13 +228,15 @@ export default function SellerAuctionDashboard() {
                                     <div key={a.id} className="bg-zinc-900/40 border border-zinc-800 p-5 rounded-3xl space-y-4">
                                         <div className="flex gap-4">
                                             <div className="w-20 h-20 bg-zinc-800 rounded-2xl overflow-hidden shrink-0">
-                                                <img src={getImageUrl(a.product?.media?.find((m: any) => m.is_primary)?.media_url || '/vynil.png')} className="w-full h-full object-cover" />
+                                                {/* PERBAIKAN: Gunakan a.media */}
+                                                <img src={getImageUrl(a.media?.find((m: any) => m.is_primary)?.media_url || '/vynil.png')} className="w-full h-full object-cover" alt={a.item_name} />
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex justify-between items-start mb-1">
                                                     {getStatusBadge(a.status)}
                                                 </div>
-                                                <h4 className="text-sm font-black text-white uppercase truncate">{a.product?.name}</h4>
+                                                {/* PERBAIKAN: Gunakan a.item_name */}
+                                                <h4 className="text-sm font-black text-white uppercase truncate">{a.item_name}</h4>
                                                 <p className="text-lg font-black text-red-500 mt-2">{formatRupiah(Number(a.current_price))}</p>
                                             </div>
                                         </div>

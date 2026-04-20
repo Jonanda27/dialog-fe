@@ -18,12 +18,10 @@ import ProductGallery from "@/components/product/ProductGallery";
 import StoreSection from "@/components/product/StoreSection";
 import ReviewSidebar from "@/components/product/ReviewSidebar";
 import RecommendedFeed from "@/components/dashboard/RecommendedFeed";
-import AuctionBidPanel from "@/components/product/AuctionBidPanel";
 
 // ICONS
 import {
   Loader2,
-  Disc,
   ArrowLeft,
   ClipboardCheck,
   Star,
@@ -44,9 +42,8 @@ export default function ProductDetailPage() {
   const addItem = useCartStore((state) => state.addItem);
   const openCart = useCartStore((state) => state.openCart);
 
-  // STATE
-  // Menggunakan 'any' sementara untuk mengakomodasi field 'auction' dan 'is_locked'
-  const [product, setProduct] = useState<any | null>(null);
+  // STATE: Sudah dikembalikan ke tipe Product murni
+  const [product, setProduct] = useState<Product | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingReviews, setIsLoadingReviews] = useState(true);
@@ -105,7 +102,7 @@ export default function ProductDetailPage() {
     }
   };
 
-  // ⚡ INTEGRASI SERVICE REQUEST GRADING DENGAN DEBUGGING
+  // INTEGRASI SERVICE REQUEST GRADING DENGAN DEBUGGING
   const handleRequestGrading = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -152,9 +149,6 @@ export default function ProductDetailPage() {
     );
 
   if (!product) return null;
-
-  // Evaluasi apakah produk ini sedang dalam mode Lelang Aktif / Terjadwal
-  const isAuctionMode = product.is_locked && product.auction;
 
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 font-sans pb-20 pt-10">
@@ -209,14 +203,10 @@ export default function ProductDetailPage() {
             <div className="bg-[#111114] border border-zinc-800 rounded-[2.5rem] p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xl">
               <div>
                 <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">
-                  {isAuctionMode ? "Starting / Current Bid" : "Current Offer"}
+                  Current Offer
                 </p>
                 <h2 className="text-4xl font-black text-white italic">
-                  Rp{" "}
-                  {isAuctionMode
-                    ? Number(product.auction.current_price || product.price).toLocaleString("id-ID")
-                    : Number(product.price).toLocaleString("id-ID")
-                  }
+                  Rp {Number(product.price).toLocaleString("id-ID")}
                 </h2>
               </div>
               <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
@@ -238,7 +228,7 @@ export default function ProductDetailPage() {
               ))}
             </div>
 
-            {/* ⚡ CARD REQUEST GRADING */}
+            {/* CARD REQUEST GRADING */}
             <div className="bg-amber-500/5 border border-amber-500/20 rounded-3xl p-6 flex items-start gap-4 shadow-inner">
               <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
                 {isRequestingGrading ? (
@@ -267,37 +257,24 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-            {/* CONDITIONAL RENDERING ACTION */}
+            {/* ACTION REGULER ONLY */}
             <div className="pt-4">
-              {isAuctionMode ? (
-                // MODE LELANG AKTIF
-                <div className="bg-[#111114] border border-zinc-800 rounded-2xl overflow-hidden">
-                  <AuctionBidPanel
-                    auctionId={product.auction.id}
-                    initialPrice={Number(product.auction.current_price || product.price)}
-                    increment={Number(product.auction.increment)}
-                    endTime={product.auction.end_time}
-                  />
-                </div>
-              ) : (
-                // MODE E-COMMERCE REGULER
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <button
-                    onClick={handleAddToCart}
-                    disabled={product.stock < 1}
-                    className="flex items-center justify-center gap-3 bg-white text-black font-black text-xs uppercase tracking-widest py-5 rounded-2xl hover:bg-[#ef3333] hover:text-white transition-all transform active:scale-95 shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ShoppingCart size={18} /> Add to Cart
-                  </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button
+                  onClick={handleAddToCart}
+                  disabled={product.stock < 1}
+                  className="flex items-center justify-center gap-3 bg-white text-black font-black text-xs uppercase tracking-widest py-5 rounded-2xl hover:bg-[#ef3333] hover:text-white transition-all transform active:scale-95 shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ShoppingCart size={18} /> Add to Cart
+                </button>
 
-                  <button
-                    disabled={product.stock < 1}
-                    className="flex items-center justify-center gap-3 bg-[#ef3333] text-white font-black text-xs uppercase tracking-widest py-5 rounded-2xl hover:bg-red-700 transition-all transform active:scale-95 shadow-xl shadow-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Buy Now
-                  </button>
-                </div>
-              )}
+                <button
+                  disabled={product.stock < 1}
+                  className="flex items-center justify-center gap-3 bg-[#ef3333] text-white font-black text-xs uppercase tracking-widest py-5 rounded-2xl hover:bg-red-700 transition-all transform active:scale-95 shadow-xl shadow-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Buy Now
+                </button>
+              </div>
             </div>
 
           </div>
