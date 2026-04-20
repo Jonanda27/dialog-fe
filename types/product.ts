@@ -86,6 +86,9 @@ export interface Product {
     product_length: number;
     product_width: number;
     product_height: number;
+
+    is_locked?: boolean;
+    auction?: any;
 }
 
 /**

@@ -18,6 +18,7 @@ import ProductGallery from "@/components/product/ProductGallery";
 import StoreSection from "@/components/product/StoreSection";
 import ReviewSidebar from "@/components/product/ReviewSidebar";
 import RecommendedFeed from "@/components/dashboard/RecommendedFeed";
+import AuctionBidPanel from "@/components/product/AuctionBidPanel";
 
 // ICONS
 import {
@@ -44,7 +45,8 @@ export default function ProductDetailPage() {
   const openCart = useCartStore((state) => state.openCart);
 
   // STATE
-  const [product, setProduct] = useState<Product | null>(null);
+  // Menggunakan 'any' sementara untuk mengakomodasi field 'auction' dan 'is_locked'
+  const [product, setProduct] = useState<any | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingReviews, setIsLoadingReviews] = useState(true);
@@ -93,7 +95,11 @@ export default function ProductDetailPage() {
         store_name: product.store?.name || "Toko Analog",
         stock: product.stock,
       });
-      toast.success(`${product.name} ditambahkan ke koleksi`);
+
+      toast.success(`${product.name} ditambahkan ke koleksi`, {
+        description: "Lihat di keranjang untuk checkout",
+        position: "bottom-center",
+      });
     } catch (error) {
       toast.error("Gagal menambahkan ke keranjang");
     }
@@ -101,7 +107,6 @@ export default function ProductDetailPage() {
 
   // ⚡ INTEGRASI SERVICE REQUEST GRADING DENGAN DEBUGGING
   const handleRequestGrading = async (e: React.MouseEvent) => {
-    // Mencegah bubbling jika ada Link di luar button
     e.preventDefault();
     e.stopPropagation();
 
@@ -148,6 +153,9 @@ export default function ProductDetailPage() {
 
   if (!product) return null;
 
+  // Evaluasi apakah produk ini sedang dalam mode Lelang Aktif / Terjadwal
+  const isAuctionMode = product.is_locked && product.auction;
+
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 font-sans pb-20 pt-10">
       <main className="max-w-7xl mx-auto px-6 lg:px-10">
@@ -165,7 +173,7 @@ export default function ProductDetailPage() {
             onClick={() => router.back()}
             className="flex items-center gap-2 text-zinc-400 hover:text-white text-[10px] font-black uppercase tracking-[0.2em] group"
           >
-            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> 
+            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
             Back to Collection
           </button>
         </div>
@@ -200,9 +208,15 @@ export default function ProductDetailPage() {
 
             <div className="bg-[#111114] border border-zinc-800 rounded-[2.5rem] p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xl">
               <div>
-                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Current Offer</p>
+                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">
+                  {isAuctionMode ? "Starting / Current Bid" : "Current Offer"}
+                </p>
                 <h2 className="text-4xl font-black text-white italic">
-                  Rp {Number(product.price).toLocaleString("id-ID")}
+                  Rp{" "}
+                  {isAuctionMode
+                    ? Number(product.auction.current_price || product.price).toLocaleString("id-ID")
+                    : Number(product.price).toLocaleString("id-ID")
+                  }
                 </h2>
               </div>
               <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
@@ -242,8 +256,6 @@ export default function ProductDetailPage() {
                   Ragu dengan grading penjual? Request pengecekan fisik oleh tim
                   Analog.id Expert (+Rp25.000).
                 </p>
-
-                {/* PASTIKAN ONCLICK TERPASANG DI BUTTON INI */}
                 <button
                   type="button"
                   disabled={isRequestingGrading}
@@ -255,17 +267,39 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
-              <button
-                onClick={handleAddToCart}
-                className="flex items-center justify-center gap-3 bg-white text-black font-black text-xs uppercase tracking-widest py-5 rounded-2xl hover:bg-[#ef3333] hover:text-white transition-all transform active:scale-95 shadow-xl"
-              >
-                <ShoppingCart size={18} /> Add to Cart
-              </button>
-              <button className="flex items-center justify-center gap-3 bg-[#ef3333] text-white font-black text-xs uppercase tracking-widest py-5 rounded-2xl hover:bg-red-700 transition-all transform active:scale-95 shadow-xl shadow-red-900/20">
-                Buy Now
-              </button>
+            {/* CONDITIONAL RENDERING ACTION */}
+            <div className="pt-4">
+              {isAuctionMode ? (
+                // MODE LELANG AKTIF
+                <div className="bg-[#111114] border border-zinc-800 rounded-2xl overflow-hidden">
+                  <AuctionBidPanel
+                    auctionId={product.auction.id}
+                    initialPrice={Number(product.auction.current_price || product.price)}
+                    increment={Number(product.auction.increment)}
+                    endTime={product.auction.end_time}
+                  />
+                </div>
+              ) : (
+                // MODE E-COMMERCE REGULER
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    onClick={handleAddToCart}
+                    disabled={product.stock < 1}
+                    className="flex items-center justify-center gap-3 bg-white text-black font-black text-xs uppercase tracking-widest py-5 rounded-2xl hover:bg-[#ef3333] hover:text-white transition-all transform active:scale-95 shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ShoppingCart size={18} /> Add to Cart
+                  </button>
+
+                  <button
+                    disabled={product.stock < 1}
+                    className="flex items-center justify-center gap-3 bg-[#ef3333] text-white font-black text-xs uppercase tracking-widest py-5 rounded-2xl hover:bg-red-700 transition-all transform active:scale-95 shadow-xl shadow-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Buy Now
+                  </button>
+                </div>
+              )}
             </div>
+
           </div>
         </div>
 
