@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Package, PlusCircle, UploadCloud,
   Inbox, History, Wallet, Star, Settings, LogOut, X,
   Disc, FileBarChart, Gavel, Receipt, UserCog, ClipboardCheck,
-  Loader2
+  Loader2,
 } from "lucide-react";
 import Navbar from "./navbar";
 
@@ -53,6 +53,7 @@ export default function Sidebar({ children }: SidebarProps) {
       items: [
         { name: "Dashboard Toko", icon: LayoutDashboard, href: "/penjual/dashboard" },
         { name: "Transaksi Masuk", icon: Inbox, href: "/penjual/transaksi" },
+        { name: "Permintaan Grading", icon: ClipboardCheck, href: "/penjual/grading" },
       ]
     },
     {
@@ -102,14 +103,6 @@ export default function Sidebar({ children }: SidebarProps) {
 
   const menuGroups = user?.role === "admin" ? adminMenu : sellerMenu;
 
-  if (!isInitialized) {
-    return (
-      <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center text-zinc-500 font-bold tracking-widest text-xs uppercase">
-        <Loader2 className="animate-spin mr-2" size={16} />
-        Menyiapkan Antarmuka...
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0b]">
@@ -120,10 +113,15 @@ export default function Sidebar({ children }: SidebarProps) {
 
       {/* Aside / Sidebar */}
       <aside className={`fixed top-0 left-0 h-full w-64 bg-[#0a0a0b] border-r border-zinc-900 z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        {/* Logo */}
+        
+        {/* LOGO SECTION - UPDATED TO USE logo.png */}
         <div className="h-20 flex items-center justify-between px-6 border-b border-zinc-900 shrink-0">
-          <Link href="/" className="text-2xl font-black text-[#ef3333] tracking-tighter uppercase">
-            Analog<span className="text-white">.id</span>
+          <Link href="/" className="flex items-center transition-transform hover:scale-105 active:scale-95">
+            <img 
+              src="/logo.png" 
+              alt="Analog.id Logo" 
+              className="h-10 w-auto object-contain"
+            />
           </Link>
           <button className="lg:hidden text-zinc-400 hover:text-white" onClick={() => setIsMobileOpen(false)}>
             <X size={20} />

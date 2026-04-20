@@ -42,7 +42,17 @@ export default function LoginPage() {
       else if (userRole === "seller") {
         const store = (userData as any).store;
 
-        // Pengecekan status toko: Jika sudah disetujui masuk dashboard, jika belum masuk pendaftaran
+        /**
+         * ⚡ LOGIKA SUSPENDED:
+         * Jika toko ada dan statusnya adalah 'suspended', 
+         * arahkan langsung ke halaman khusus penangguhan.
+         */
+        if (store && store.status === "suspended") {
+          router.push("/penjual/suspend");
+          return; // Hentikan eksekusi redirect lainnya
+        }
+
+        // Pengecekan status toko normal: Jika sudah disetujui masuk dashboard, jika belum masuk pendaftaran
         if (store && store.status === "approved") {
           router.push("/penjual/dashboard");
         } else {

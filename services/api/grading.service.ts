@@ -4,7 +4,7 @@ import axiosClient from './axiosClient';
 import { ApiResponse } from '@/types/api';
 import { GradingRequest, RequestGradingPayload, FulfillGradingPayload } from '@/types/grading';
 
-const gradingService = {
+export const gradingService = {
     // Fase 1: Buyer mengajukan request video
     requestGrading: async (payload: RequestGradingPayload): Promise<ApiResponse<GradingRequest>> => {
         const response = await axiosClient.post('/grading/request', payload);

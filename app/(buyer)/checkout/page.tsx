@@ -9,7 +9,7 @@ import { AddressForm } from '@/components/checkout/AddressForm';
 import { CourierSelector } from '@/components/checkout/CourierSelector';
 import OrderSummary from '@/components/checkout/OrderSummary';
 import { toast } from 'sonner';
-import { AlertCircle, Store, MapPin, ChevronRight, X } from 'lucide-react';
+import { AlertCircle, Store, MapPin, ChevronRight, X, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
 // Import Types
@@ -28,30 +28,25 @@ function CheckoutContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     
-    // isMounted untuk menunggu Zustand hydrate data dari storage
     const [isMounted, setIsMounted] = useState(false);
     useEffect(() => setIsMounted(true), []);
     
-    // Tarik state dari store satu per satu
     const storeItems = useCartStore((state: any) => state.items || []);
     const clearCart = useCartStore((state: any) => state.clearCart);
     const syncCartItems = useCartStore((state: any) => state.syncCartItems);
     const removeItem = useCartStore((state: any) => state.removeItem);
 
-    // Ambil parameter '?selected=1,2,3' dari URL untuk filter
     const selectedIds = useMemo(() => {
         const param = searchParams.get('selected');
         if (!param) return [];
         return param.split(',').map(String); 
     }, [searchParams]);
 
-    // Filter items: HANYA TAMPILKAN yang diceklis dari CartPage
     const items = useMemo(() => {
-        if (selectedIds.length === 0) return storeItems; // Fallback jika tidak ada param
+        if (selectedIds.length === 0) return storeItems;
         return storeItems.filter((item: CartItem) => selectedIds.includes(String(item.cart_item_id)));
     }, [storeItems, selectedIds]);
 
-    // --- STATE MANAGEMENT ---
     const [isSyncing, setIsSyncing] = useState(true);
     const [showSyncWarning, setShowSyncWarning] = useState(false);
     const [addresses, setAddresses] = useState<Address[]>([]);
@@ -59,14 +54,11 @@ function CheckoutContent() {
     const [isAddingAddress, setIsAddingAddress] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // STATE MULTI-KURIR
     const [selectedCouriers, setSelectedCouriers] = useState<Record<string, CourierOption>>({});
 
-    // --- LOGIKA GROUPING LEBIH ROBUST ---
     const groupedItems = useMemo(() => {
         const groups: Record<string, CartItem[]> = {};
         items.forEach((item: CartItem) => {
-            // Memastikan produk dengan toko yang sama terkelompok sempurna
             const storeId = item.product.store_id || (item.product.store?.id) || 'default-store';
             if (!groups[storeId]) {
                 groups[storeId] = [];
@@ -78,7 +70,6 @@ function CheckoutContent() {
 
     const storeIds = useMemo(() => Object.keys(groupedItems), [groupedItems]);
 
-    // --- PENGHITUNGAN TOTAL ---
     const subtotal = useMemo(() =>
         items.reduce((acc: number, item: CartItem) => acc + (Number(item.product.price) * item.quantity), 0)
         , [items]);
@@ -87,6 +78,7 @@ function CheckoutContent() {
         Object.values(selectedCouriers).reduce((acc, courier) => acc + courier.price, 0)
         , [selectedCouriers]);
 
+    // LOGIKA PERHITUNGAN GRADING FEE
     const gradingFeeTotal = useMemo(() =>
         items.reduce((acc: number, item: CartItem) => {
             const needsGrading = (item.product.metadata as any)?.request_grading === true;
@@ -94,7 +86,6 @@ function CheckoutContent() {
         }, 0)
         , [items]);
 
-    // --- EFFECTS ---
     useEffect(() => {
         if (!isMounted) return; 
 
@@ -132,7 +123,6 @@ function CheckoutContent() {
         }
     }, [items.length, isSyncing, router, isMounted]);
 
-    // --- HANDLERS ---
     const handleAddressAdded = () => {
         setIsAddingAddress(false);
         fetchMyAddresses();
@@ -146,10 +136,6 @@ function CheckoutContent() {
         }));
     };
 
-    /**
-     * ⚡ INTEGRASI BARU: handleConfirmPayment
-     * Melakukan Single Hit API untuk semua toko sekaligus.
-     */
     const handleConfirmPayment = async () => {
         const allStoresSelected = storeIds.every(id => !!selectedCouriers[id]);
 
@@ -160,7 +146,6 @@ function CheckoutContent() {
 
         setIsSubmitting(true);
         try {
-            // Merakit Payload Multi-Toko sesuai skema Backend baru
             const checkoutPayload: any = {
                 address_id: selectedAddressId,
                 orders: storeIds.map((storeId) => ({
@@ -172,7 +157,6 @@ function CheckoutContent() {
                         product_id: i.product.id as string, 
                         qty: i.quantity 
                     })),
-                    // Opsional: kirim grading_fee jika dihitung per toko
                     grading_fee: groupedItems[storeId].reduce((acc, i) => {
                         const needsGrading = (i.product.metadata as any)?.request_grading === true;
                         return needsGrading ? acc + 25000 : acc;
@@ -180,22 +164,17 @@ function CheckoutContent() {
                 }))
             };
 
-            // HIT API HANYA 1 KALI
             const response = await OrderService.checkout(checkoutPayload);
-
             toast.success('Pesanan berhasil dibuat!');
             
-            // Hapus HANYA item yang berhasil di-checkout dari keranjang global
             if (selectedIds.length > 0 && removeItem) {
                 selectedIds.forEach((id: string) => removeItem(Number(id)));
             } else {
                 clearCart();
             }
 
-            // Ambil ID Billing atau ID Master Order untuk diarahkan ke pembayaran
             const resultData = response.data as any;
             const paymentId = resultData?.billing_id || resultData?.order_id || resultData?.id;
-            
             router.push(`/pembayaran/${paymentId}`);
 
         } catch (error: any) {
@@ -211,7 +190,6 @@ function CheckoutContent() {
         }
     };
 
-    // Loading State Mencegah Layout Berkedip
     if (!isMounted || isSyncing) {
         return (
             <div className="min-h-screen bg-[#0a0a0b] pt-32 pb-24 flex items-center justify-center">
@@ -249,13 +227,11 @@ function CheckoutContent() {
                 )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-                    {/* LEFT COLUMN */}
                     <div className="lg:col-span-8 space-y-8">
 
                         {/* SECTION 1: ALAMAT */}
                         <div className="bg-[#111114] p-6 md:p-8 rounded-[2rem] border border-zinc-800 shadow-xl relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#ef3333] to-orange-500"></div>
-                            
                             <div className="flex justify-between items-center mb-6">
                                 <h2 className="text-lg font-black text-white uppercase tracking-tight flex items-center gap-2">
                                     <MapPin className="text-[#ef3333]" size={20} /> Alamat Pengiriman
@@ -265,11 +241,7 @@ function CheckoutContent() {
                                         + Tambah Baru
                                     </button>
                                 ) : (
-                                    <button 
-                                        onClick={() => setIsAddingAddress(false)} 
-                                        className="p-1.5 text-zinc-400 hover:text-[#ef3333] hover:bg-[#ef3333]/10 rounded-full transition-all"
-                                        title="Batal Tambah Alamat"
-                                    >
+                                    <button onClick={() => setIsAddingAddress(false)} className="p-1.5 text-zinc-400 hover:text-[#ef3333] hover:bg-[#ef3333]/10 rounded-full transition-all">
                                         <X size={20} />
                                     </button>
                                 )}
@@ -296,7 +268,7 @@ function CheckoutContent() {
                             )}
                         </div>
 
-                        {/* SECTION 2: PENGIRIMAN PER TOKO (SPLIT ORDER) */}
+                        {/* SECTION 2: RINCIAN PESANAN */}
                         <div className="space-y-6">
                             <h2 className="text-sm font-black text-zinc-500 px-2 uppercase tracking-[0.2em]">Rincian Pesanan</h2>
                             
@@ -310,27 +282,43 @@ function CheckoutContent() {
                                     </div>
 
                                     <div className="p-6 md:p-8 space-y-6">
-                                        {groupedItems[storeId].map((item: CartItem) => (
-                                            <div key={item.cart_item_id} className="flex gap-4 items-center">
-                                                <div className="w-16 h-16 bg-zinc-900 rounded-xl shrink-0 border border-zinc-800 overflow-hidden">
-                                                    <img 
-                                                        src={formatImageUrl(item.product.media?.find(m => m.is_primary)?.media_url)} 
-                                                        className="w-full h-full object-cover" 
-                                                        alt={item.product.name}
-                                                        onError={(e) => (e.target as HTMLImageElement).src = 'https://placehold.co/400x400?text=No+Image'}
-                                                    />
+                                        {groupedItems[storeId].map((item: CartItem) => {
+                                            const itemNeedsGrading = (item.product.metadata as any)?.request_grading === true;
+                                            
+                                            return (
+                                                <div key={item.cart_item_id} className="space-y-3">
+                                                    <div className="flex gap-4 items-center">
+                                                        <div className="w-16 h-16 bg-zinc-900 rounded-xl shrink-0 border border-zinc-800 overflow-hidden">
+                                                            <img 
+                                                                src={formatImageUrl(item.product.media?.find(m => m.is_primary)?.media_url)} 
+                                                                className="w-full h-full object-cover" 
+                                                                alt={item.product.name}
+                                                                onError={(e) => (e.target as HTMLImageElement).src = 'https://placehold.co/400x400?text=No+Image'}
+                                                            />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className="text-sm font-bold text-white line-clamp-1">{item.product.name}</p>
+                                                            <p className="text-xs font-medium text-zinc-500 mt-1 uppercase tracking-widest">
+                                                                {item.quantity} pcs <span className="lowercase mx-1">x</span> Rp {Number(item.product.price).toLocaleString('id-ID')}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-right shrink-0 hidden sm:block">
+                                                            <p className="text-sm font-black text-white">Rp {(Number(item.product.price) * item.quantity).toLocaleString('id-ID')}</p>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* DISPLAY FEE GRADING PER ITEM JIKA ADA */}
+                                                    {itemNeedsGrading && (
+                                                        <div className="ml-20 flex items-center gap-2 py-1.5 px-3 bg-blue-500/10 border border-blue-500/20 rounded-lg w-fit">
+                                                            <ShieldCheck size={14} className="text-blue-400" />
+                                                            <span className="text-[10px] font-bold text-blue-300 uppercase tracking-tight">
+                                                                Premium Verification (Grading): Rp 25.000
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div className="flex-1">
-                                                    <p className="text-sm font-bold text-white line-clamp-1">{item.product.name}</p>
-                                                    <p className="text-xs font-medium text-zinc-500 mt-1 uppercase tracking-widest">
-                                                        {item.quantity} pcs <span className="lowercase mx-1">x</span> Rp {Number(item.product.price).toLocaleString('id-ID')}
-                                                    </p>
-                                                </div>
-                                                <div className="text-right shrink-0 hidden sm:block">
-                                                    <p className="text-sm font-black text-white">Rp {(Number(item.product.price) * item.quantity).toLocaleString('id-ID')}</p>
-                                                </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
 
                                         <div className="mt-8 pt-8 border-t border-zinc-800">
                                             <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-4">Opsi Pengiriman Toko Ini:</p>
@@ -358,7 +346,7 @@ function CheckoutContent() {
                             items={items}
                             subtotal={subtotal}
                             shippingFee={totalShippingFee}
-                            gradingFee={gradingFeeTotal}
+                            gradingFee={gradingFeeTotal} // Nilai ini dikirim ke OrderSummary
                             isSubmitting={isSubmitting}
                             onConfirm={handleConfirmPayment}
                         />

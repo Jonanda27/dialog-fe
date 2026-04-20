@@ -1,29 +1,39 @@
 "use client";
 
 import React, { ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import AuthGuard from '@/components/layout/AuthGuard';
 import Sidebar from '@/components/layout/sidebar';
 import { Toaster } from 'sonner';
 
 /**
- * SELLER LAYOUT (LOCAL SESSION MODE)
- * Isolasi domain khusus penjual (seller). 
- * Akses secara ketat ditolak untuk pembeli atau admin.
+ * SELLER LAYOUT
+ * Layout ini mengatur tampilan untuk area penjual.
+ * Menghilangkan sidebar pada halaman pendaftaran toko dan halaman penangguhan.
  */
 export default function PenjualLayout({ children }: { children: ReactNode }) {
+    const pathname = usePathname();
+    
+    // Tentukan halaman mana saja yang tidak membutuhkan Sidebar (Fullscreen mode)
+    const noSidebarPages = ['/penjual/suspend', '/penjual/toko'];
+    const isNoSidebarPage = noSidebarPages.includes(pathname);
+
     return (
         <AuthGuard allowedRoles={['seller']}>
-            {/* * Panel Navigasi Samping & Header 
-              * Sidebar secara internal sudah mengatur state mobile (isMobileOpen)
-              * dan merender komponen <Navbar />. Kita hanya perlu meneruskan children.
-            */}
-            <Sidebar>
-                <div className="animate-in fade-in duration-700 max-w-7xl mx-auto">
+            {isNoSidebarPage ? (
+                // Tampilan Fullscreen untuk halaman Suspend dan Pendaftaran Toko
+                <div className="min-h-screen bg-[#0a0a0b]">
                     {children}
                 </div>
-            </Sidebar>
+            ) : (
+                // Tampilan Normal dengan Sidebar untuk Dashboard dan Manajemen Produk
+                <Sidebar>
+                    <div className="animate-in fade-in duration-700 max-w-7xl mx-auto">
+                        {children}
+                    </div>
+                </Sidebar>
+            )}
 
-            {/* Konfigurasi Toaster Minimalist */}
             <Toaster
                 theme="dark"
                 position="bottom-right"

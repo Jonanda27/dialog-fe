@@ -5,6 +5,13 @@
  */
 export type StoreStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
 
+export interface StoreSuspension {
+    id: string;
+    suspended_until: string;
+    reason: string;
+    is_active: boolean;
+}
+
 /**
  * Literal Type untuk jenis mutasi dompet
  */
@@ -39,6 +46,7 @@ export interface Store {
     working_hours: string | null; // Sesuai Model DB (Sebelumnya operating_hours)
     social_links: SocialLinks;    // Sesuai Model DB (Kolom JSON)
     status: StoreStatus;
+    suspensions?: StoreSuspension[];
     ktp_url: string | null;
     balance: string | number;
     bank_name: string | null;

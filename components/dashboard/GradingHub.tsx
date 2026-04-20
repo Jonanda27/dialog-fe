@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertCircle, PlayCircle, Clock, FileSearch } from 'lucide-react';
+import { AlertCircle, PlayCircle, Clock, FileSearch, ChevronDown, Maximize2, Music2 } from 'lucide-react';
 import GradingService from '@/services/api/grading.service';
 import { GradingRequest } from '@/types/grading';
 import { toast } from 'sonner';
@@ -11,30 +11,20 @@ export default function GradingHub() {
     const [tickets, setTickets] = useState<GradingRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [selectedVideoUrl, setSelectedVideoUrl] = useState<string | null>(null);
+    const [expandedTicketId, setExpandedTicketId] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchTickets = async () => {
             try {
                 setIsLoading(true);
-                setError(null);
-
                 const response = await GradingService.getBuyerRequests();
-
-                // ⚡ FIX TypeScript TS2339: Menggunakan assertion ke 'any' 
-                // untuk melakukan inspeksi struktur runtime (defensive programming)
                 const safeResponse = response as any;
                 let rawData: GradingRequest[] = [];
 
-                if (Array.isArray(safeResponse)) {
-                    rawData = safeResponse;
-                } else if (safeResponse?.data && Array.isArray(safeResponse.data)) {
-                    rawData = safeResponse.data;
-                } else if (safeResponse?.data?.data && Array.isArray(safeResponse.data.data)) {
-                    rawData = safeResponse.data.data;
-                }
+                if (Array.isArray(safeResponse)) rawData = safeResponse;
+                else if (safeResponse?.data && Array.isArray(safeResponse.data)) rawData = safeResponse.data;
+                else if (safeResponse?.data?.data && Array.isArray(safeResponse.data.data)) rawData = safeResponse.data.data;
 
-                // ⚡ SAFE FILTER: Mendukung State Baru & Legacy
                 const activeStates = ['requested', 'awaiting_seller_media', 'media_ready', 'fulfilled'];
                 const activeTickets = rawData.filter((t: any) => {
                     const status = t.status?.toLowerCase() || '';
@@ -43,147 +33,140 @@ export default function GradingHub() {
 
                 setTickets(activeTickets);
             } catch (err: any) {
-                console.error("Failed to fetch grading requests:", err);
-                setError(err.message || 'Gagal memuat data grading.');
+                setError(err.message || 'Gagal memuat data.');
             } finally {
                 setIsLoading(false);
             }
         };
-
         fetchTickets();
     }, []);
 
-    const handlePlayVideo = (ticketId: string, status: string) => {
+    const toggleVideo = (ticketId: string, status: string) => {
         const s = status.toLowerCase();
-
-        // Validasi pemutaran untuk status 'ready' (baru) atau 'fulfilled' (legacy)
         if (s !== 'media_ready' && s !== 'fulfilled') {
-            toast.info('Penjual sedang menyiapkan rekaman fisik barang. Mohon tunggu.');
+            toast.info('Video verifikasi sedang diproses.', {
+                style: { background: '#0a0a0b', color: '#fff', border: '1px solid #27272a' }
+            });
             return;
         }
-
-        const streamUrl = GradingService.getAuthenticatedStreamUrl(ticketId);
-        setSelectedVideoUrl(streamUrl);
+        setExpandedTicketId(expandedTicketId === ticketId ? null : ticketId);
     };
 
     return (
-        <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-zinc-950 border border-zinc-800 rounded-3xl p-6 md:p-8"
-        >
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h2 className="text-lg font-serif text-white uppercase tracking-tighter flex items-center gap-2">
-                        <FileSearch size={20} className="text-red-500" />
-                        Grading Hub
-                    </h2>
-                    <p className="text-xs text-zinc-500 mt-1">Verifikasi kondisi fisik koleksi Anda</p>
+        <div className="w-full">
+            {error ? (
+                <div className="p-10 text-center bg-red-950/10 border border-red-900/20 rounded-[2rem] text-red-500">
+                    <AlertCircle className="mx-auto mb-2" size={24} />
+                    <p className="text-[10px] font-black uppercase tracking-widest">{error}</p>
                 </div>
-                {tickets.some(t => {
-                    const s = t.status?.toLowerCase();
-                    return s === 'media_ready' || s === 'fulfilled';
-                }) && (
-                        <span className="flex h-2 w-2 relative">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                        </span>
-                    )}
-            </div>
-
-            {/* Video Player Modal */}
-            <AnimatePresence>
-                {selectedVideoUrl && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        className="mb-6 overflow-hidden rounded-2xl bg-black border border-zinc-800 relative"
-                    >
-                        <button
-                            onClick={() => setSelectedVideoUrl(null)}
-                            className="absolute top-4 right-4 z-10 bg-zinc-900/80 text-white p-2 rounded-full hover:bg-red-600 transition"
-                        >
-                            ✕
-                        </button>
-                        <video
-                            src={selectedVideoUrl}
-                            controls
-                            autoPlay
-                            crossOrigin="anonymous" // ⚡ FIX: Tambahkan ini untuk mengatasi NotSameOrigin Policy
-                            controlsList="nodownload" // Ekstra pengamanan
-                            className="w-full aspect-video object-contain"
-                        />
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* List Data */}
-            <div className="space-y-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
-                {error ? (
-                    <div className="p-4 rounded-2xl border border-red-900/30 bg-red-900/10 flex gap-3 text-red-400 items-center">
-                        <AlertCircle size={18} />
-                        <p className="text-xs font-medium">{error}</p>
-                    </div>
-                ) : isLoading ? (
-                    <div className="animate-pulse space-y-3">
-                        {[1, 2].map(i => <div key={i} className="h-20 bg-zinc-900 rounded-2xl border border-zinc-800" />)}
-                    </div>
-                ) : tickets.length === 0 ? (
-                    <div className="text-center py-10 border border-dashed border-zinc-800 rounded-2xl">
-                        <p className="text-xs text-zinc-600 uppercase tracking-widest font-bold">Belum ada permintaan aktif</p>
-                    </div>
-                ) : (
-                    tickets.map((ticket) => {
+            ) : isLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="h-96 w-full bg-zinc-900/20 border border-zinc-900 rounded-[2.5rem] animate-pulse" />
+                    ))}
+                </div>
+            ) : tickets.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-40 bg-[#111114] border border-zinc-900 rounded-[3rem]">
+                    <FileSearch size={32} className="text-zinc-800 mb-4" />
+                    <p className="text-[10px] text-zinc-600 uppercase tracking-[0.4em] font-black italic">Empty Requests</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {tickets.map((ticket) => {
                         const s = ticket.status?.toLowerCase();
                         const isReady = s === 'media_ready' || s === 'fulfilled';
+                        const isExpanded = expandedTicketId === ticket.id;
 
                         return (
-                            <div
+                            <div 
                                 key={ticket.id}
-                                onClick={() => handlePlayVideo(ticket.id, ticket.status)}
-                                className={`p-4 rounded-2xl border transition-all ${isReady
-                                    ? 'bg-zinc-900/50 border-zinc-700 hover:border-red-500/50 cursor-pointer group shadow-lg shadow-red-900/5'
-                                    : 'bg-zinc-900/20 border-zinc-800/50 opacity-60 cursor-not-allowed'
-                                    }`}
+                                className={`flex flex-col rounded-[2.5rem] border transition-all duration-700 overflow-hidden ${
+                                    isExpanded 
+                                    ? 'bg-zinc-900 border-[#ef3333] shadow-[0_0_60px_rgba(239,51,51,0.1)]' 
+                                    : 'bg-[#111114] border-zinc-800/50 hover:border-zinc-700 shadow-xl'
+                                }`}
                             >
-                                <div className="flex gap-4 items-center">
-                                    <div className="w-12 h-12 bg-zinc-800 rounded-xl flex items-center justify-center shrink-0 relative overflow-hidden">
-                                        {isReady ? (
-                                            <PlayCircle className="text-red-500 group-hover:scale-110 transition-transform" size={24} />
-                                        ) : (
-                                            <Clock className="text-zinc-600" size={24} />
-                                        )}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex justify-between items-start gap-2">
-                                            <p className="text-sm font-bold text-zinc-200 group-hover:text-red-400 transition-colors uppercase truncate">
-                                                {ticket.product?.name || 'Produk Analog'}
-                                            </p>
-                                            <span className={`text-[9px] shrink-0 font-black px-2 py-0.5 rounded border ${isReady
-                                                ? 'bg-green-500/10 text-green-400 border-green-500/20'
-                                                : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                                                }`}>
-                                                {isReady ? 'VIDEO READY' : 'WAITING'}
-                                            </span>
+                                {/* Card Body */}
+                                <div className="p-8 flex flex-col h-full">
+                                    <div className="flex justify-between items-start mb-8">
+                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 ${
+                                            isExpanded ? 'bg-[#ef3333] text-white shadow-lg' : 'bg-zinc-900 text-zinc-700 border border-zinc-800'
+                                        }`}>
+                                            {isReady ? <PlayCircle size={28} /> : <Clock size={28} />}
                                         </div>
-                                        <div className="flex flex-wrap gap-x-2 gap-y-1 mt-1">
-                                            {/* ⚡ FIX Tailwind Class: Menggunakan max-w-30 (canonical) menggantikan max-w-[120px] */}
-                                            <p className="text-[10px] text-zinc-500 font-medium truncate max-w-30">
+                                        <div className={`px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest ${
+                                            isReady ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-zinc-800 text-zinc-600 border-zinc-800'
+                                        }`}>
+                                            {isReady ? 'Ready' : 'In Progress'}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2 mb-10">
+                                        <h4 className="text-xl font-black text-white uppercase tracking-tighter leading-none italic truncate">
+                                            {ticket.product?.name || 'Analog Item'}
+                                        </h4>
+                                        <div className="flex items-center gap-2">
+                                            <Music2 size={12} className="text-[#ef3333]" />
+                                            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest truncate">
                                                 {ticket.product?.metadata?.artist || 'Unknown Artist'}
                                             </p>
-                                            <span className="text-[10px] text-zinc-700">•</span>
-                                            <p className="text-[10px] text-zinc-400 font-bold uppercase">
-                                                Grade: {ticket.product?.metadata?.media_grading || 'N/A'}
-                                            </p>
                                         </div>
                                     </div>
+
+                                    <div className="mt-auto flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                            <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Authentication</span>
+                                            <span className="text-[11px] font-black text-white uppercase italic">Grade: {ticket.product?.metadata?.media_grading || 'N/A'}</span>
+                                        </div>
+
+                                        <button 
+                                            onClick={() => toggleVideo(ticket.id, ticket.status)}
+                                            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                                isReady 
+                                                ? 'bg-white text-black hover:bg-[#ef3333] hover:text-white' 
+                                                : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
+                                            }`}
+                                        >
+                                            {isExpanded ? 'Close' : 'Inspect'} 
+                                            <ChevronDown size={14} className={`transition-transform duration-500 ${isExpanded ? 'rotate-180' : ''}`} />
+                                        </button>
+                                    </div>
                                 </div>
+
+                                {/* Video Card Expansion */}
+                                <AnimatePresence>
+                                    {isExpanded && (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                                            className="bg-black border-t border-zinc-800"
+                                        >
+                                            <div className="relative aspect-video group">
+                                                <video
+                                                    src={GradingService.getAuthenticatedStreamUrl(ticket.id)}
+                                                    controls
+                                                    autoPlay
+                                                    crossOrigin="anonymous"
+                                                    controlsList="nodownload"
+                                                    className="w-full h-full object-contain"
+                                                />
+                                                <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-zinc-800 flex items-center gap-2">
+                                                        <Maximize2 size={10} className="text-white" />
+                                                        <span className="text-[8px] font-black text-white uppercase tracking-widest">Fullscreen</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         );
-                    })
-                )}
-            </div>
-        </motion.div>
+                    })}
+                </div>
+            )}
+        </div>
     );
 }

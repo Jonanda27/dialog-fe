@@ -27,5 +27,29 @@ export const AdminService = {
      */
     rejectStore: async (storeId: string, reason?: string): Promise<ApiResponse<Store>> => {
         return await axiosClient.put<any, ApiResponse<Store>>(`/admin/stores/${storeId}/reject`, { reason });
+    },
+
+    /**
+     * Mensuspensi toko dengan durasi tertentu atau selamanya.
+     * @param unit 'hours' | 'days' | 'permanent'
+     */
+    suspendStore: async (
+        storeId: string, 
+        duration: number, 
+        unit: 'hours' | 'days' | 'permanent', 
+        reason?: string
+    ): Promise<ApiResponse<Store>> => {
+        return await axiosClient.post<any, ApiResponse<Store>>(`/admin/stores/${storeId}/suspend`, {
+            duration,
+            unit,
+            reason
+        });
+    },
+
+    /**
+     * Mencabut status suspensi toko.
+     */
+    unsuspendStore: async (storeId: string): Promise<ApiResponse<Store>> => {
+        return await axiosClient.post<any, ApiResponse<Store>>(`/admin/stores/${storeId}/unsuspend`);
     }
 };
