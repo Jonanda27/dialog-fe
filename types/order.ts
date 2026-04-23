@@ -2,6 +2,7 @@
 
 import { Product } from './product';
 import { User } from './auth';
+import { UserBankAccount } from './userBank';
 
 /**
  * Literal Type untuk State Machine Status Pesanan.
@@ -128,6 +129,7 @@ export interface OrderAdminResponse {
         id: string;
         full_name: string;
         email: string;
+        
     };
     store: {
         id: string;
@@ -162,4 +164,28 @@ export interface CheckoutResponse {
     grand_total: number;
     order_count: number;
     orders: any[];
+}
+
+export interface OrderRefundInfo {
+    id: string;
+    grand_total: number;
+    status: string;
+    created_at: string;
+    updated_at: string;
+    escrow: {
+        id: string;
+        amount_held: number;
+        status: string;
+        updated_at: string;
+    };
+    buyer: {
+        id: string;
+        full_name: string;
+        email: string;
+        bankAccounts: UserBankAccount[];
+    };
+    store: {
+        id: string;
+        name: string;
+    };
 }

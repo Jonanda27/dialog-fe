@@ -1,3 +1,4 @@
+// CatalogClient.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -7,25 +8,28 @@ import { useProductStore } from '@/store/productStore';
 import DynamicFilterSidebar from '@/components/product/DynamicFilterSidebar';
 import ProductGrid from '@/components/product/ProductGrid';
 
+// Definisi Interface untuk Props
 interface CatalogClientProps {
     initialProducts: Product[];
     categories: Category[];
     initialFilters: Record<string, string>;
 }
 
-export default function CatalogClient({ initialProducts, categories, initialFilters }: CatalogClientProps) {
-    const { products, setInitialProducts } = useProductStore();
+export default function CatalogClient({ 
+    initialProducts, 
+    categories, 
+    initialFilters 
+}: CatalogClientProps) { // <-- Menambahkan interface di sini memperbaiki error 'any'
+    
+    const { setInitialProducts } = useProductStore();
 
-    // Hydrate: Menyuntikkan data dari Server ke dalam Zustand saat pertama kali dirender
+    // Hydrate store Zustand saat initialProducts berubah dari server
     useEffect(() => {
         setInitialProducts(initialProducts);
     }, [initialProducts, setInitialProducts]);
 
-    // Fallback: Jika Zustand belum selesai hydrate, gunakan data inisial dari Server (mencegah kedipan)
-    const displayProducts = products.length > 0 ? products : initialProducts;
-
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
             {/* Kolom Kiri: Sidebar Filter */}
             <div className="lg:col-span-3">
                 <DynamicFilterSidebar categories={categories} />
@@ -33,7 +37,12 @@ export default function CatalogClient({ initialProducts, categories, initialFilt
 
             {/* Kolom Kanan: Grid Produk */}
             <div className="lg:col-span-9">
-                <ProductGrid products={displayProducts} />
+                {/* PENTING: Kita menggunakan initialProducts langsung dari props.
+                  Karena di katalog.tsx kita memberi 'key' unik pada CatalogClient,
+                  setiap kali URL berubah, komponen ini akan di-mount ulang 
+                  dengan initialProducts yang baru dari server.
+                */}
+                <ProductGrid products={initialProducts} />
             </div>
         </div>
     );

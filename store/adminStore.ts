@@ -6,12 +6,15 @@ import { Dispute, ResolveDisputePayload } from '../types/dispute';
 import { AdminService } from '../services/api/admin.service';
 import { DisputeService } from '../services/api/dispute.service';
 import { ApiError } from '../types/api';
+import { OrderRefundInfo } from '../types/order';
 
 interface AdminState {
     pendingStores: Store[];
     allDisputes: Dispute[];
+    refundOrders: OrderRefundInfo[];
     isLoading: boolean;
     error: string | null;
+    
 
     // Actions
     fetchPendingStores: () => Promise<void>;
@@ -25,11 +28,13 @@ interface AdminState {
     fetchAllDisputes: () => Promise<void>;
     resolveDispute: (disputeId: string, payload: ResolveDisputePayload) => Promise<void>;
     clearError: () => void;
+    fetchRefundOrders: () => Promise<void>;
 }
 
 export const useAdminStore = create<AdminState>((set, get) => ({
     pendingStores: [],
     allDisputes: [],
+    refundOrders: [],
     isLoading: false,
     error: null,
 
@@ -118,6 +123,17 @@ export const useAdminStore = create<AdminState>((set, get) => ({
             const err = error as ApiError;
             set({ error: err.message || 'Gagal meresolusi sengketa', isLoading: false });
             throw err;
+        }
+    },
+
+    fetchRefundOrders: async () => {
+        set({ isLoading: true, error: null });
+        try {
+            const response = await AdminService.getRefunds();
+            set({ refundOrders: response.data, isLoading: false });
+        } catch (error: any) {
+            const err = error as ApiError;
+            set({ error: err.message || 'Gagal memuat daftar refund', isLoading: false });
         }
     },
 

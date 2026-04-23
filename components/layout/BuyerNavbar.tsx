@@ -8,6 +8,7 @@ import {
   LogOut,
   Heart,
   Bell,
+  MessageCircle, // Tambahan Icon Chat
   ChevronDown,
   Zap,
   HelpCircle,
@@ -125,7 +126,7 @@ export default function BuyerNavbar() {
       {/* TIER 2: MAIN HUB */}
       <div className={`transition-all duration-500 px-6 ${scrolled ? "bg-[#111114]/95 backdrop-blur-md py-4 shadow-2xl" : "bg-[#0a0a0b] py-6"}`}>
         <div className="w-full flex items-center justify-between gap-12">
-          {/* LOGO SECTION - UPDATED TO USE IMAGE */}
+          {/* LOGO SECTION */}
           <Link href="/dashboard" className="shrink-0 flex items-center transition-transform hover:scale-105 active:scale-95">
             <img 
               src="/logo.png" 
@@ -151,10 +152,22 @@ export default function BuyerNavbar() {
           </div>
 
           <div className="flex items-center gap-8 shrink-0">
+            {/* NOTIFIKASI */}
             <button className="relative text-zinc-400 hover:text-white transition-colors hidden sm:block">
               <Bell size={24} />
               <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-[#ef3333] rounded-full border-2 border-[#0a0a0b]"></span>
             </button>
+
+            {/* CHAT ICON (NEW) */}
+            <Link 
+              href="/chat" 
+              className="relative text-zinc-400 hover:text-[#ef3333] transition-colors hidden sm:block"
+              title="Messages"
+            >
+              <MessageCircle size={24} />
+              {/* Opsional: Indikator pesan baru */}
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#ef3333] rounded-full border-2 border-[#0a0a0b] animate-pulse"></span>
+            </Link>
 
             {/* KERANJANG DENGAN DROPDOWN */}
             <div className="relative group/cart py-2">
@@ -296,7 +309,11 @@ export default function BuyerNavbar() {
                         </h4>
                         <div className="flex flex-col gap-2">
                           {cat.subCategories?.map((sub: any) => (
-                            <Link key={sub.id} href={`/search?sub_category=${sub.id}`} className="text-[10px] font-bold text-zinc-500 hover:text-[#ef3333] transition-colors">
+                            <Link 
+                                key={sub.id} 
+                                href={`/katalog?sub_category_id=${sub.id}`} 
+                                className="text-[10px] font-bold text-zinc-500 hover:text-[#ef3333] transition-colors"
+                            >
                               {sub.name}
                             </Link>
                           ))}
@@ -330,7 +347,13 @@ export default function BuyerNavbar() {
                         <h4 className="text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em] mb-6">Top categories</h4>
                         <div className="flex flex-col gap-4">
                           {cat.subCategories?.slice(0, 8).map((sub: any) => (
-                            <Link key={sub.id} href={`/search?sub_category=${sub.id}`} className="text-sm font-bold text-zinc-200 hover:text-[#ef3333] transition-colors">{sub.name}</Link>
+                            <Link 
+                                key={sub.id} 
+                                href={`/katalog?sub_category_id=${sub.id}`} 
+                                className="text-sm font-bold text-zinc-200 hover:text-[#ef3333] transition-colors"
+                            >
+                                {sub.name}
+                            </Link>
                           ))}
                         </div>
                       </div>
@@ -338,7 +361,13 @@ export default function BuyerNavbar() {
                         <h4 className="text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em] mb-6">Featured</h4>
                         <div className="flex flex-col gap-4">
                           {cat.subCategories?.slice(0, 5).map((sub: any) => (
-                            <Link key={sub.id} href={`/search?sub_category=${sub.id}`} className="text-sm font-bold text-zinc-500 hover:text-white transition-colors">{sub.name} Selection</Link>
+                            <Link 
+                                key={sub.id} 
+                                href={`/katalog?sub_category_id=${sub.id}`} 
+                                className="text-sm font-bold text-zinc-500 hover:text-white transition-colors"
+                            >
+                                {sub.name} Selection
+                            </Link>
                           ))}
                           <Link href="/deals" className="text-sm font-black text-[#ef3333] flex items-center gap-2 mt-4 underline underline-offset-8">
                             Explore All {cat.name} <ArrowRight size={14} />

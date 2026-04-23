@@ -16,6 +16,7 @@ export type UserStatus = 'active' | 'suspended' | 'banned';
  * Representasi tabel Users di Database
  */
 export interface User {
+    username: string;
     id: string;
     email: string;
     full_name: string; // ⚡ SESUAI BACKEND 

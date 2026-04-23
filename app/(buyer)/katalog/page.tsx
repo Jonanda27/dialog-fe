@@ -1,58 +1,55 @@
-import { productService } from '@/services/api/product.service';
-import { CategoryService } from '@/services/api/category.service';
-import CatalogClient from './CatalogClient'; // Komponen Interaktif
+// dialog-id-fe/app/(buyer)/katalog/page.tsx
 
-// SEO Metadata Dinamis
-export const metadata = {
-    title: 'Katalog Rilisan Fisik & Audio Gear | Analog.id',
-    description: 'Eksplorasi ribuan piringan hitam, kaset, dan perlengkapan audio dengan grading terpercaya.',
-};
+import { productService } from "@/services/api/product.service";
+import { CategoryService } from "@/services/api/category.service";
+import CatalogClient from "./CatalogClient";
+
+// Memastikan halaman selalu mengambil data terbaru saat URL berubah
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function KatalogPage({
-    searchParams,
+  searchParams,
 }: {
-    searchParams: { [key: string]: string | string[] | undefined };
+  // searchParams adalah Promise pada versi Next.js terbaru
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-    // 1. Parsing Parameter URL (Menangkap filter JSONB dari URL)
-    // Contoh URL: /katalog?sub_category_id=123&media_grading=NM
-    const queryParams: Record<string, string> = {};
-    for (const key in searchParams) {
-        if (searchParams[key]) {
-            queryParams[key] = String(searchParams[key]);
-        }
+  // PERBAIKAN UTAMA: Await searchParams agar data filter terbaca 
+  const resolvedSearchParams = await searchParams;
+
+  const queryParams: Record<string, string> = {};
+  for (const key in resolvedSearchParams) {
+    const value = resolvedSearchParams[key];
+    if (value) {
+      queryParams[key] = String(value);
     }
+  }
 
-    // 2. Server-Side Data Fetching
-    const [productsRes, categoriesRes] = await Promise.all([
-        productService.getAll(queryParams),
-        CategoryService.getAllCategories()
-    ]);
+  // Server-Side Data Fetching dengan queryParams yang sudah terisi filter
+  const [productsRes, categoriesRes] = await Promise.all([
+    productService.getAll(queryParams).catch(() => null),
+    CategoryService.getAllCategories().catch(() => null),
+  ]);
 
-    const initialProducts = productsRes?.data || [];
-    const categories = categoriesRes?.data || [];
+  const initialProducts = Array.isArray(productsRes)
+    ? productsRes
+    : productsRes?.data || [];
 
-    return (
-        <main className="min-h-screen bg-gray-50 pt-6 pb-20">
-            <div className="container mx-auto px-4 md:px-8">
+  const categories = Array.isArray(categoriesRes)
+    ? categoriesRes
+    : categoriesRes?.data || [];
 
-                {/* Header Katalog (Clean & Flat Design) */}
-                <div className="mb-8 bg-white p-6 border border-gray-200 rounded-none shadow-sm">
-                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Katalog Utama</h1>
-                    <p className="text-gray-600 mt-1 text-sm">
-                        Gunakan filter di samping untuk menemukan atribut spesifik seperti Grading, Voltage, atau Tahun Rilis.
-                    </p>
-                </div>
-
-                {/* Handoff ke Client Component.
-                    Komponen inilah yang akan merender tata letak Sidebar Kiri dan Grid Kanan.
-                */}
-                <CatalogClient
-                    initialProducts={initialProducts}
-                    categories={categories}
-                    initialFilters={queryParams}
-                />
-
-            </div>
-        </main>
-    );
+  return (
+    <main className="min-h-screen bg-[#0a0a0b] pt-10 pb-20">
+      <div className="max-w-[1400px] mx-auto px-4">
+        <CatalogClient
+          // Properti key sangat penting untuk mereset state Client Component saat filter berubah [cite: 189]
+          key={JSON.stringify(queryParams)} 
+          initialProducts={initialProducts}
+          categories={categories}
+          initialFilters={queryParams}
+        />
+      </div>
+    </main>
+  );
 }

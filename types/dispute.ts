@@ -6,31 +6,23 @@ import { Store } from './store';
 
 /**
  * Literal Type untuk status sengketa
+ * Ditambahkan 'returning' untuk alur retur barang oleh buyer
  */
-export type DisputeStatus = 'open' | 'resolved';
+export type DisputeStatus = 'open' | 'returning' | 'resolved';
 
 /**
- * Literal Type untuk keputusan final dari Admin (Sesuai skenario di BE)
- * - refund_full: Buyer menang, uang kembali penuh, barang diretur/dibatalkan.
- * - reject_buyer: Seller menang, uang diteruskan ke Seller.
- * - refund_partial: Win-Win solution, sebagian uang dikembalikan ke Buyer, sisanya ke Seller.
+ * Keputusan final dari Admin
  */
 export type ResolutionType = 'refund_full' | 'reject_buyer' | 'refund_partial';
 
-/**
- * Representasi tabel DisputeMedia di Database (Bukti foto/video)
- */
 export interface DisputeMedia {
     id: string;
     dispute_id: string;
     uploader_id: string;
     media_url: string;
-    created_at: string;
+    createdAt: string;
 }
 
-/**
- * Representasi tabel Disputes di Database (Entitas Utama)
- */
 export interface Dispute {
     id: string;
     order_id: string;
@@ -38,32 +30,33 @@ export interface Dispute {
     store_id: string;
     reason: string;
     status: DisputeStatus;
+    return_tracking_number?: string | null; // ⚡ Kolom baru untuk resi retur
     admin_decision_notes?: string | null;
-    created_at: string;
+    createdAt: string;
     updated_at: string;
 
-    // Relasi Opsional (Eager Loading)
+    // Relasi Opsional
     order?: Order;
-    buyer?: Pick<User, 'id' | 'name' | 'email'>;
+    buyer?: Pick<User, 'id' | 'email'> & { name?: string; full_name?: string }; 
     store?: Pick<Store, 'id' | 'name'>;
     media?: DisputeMedia[];
 }
 
-/**
- * Payload yang dikirim FE (Buyer) saat mengajukan komplain/sengketa.
- * Menggunakan array of File karena akan dikonversi ke FormData (Multipart).
- */
 export interface OpenDisputePayload {
     order_id: string;
     reason: string;
-    evidences?: File[]; // File bukti foto/video (Opsional tergantung kebijakan)
+    evidences?: File[]; 
 }
 
 /**
- * Payload yang dikirim FE (Admin) saat memberikan keputusan final.
+ * ⚡ Payload baru untuk alur pengembalian
  */
+export interface SubmitReturnResiPayload {
+    tracking_number: string;
+}
+
 export interface ResolveDisputePayload {
     resolution_type: ResolutionType;
     admin_notes: string;
-    refund_amount?: number; // Wajib diisi jika resolution_type === 'refund_partial'
+    refund_amount?: number; 
 }
