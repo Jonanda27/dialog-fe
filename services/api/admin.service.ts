@@ -3,6 +3,7 @@
 import axiosClient from './axiosClient';
 import { ApiResponse } from '../../types/api';
 import { Store } from '../../types/store';
+import { OrderRefundInfo } from '../../types/order';
 
 export const AdminService = {
     /**
@@ -51,5 +52,12 @@ export const AdminService = {
      */
     unsuspendStore: async (storeId: string): Promise<ApiResponse<Store>> => {
         return await axiosClient.post<any, ApiResponse<Store>>(`/admin/stores/${storeId}/unsuspend`);
+    },
+
+    /**
+     * Mengambil daftar pesanan yang perlu di-refund manual oleh Admin.
+     */
+    getRefunds: async (): Promise<ApiResponse<OrderRefundInfo[]>> => {
+        return await axiosClient.get<any, ApiResponse<OrderRefundInfo[]>>('/admin/refunds');
     }
 };

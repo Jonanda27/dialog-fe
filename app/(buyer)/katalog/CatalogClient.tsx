@@ -1,7 +1,7 @@
+// CatalogClient.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { Box, Flame, Gavel } from 'lucide-react';
 
 import { Product } from '@/types/product';
@@ -11,26 +11,32 @@ import { useProductStore } from '@/store/productStore';
 
 import DynamicFilterSidebar from '@/components/product/DynamicFilterSidebar';
 import ProductGrid from '@/components/product/ProductGrid';
+import AuctionCard from '@/components/ui/AuctionCard';
 
-import axiosClient from '@/services/api/axiosClient';
-import { formatRupiah } from '@/utils/format';
-import { getImageUrl } from '@/utils/image';
+// Menggunakan API Service yang terpusat dan konsisten
+import { auctionService } from '@/services/api/auction.service';
 
+// Definisi Interface untuk Props
 interface CatalogClientProps {
     initialProducts: Product[];
     categories: Category[];
     initialFilters: Record<string, string>;
 }
 
-export default function CatalogClient({ initialProducts, categories, initialFilters }: CatalogClientProps) {
-    const { products, setInitialProducts } = useProductStore();
+export default function CatalogClient({
+    initialProducts,
+    categories,
+    initialFilters
+}: CatalogClientProps) {
+
+    const { setInitialProducts } = useProductStore();
 
     // --- NEW STATE: Dual-Mode Catalog ---
     const [viewMode, setViewMode] = useState<'REGULAR' | 'AUCTION'>('REGULAR');
     const [auctions, setAuctions] = useState<Auction[]>([]);
     const [isLoadingAuctions, setIsLoadingAuctions] = useState(false);
 
-    // Hydrate: Menyuntikkan data reguler dari Server ke dalam Zustand
+    // Hydrate store Zustand saat initialProducts berubah dari server
     useEffect(() => {
         setInitialProducts(initialProducts);
     }, [initialProducts, setInitialProducts]);
@@ -41,9 +47,13 @@ export default function CatalogClient({ initialProducts, categories, initialFilt
             const fetchPublicAuctions = async () => {
                 setIsLoadingAuctions(true);
                 try {
-                    // Endpoint khusus public (Harus ditambahkan di Backend nanti)
-                    const res = await axiosClient.get('/v1/auctions/public');
-                    setAuctions(res.data?.data || res.data || []);
+                    // ⚡ PERBAIKAN TS: Menggunakan :any untuk mem-bypass strict interface dari layer interceptor
+                    const res: any = await auctionService.getMarketAuctions(1, 24);
+
+                    // ⚡ ROBUST EXTRACTION: Cek semua probabilitas pembungkusan JSON
+                    const auctionData = res?.data?.auctions || res?.auctions || res?.data?.data?.auctions || [];
+
+                    setAuctions(auctionData);
                 } catch (error) {
                     console.error("Gagal memuat katalog lelang:", error);
                 } finally {
@@ -53,8 +63,6 @@ export default function CatalogClient({ initialProducts, categories, initialFilt
             fetchPublicAuctions();
         }
     }, [viewMode, auctions.length]);
-
-    const displayProducts = products.length > 0 ? products : initialProducts;
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -90,7 +98,8 @@ export default function CatalogClient({ initialProducts, categories, initialFilt
                 {/* Kolom Kanan: Grid Konten Sesuai Mode */}
                 <div className="lg:col-span-9">
                     {viewMode === 'REGULAR' ? (
-                        <ProductGrid products={displayProducts} />
+                        /* PENTING: Kita menggunakan initialProducts langsung dari props */
+                        <ProductGrid products={initialProducts} />
                     ) : (
                         <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
                             {/* Banner Lelang */}
@@ -103,7 +112,7 @@ export default function CatalogClient({ initialProducts, categories, initialFilt
                                         Koleksi langka dan eksklusif yang terpisah dari katalog reguler.
                                     </p>
                                 </div>
-                                <div className="animate-pulse flex items-center gap-2 hidden md:flex">
+                                <div className="animate-pulse items-center gap-2 hidden md:flex">
                                     <span className="relative flex h-3 w-3">
                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                                         <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
@@ -112,54 +121,20 @@ export default function CatalogClient({ initialProducts, categories, initialFilt
                                 </div>
                             </div>
 
-                            {/* Grid Lelang (Decoupled Renderer) */}
+                            {/* Grid Lelang (Menggunakan komponen reaktif AuctionCard) */}
                             {isLoadingAuctions ? (
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                                    {[1, 2, 3, 4].map(n => (
-                                        <div key={n} className="aspect-[3/4] bg-zinc-900/50 animate-pulse rounded-2xl border border-zinc-800/50"></div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                                    {[1, 2, 3, 4, 5, 6].map(n => (
+                                        <div key={n} className="h-80 bg-zinc-900/50 animate-pulse rounded-3xl border border-zinc-800/50"></div>
                                     ))}
                                 </div>
                             ) : auctions.length > 0 ? (
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                                    {auctions.map(auction => {
-                                        // Mengambil gambar dari tabel auction_media yang baru
-                                        const primaryMedia = auction.media?.find(m => m.is_primary)?.media_url || auction.media?.[0]?.media_url;
-
-                                        return (
-                                            <Link
-                                                key={auction.id}
-                                                // Arahkan ke rute spesifik lelang (bukan produk reguler)
-                                                href={`/produk/lelang/${auction.id}`}
-                                                className="group flex flex-col bg-[#111114] border border-zinc-800/50 rounded-2xl overflow-hidden hover:border-red-500/50 hover:shadow-[0_0_30px_rgba(239,51,51,0.15)] transition-all duration-300"
-                                            >
-                                                <div className="relative aspect-square bg-zinc-900 overflow-hidden">
-                                                    <img
-                                                        src={getImageUrl(primaryMedia || '/vynil.png')}
-                                                        alt={auction.item_name}
-                                                        className="object-cover w-full h-full grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all duration-500"
-                                                    />
-                                                    <div className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg">
-                                                        <Gavel size={12} />
-                                                        {auction.status === 'SCHEDULED' ? 'Upcoming' : 'Live Bid'}
-                                                    </div>
-                                                </div>
-                                                <div className="p-5 flex flex-col flex-1">
-                                                    {/* Rendering item_name murni, bukan product.name */}
-                                                    <h3 className="text-sm font-black text-white uppercase tracking-tighter line-clamp-2 mb-4 group-hover:text-red-500 transition-colors">
-                                                        {auction.item_name}
-                                                    </h3>
-                                                    <div className="mt-auto border-t border-zinc-800/50 pt-4">
-                                                        <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-1">
-                                                            {auction.status === 'SCHEDULED' ? 'Harga Buka' : 'Current Highest Bid'}
-                                                        </p>
-                                                        <p className="text-lg font-black text-red-500">
-                                                            {formatRupiah(Number(auction.current_price || auction.start_price || 0))}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </Link>
-                                        );
-                                    })}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 items-stretch">
+                                    {auctions.map(auction => (
+                                        <div key={auction.id} className="flex flex-col h-full w-full">
+                                            <AuctionCard auction={auction} />
+                                        </div>
+                                    ))}
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-24 bg-zinc-900/20 border border-zinc-800/50 rounded-3xl">

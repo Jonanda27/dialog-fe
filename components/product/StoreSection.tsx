@@ -1,10 +1,18 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation'; // 1. Tambahkan router
 import { Store as StoreIcon, ShieldCheck, Calendar, MessageSquare } from 'lucide-react';
 import { getImageUrl } from '@/utils/image';
 
 export default function StoreSection({ store, storeId }: { store: any, storeId: string }) {
+    const router = useRouter(); // 2. Inisialisasi router
+
+    // 3. Fungsi untuk menangani navigasi ke halaman chat
+    const handleChatClick = () => {
+        router.push(`/chat?storeId=${storeId}`);
+    };
+
     return (
         <section className="bg-[#111114] border border-zinc-800 rounded-[2.5rem] p-8 md:p-10 flex flex-col md:flex-row items-center gap-10 shadow-2xl relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-10 opacity-[0.03] text-white pointer-events-none group-hover:scale-110 transition-transform duration-1000">
@@ -29,7 +37,11 @@ export default function StoreSection({ store, storeId }: { store: any, storeId: 
                     </div>
                 </div>
                 <div className="flex flex-wrap justify-center md:justify-start gap-3">
-                    <button className="px-6 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-zinc-200 hover:text-[#ef3333] transition-all flex items-center gap-2">
+                    {/* 4. Implementasi handleChatClick pada tombol */}
+                    <button 
+                        onClick={handleChatClick}
+                        className="px-6 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-zinc-200 hover:text-[#ef3333] transition-all flex items-center gap-2"
+                    >
                         <MessageSquare size={14} /> Chat Seller
                     </button>
                     <Link href={`/landingpage/store/${storeId}`} className="px-6 py-2.5 bg-[#ef3333] rounded-xl text-[10px] font-black uppercase tracking-widest text-white hover:bg-red-700 transition-all shadow-lg shadow-red-900/20">

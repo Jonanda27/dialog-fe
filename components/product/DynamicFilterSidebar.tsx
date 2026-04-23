@@ -1,7 +1,9 @@
 'use client';
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { Category } from '@/types/category';
+import { LayoutGrid, ChevronDown, Tag, ChevronRight, Filter, X } from 'lucide-react';
 
 interface DynamicFilterSidebarProps {
     categories: Category[];
@@ -12,94 +14,105 @@ export default function DynamicFilterSidebar({ categories }: DynamicFilterSideba
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
-    // Helper: Fungsi untuk memanipulasi URL parameters
-    const createQueryString = (name: string, value: string) => {
-        const params = new URLSearchParams(searchParams.toString());
+    const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
 
-        // Jika value sama dengan yang ada, berarti user melakukan "uncheck" (Hapus parameter)
-        if (params.get(name) === value || value === '') {
-            params.delete(name);
-        } else {
-            params.set(name, value);
+    useEffect(() => {
+        if (categories.length > 0) {
+            // Membuka kategori pertama secara default
+            setOpenCategories({ [String(categories[0].id)]: true });
         }
+    }, [categories]);
 
-        return params.toString();
+    const toggleCategory = (catId: string) => {
+        setOpenCategories(prev => ({ ...prev, [catId]: !prev[catId] }));
     };
 
-    // Fungsi trigger saat filter diklik
     const handleFilterChange = (key: string, value: string) => {
-        const queryString = createQueryString(key, value);
-        // Menggunakan opsi scroll: false agar halaman tidak melompat ke atas saat filter ditekan
-        router.push(`${pathname}?${queryString}`, { scroll: false });
+        const params = new URLSearchParams(searchParams.toString());
+        if (params.get(key) === value || value === '') {
+            params.delete(key);
+        } else {
+            params.set(key, value);
+        }
+        router.push(`${pathname}?${params.toString()}`, { scroll: false });
     };
 
     return (
-        // UI: Sticky Layout agar Sidebar menempel saat grid panjang di-scroll
-        <aside className="w-full sticky top-20">
-            <div className="bg-white border border-gray-200 p-5 space-y-8">
-
-                {/* Header Clear Filter */}
-                <div className="flex items-center justify-between border-b border-gray-200 pb-3">
-                    <h2 className="text-lg font-bold text-gray-900 tracking-tight">Filter</h2>
+        <aside className="w-full sticky top-24 space-y-6">
+            <div className="bg-[#111114] border border-zinc-900 rounded-[2.5rem] p-6 lg:p-8 overflow-hidden shadow-lg">
+                <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-3">
+                        <LayoutGrid size={18} className="text-[#ef3333]" />
+                        <h4 className="text-xs font-black text-white uppercase tracking-widest">Kategori</h4>
+                    </div>
                     {searchParams.toString() && (
-                        <button
+                         <button 
                             onClick={() => router.push(pathname, { scroll: false })}
-                            className="text-xs font-semibold text-red-600 hover:text-red-800"
-                        >
+                            className="text-[9px] font-black text-red-500 uppercase tracking-tighter hover:text-red-400 transition-colors"
+                         >
                             Reset
-                        </button>
+                         </button>
                     )}
                 </div>
 
-                {/* Section: Kategori Utama */}
-                <div>
-                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">
-                        Format / Kategori
-                    </h3>
-                    <div className="space-y-2">
-                        {categories.map((cat) => (
-                            <div key={cat.id} className="flex items-center">
-                                {/* Asumsi subCategories dirender, atau kategori induk */}
-                                {cat.subCategories?.map(sub => {
-                                    const isChecked = searchParams.get('sub_category_id') === sub.id;
-                                    return (
-                                        <label key={sub.id} className="flex items-center space-x-3 cursor-pointer group mb-2 w-full">
-                                            <div className={`w-4 h-4 border ${isChecked ? 'bg-black border-black' : 'border-gray-300 bg-white group-hover:border-gray-400'} flex items-center justify-center transition-colors`}>
-                                                {isChecked && <div className="w-2 h-2 bg-white" />}
-                                            </div>
-                                            <span className={`text-sm ${isChecked ? 'font-semibold text-black' : 'text-gray-600 group-hover:text-black'}`}>
-                                                {sub.name}
-                                            </span>
-                                            <input
-                                                type="checkbox"
-                                                className="hidden"
-                                                checked={isChecked}
-                                                onChange={() => handleFilterChange('sub_category_id', sub.id)}
-                                            />
-                                        </label>
-                                    );
-                                })}
+                <div className="space-y-4">
+                    {/* Option: Semua Produk */}
+                    <button 
+                        onClick={() => handleFilterChange('sub_category_id', '')}
+                        className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${!searchParams.get('sub_category_id') ? "bg-[#ef3333] text-white shadow-lg shadow-red-900/20" : "text-zinc-500 hover:bg-white/5 hover:text-white"}`}
+                    >
+                        Semua Produk
+                        <ChevronRight size={14} className={!searchParams.get('sub_category_id') ? "opacity-100" : "opacity-0"} />
+                    </button>
+
+                    {/* Loop Categories */}
+                    {categories.map((cat) => {
+                        const isOpen = openCategories[String(cat.id)];
+                        return (
+                            <div key={cat.id} className="space-y-2">
+                                <button 
+                                    onClick={() => toggleCategory(String(cat.id))}
+                                    className="w-full flex items-center justify-between px-4 py-2 hover:bg-white/5 rounded-xl transition-all group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest group-hover:text-zinc-200">{cat.name}</span>
+                                    </div>
+                                    <ChevronDown size={14} className={`text-zinc-600 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                <div className={`space-y-1.5 overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[500px] opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
+                                    <div className="border-l border-zinc-900 ml-5 pl-4 space-y-1">
+                                        {cat.subCategories?.map((sub: any) => {
+                                            const isActive = searchParams.get('sub_category_id') === String(sub.id);
+                                            return (
+                                                <button 
+                                                    key={sub.id}
+                                                    onClick={() => handleFilterChange('sub_category_id', String(sub.id))}
+                                                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all text-left ${isActive ? "text-[#ef3333] bg-[#ef3333]/5" : "text-zinc-500 hover:text-zinc-300"}`}
+                                                >
+                                                    {sub.name}
+                                                    <Tag size={10} className={isActive ? "opacity-100" : "opacity-0"} />
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             </div>
-                        ))}
-                    </div>
+                        );
+                    })}
                 </div>
 
-                {/* Section: Filter JSONB - Media Grading (Dinamis) */}
-                <div>
-                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">
-                        Kondisi Audio (Grading)
-                    </h3>
+                {/* Section: Grading */}
+                <div className="mt-10 pt-8 border-t border-zinc-900">
+                    <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4">Media Grading</h4>
                     <div className="grid grid-cols-2 gap-2">
-                        {['Mint', 'NM', 'VG+', 'VG', 'Good'].map((grade) => {
-                            const isChecked = searchParams.get('media_grading') === grade;
+                        {['Mint', 'NM', 'VG+', 'VG'].map((grade) => {
+                            const isActive = searchParams.get('media_grading') === grade;
                             return (
                                 <button
                                     key={grade}
                                     onClick={() => handleFilterChange('media_grading', grade)}
-                                    className={`py-1.5 px-3 text-xs font-semibold border ${isChecked
-                                            ? 'bg-black text-white border-black'
-                                            : 'bg-white text-gray-700 border-gray-300 hover:border-black'
-                                        } transition-colors text-center`}
+                                    className={`py-3 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${isActive ? 'bg-white text-black border-white' : 'bg-transparent text-zinc-500 border-zinc-800 hover:border-zinc-600'}`}
                                 >
                                     {grade}
                                 </button>
@@ -107,33 +120,6 @@ export default function DynamicFilterSidebar({ categories }: DynamicFilterSideba
                         })}
                     </div>
                 </div>
-
-                {/* Section: Rentang Harga (Standar) */}
-                <div>
-                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">
-                        Rentang Harga
-                    </h3>
-                    <div className="flex items-center space-x-2">
-                        <input
-                            type="number"
-                            placeholder="Min"
-                            className="w-full text-sm border border-gray-300 px-2 py-2 focus:outline-none focus:border-black"
-                            onBlur={(e) => {
-                                if (e.target.value) handleFilterChange('min_price', e.target.value);
-                            }}
-                        />
-                        <span className="text-gray-400">-</span>
-                        <input
-                            type="number"
-                            placeholder="Max"
-                            className="w-full text-sm border border-gray-300 px-2 py-2 focus:outline-none focus:border-black"
-                            onBlur={(e) => {
-                                if (e.target.value) handleFilterChange('max_price', e.target.value);
-                            }}
-                        />
-                    </div>
-                </div>
-
             </div>
         </aside>
     );

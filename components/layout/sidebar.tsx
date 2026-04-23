@@ -4,12 +4,12 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
-import { AuthService } from "@/services/api/auth.service"; // Pastikan path import service benar
+import { AuthService } from "@/services/api/auth.service"; 
 import {
   LayoutDashboard, Package, PlusCircle, UploadCloud,
   Inbox, History, Wallet, Star, Settings, LogOut, X,
   Disc, FileBarChart, Gavel, Receipt, UserCog, ClipboardCheck,
-  Loader2,
+  Loader2, MessageSquare, // Menambahkan MessageSquare
 } from "lucide-react";
 import Navbar from "./navbar";
 
@@ -21,26 +21,20 @@ export default function Sidebar({ children }: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // 1. Integrasi Terpusat: Ambil user dan fungsi logout dari Zustand Store
+  // 1. Integrasi Terpusat
   const { user, logout: clearLocalAuth, isInitialized } = useAuthStore();
   const pathname = usePathname();
   const router = useRouter();
 
-  // 2. Handler Logout Terintegrasi
+  // 2. Handler Logout
   const handleLogout = async () => {
     try {
       setIsLoggingOut(true);
-      
-      // Langkah 1: Panggil API Logout ke Backend (untuk blacklist token/clear cookie di server)
       await AuthService.logout();
     } catch (error) {
       console.error("Gagal logout dari server:", error);
-      // Tetap lanjutkan pembersihan lokal meskipun API gagal (demi keamanan sisi klien)
     } finally {
-      // Langkah 2: Bersihkan state di Zustand & LocalStorage
       clearLocalAuth();
-      
-      // Langkah 3: Redirect ke halaman login
       router.push("/auth/login");
       setIsLoggingOut(false);
     }
@@ -53,6 +47,7 @@ export default function Sidebar({ children }: SidebarProps) {
       items: [
         { name: "Dashboard Toko", icon: LayoutDashboard, href: "/penjual/dashboard" },
         { name: "Transaksi Masuk", icon: Inbox, href: "/penjual/transaksi" },
+        { name: "Chat Masuk", icon: MessageSquare, href: "/penjual/chat" }, // Menu baru ditambahkan di sini
         { name: "Permintaan Grading", icon: ClipboardCheck, href: "/penjual/grading" },
       ]
     },
@@ -103,7 +98,6 @@ export default function Sidebar({ children }: SidebarProps) {
 
   const menuGroups = user?.role === "admin" ? adminMenu : sellerMenu;
 
-
   return (
     <div className="min-h-screen bg-[#0a0a0b]">
       {/* Overlay Mobile */}
@@ -114,7 +108,7 @@ export default function Sidebar({ children }: SidebarProps) {
       {/* Aside / Sidebar */}
       <aside className={`fixed top-0 left-0 h-full w-64 bg-[#0a0a0b] border-r border-zinc-900 z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         
-        {/* LOGO SECTION - UPDATED TO USE logo.png */}
+        {/* LOGO SECTION */}
         <div className="h-20 flex items-center justify-between px-6 border-b border-zinc-900 shrink-0">
           <Link href="/" className="flex items-center transition-transform hover:scale-105 active:scale-95">
             <img 
