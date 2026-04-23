@@ -25,6 +25,10 @@ export function useAuctionSocket({ auctionId, initialPrice }: UseAuctionSocketPr
 
     const socketRef = useRef<Socket | null>(null);
 
+    // ⚡ TAHAP 1 PERBAIKAN: Synchronous Lock untuk mengatasi Phantom Cooldown
+    // Ref ini tidak merender ulang UI dan bekerja secara sinkron seketika.
+    const isEmittingRef = useRef<boolean>(false);
+
     useEffect(() => {
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
@@ -61,7 +65,8 @@ export function useAuctionSocket({ auctionId, initialPrice }: UseAuctionSocketPr
                     topBidders: payload.topBidders || [],
                     recentHistory: payload.recentHistory || [],
                     isFrozen: isUninitialized ? true : payload.isFrozen,
-                    isOnCooldown: payload.isOnCooldown || false,
+                    // Tetap baca cooldown dari BE, tapi jangan paksa false jika frontend sedang lock
+                    isOnCooldown: isEmittingRef.current || payload.isOnCooldown || false,
                     isSyncing: isUninitialized,
                     socketError: null
                 };
@@ -110,6 +115,8 @@ export function useAuctionSocket({ auctionId, initialPrice }: UseAuctionSocketPr
                     socketError: payload.message,
                     isOnCooldown: false
                 }));
+                // Buka gembok sinkron jika ditolak BE agar user bisa langsung bid ulang
+                isEmittingRef.current = false;
 
                 setTimeout(() => {
                     setAuctionState((prev: AuctionRealtimeState) => ({ ...prev, socketError: null }));
@@ -118,8 +125,12 @@ export function useAuctionSocket({ auctionId, initialPrice }: UseAuctionSocketPr
         });
 
         return () => {
-            if (socket.connected) {
+            // ⚡ TAHAP 1 PERBAIKAN: Pemusnahan "Socket Zombie"
+            // Jangan gunakan kondisi if (socket.connected). 
+            // Matikan semua telinga (listener) dan panggil disconnect secara mutlak.
+            if (socket) {
                 socket.emit('LEAVE_AUCTION', { auctionId });
+                socket.removeAllListeners();
                 socket.disconnect();
             }
         };
@@ -127,29 +138,60 @@ export function useAuctionSocket({ auctionId, initialPrice }: UseAuctionSocketPr
 
     // FUNGSI: Mengirim Penawaran (Dynamic Bid)
     const submitBid = useCallback((expectedPrice: number, minimumIncrement: number) => {
+        // 1. Validasi Koneksi Dasar
         if (!socketRef.current?.connected) {
             setAuctionState((prev: AuctionRealtimeState) => ({ ...prev, socketError: 'Koneksi ke server terputus.' }));
             return;
         }
 
-        setAuctionState((prev: AuctionRealtimeState) => {
-            if (prev.isSyncing) return { ...prev, socketError: 'Menunggu sinkronisasi node lelang...' };
-            if (prev.isEnded) return { ...prev, socketError: 'Lelang telah ditutup permanen.' };
-            if (prev.isFrozen) return { ...prev, socketError: 'Lelang memasuki masa tenang/evaluasi.' };
-            if (prev.isOnCooldown) return { ...prev, socketError: 'Anda menekan terlalu cepat. Tunggu sebentar.' };
+        // 2. ⚡ TAHAP 1 PERBAIKAN: Validasi Synchronous Lock (Bebas dari React Render Cycle)
+        if (isEmittingRef.current) {
+            setAuctionState((prev: AuctionRealtimeState) => ({ ...prev, socketError: 'Anda menekan terlalu cepat. Tunggu sebentar.' }));
+            return;
+        }
 
-            socketRef.current?.emit('SUBMIT_BID', {
+        // 3. Validasi State Reaktif (Satu Kali Panggil, tidak ada emit di dalamnya)
+        let isValid = true;
+        setAuctionState((prev: AuctionRealtimeState) => {
+            if (prev.isSyncing) {
+                isValid = false;
+                return { ...prev, socketError: 'Menunggu sinkronisasi node lelang...' };
+            }
+            if (prev.isEnded) {
+                isValid = false;
+                return { ...prev, socketError: 'Lelang telah ditutup permanen.' };
+            }
+            if (prev.isFrozen) {
+                isValid = false;
+                return { ...prev, socketError: 'Lelang memasuki masa tenang/evaluasi.' };
+            }
+            if (prev.isOnCooldown) {
+                isValid = false;
+                return { ...prev, socketError: 'Sistem sedang memproses transaksi Anda sebelumnya.' };
+            }
+
+            // Jika semua valid, kunci UI (Optimistic UI)
+            return { ...prev, isOnCooldown: true };
+        });
+
+        // 4. Eksekusi Jaringan (Jika Valid)
+        if (isValid) {
+            // Segera kunci ref sinkron
+            isEmittingRef.current = true;
+
+            // Lontarkan payload ke server
+            socketRef.current.emit('SUBMIT_BID', {
                 auctionId,
                 expectedPrice,
                 increment: minimumIncrement
             });
 
-            return { ...prev, isOnCooldown: true };
-        });
-
-        setTimeout(() => {
-            setAuctionState((prev: AuctionRealtimeState) => ({ ...prev, isOnCooldown: false }));
-        }, 5000);
+            // Buka gembok setelah 5 detik (Sesuai durasi LUA script BE)
+            setTimeout(() => {
+                isEmittingRef.current = false;
+                setAuctionState((prev: AuctionRealtimeState) => ({ ...prev, isOnCooldown: false }));
+            }, 5000);
+        }
 
     }, [auctionId]);
 
