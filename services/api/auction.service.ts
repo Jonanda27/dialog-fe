@@ -2,10 +2,11 @@ import axiosClient from './axiosClient';
 import { ApiResponse } from '@/types/api';
 import { Auction } from '@/types/auction';
 
-// Tipe CreateAuctionPayload dihapus karena pengiriman data lelang yang mencakup file 
-// (photos) dienkapsulasi menggunakan objek bawaan browser: FormData.
-
 export const auctionService = {
+    // ==========================================
+    // SELLER ENDPOINTS (RESTRICTED)
+    // ==========================================
+
     /**
      * Membuat lelang baru secara independen (Decoupled dari Product).
      * @param formData Berisi teks input (item_name, dimensi, penjadwalan) dan file biner (photos).
@@ -37,6 +38,29 @@ export const auctionService = {
         // Menggunakan PUT agar sinkron secara 1:1 dengan definisi endpoint: 
         // PUT /api/v1/auctions/:id/cancel
         const response = await axiosClient.put(`/v1/auctions/${id}/cancel`);
+        return response.data;
+    },
+
+
+    // ==========================================
+    // BUYER / PUBLIC ENDPOINTS (NEW)
+    // ==========================================
+
+    /**
+     * Mengambil daftar lelang untuk katalog publik pembeli.
+     * @param params Parameter query opsional (contoh: { status: 'ACTIVE', limit: 10 })
+     */
+    getPublicAuctions: async (params?: Record<string, any>): Promise<ApiResponse<Auction[]>> => {
+        const response = await axiosClient.get('/v1/auctions', { params });
+        return response.data;
+    },
+
+    /**
+     * Mengambil detail spesifik dari sebuah lelang (digunakan pada halaman The Arena / Detail Lelang).
+     * @param id UUID dari lelang
+     */
+    getAuctionById: async (id: string): Promise<ApiResponse<Auction>> => {
+        const response = await axiosClient.get(`/v1/auctions/${id}`);
         return response.data;
     }
 };

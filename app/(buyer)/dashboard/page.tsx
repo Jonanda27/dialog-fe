@@ -8,10 +8,15 @@ import {
     ShieldCheck,
     ChevronRight,
     Store as StoreIcon,
+    Activity, // Ditambahkan untuk icon lelang
+    Loader2
 } from 'lucide-react';
 import WishlistPreview from '@/components/dashboard/WishlistPreview';
 import RecommendedFeed from '@/components/dashboard/RecommendedFeed';
 import { StoreService } from "@/services/api/store.service";
+import { auctionService } from "@/services/api/auction.service"; // Service Lelang
+import AuctionCard from "@/components/ui/AuctionCard"; // Komponen Kartu Lelang
+import { Auction } from "@/types/auction";
 import Link from 'next/link';
 
 /** * COMPONENT: VERIFIED STORES SECTION */
@@ -77,6 +82,75 @@ const VerifiedStores = () => {
     );
 };
 
+/** * COMPONENT: LIVE AUCTION HIGHLIGHT (NEW) */
+const LiveAuctionHighlight = () => {
+    const [auctions, setAuctions] = useState<Auction[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchAuctions = async () => {
+            try {
+                // Fetch public auctions yang aktif atau dijadwalkan
+                const res: any = await auctionService.getPublicAuctions({
+                    limit: 4,
+                    status: 'ACTIVE' // Prioritaskan yang sedang live
+                });
+
+                // Gunakan robust extraction (handling Axios Interceptor)
+                const payload = res.success !== undefined ? res : res.data;
+                const auctionData = Array.isArray(payload?.data) ? payload.data : [];
+
+                setAuctions(auctionData);
+            } catch (error) {
+                console.error("Gagal memuat lelang publik:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchAuctions();
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="w-full py-10 flex flex-col items-center justify-center border border-zinc-800 rounded-[2.5rem] bg-zinc-900/20">
+                <Loader2 className="animate-spin text-red-500 mb-3" size={32} />
+                <span className="text-xs font-black uppercase text-zinc-500 tracking-widest">Memuat Arena Lelang...</span>
+            </div>
+        );
+    }
+
+    // Jika tidak ada lelang aktif, sembunyikan section ini atau tampilkan pesan kosong
+    if (auctions.length === 0) return null;
+
+    return (
+        <div className="space-y-6">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-900 pb-6">
+                <div>
+                    <div className="flex items-center gap-2 mb-2">
+                        <Activity size={16} className="text-[#ef3333] animate-pulse" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ef3333]">Live Bidding</span>
+                    </div>
+                    <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic">
+                        Auction <span className="text-zinc-500">Arena</span>
+                    </h2>
+                </div>
+                <Link href="/katalog/lelang" className="text-xs font-black bg-zinc-900 hover:bg-white hover:text-black text-zinc-400 uppercase tracking-widest px-6 py-3 rounded-full transition-colors flex items-center gap-2 border border-zinc-800">
+                    Lihat Semua Lelang <ChevronRight size={14} />
+                </Link>
+            </div>
+
+            {/* Grid Kartu Lelang (Disesuaikan tinggi agar uniform) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 auto-rows-fr">
+                {auctions.map((auction) => (
+                    <div key={auction.id} className="h-[450px]">
+                        <AuctionCard auction={auction} />
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 export default function BuyerDashboard() {
     const { user } = useAuthStore();
     const [activeCategory, setActiveCategory] = useState('SEMUA');
@@ -84,13 +158,16 @@ export default function BuyerDashboard() {
     const categories = ['SEMUA', 'LASERDISC', 'REEL VIDEO 8MM', 'VCD & DVD', 'VHS & BETAMAX'];
 
     return (
-        <div className="w-full pb-20 space-y-16">
+        <div className="w-full pb-20 space-y-16 mt-8">
             <div className="max-w-full px-6 lg:px-10 space-y-16">
 
                 {/* 1. VERIFIED STORES */}
                 <VerifiedStores />
 
-                {/* 2. MAIN CONTENT AREA (Market Highlights) */}
+                {/* 2. LIVE AUCTIONS (NEW SECTION) */}
+                <LiveAuctionHighlight />
+
+                {/* 3. MAIN CONTENT AREA (Market Highlights) */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
 
                     {/* LEFT COLUMN: PRODUCT FEED */}
@@ -108,8 +185,8 @@ export default function BuyerDashboard() {
                                             key={cat}
                                             onClick={() => setActiveCategory(cat)}
                                             className={`px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${activeCategory === cat
-                                                    ? "bg-[#ef3333] border-[#ef3333] text-white shadow-lg shadow-red-900/20"
-                                                    : "bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-700"
+                                                ? "bg-[#ef3333] border-[#ef3333] text-white shadow-lg shadow-red-900/20"
+                                                : "bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-700"
                                                 }`}
                                         >
                                             {cat}
@@ -162,15 +239,6 @@ export default function BuyerDashboard() {
                     </div>
                 </div>
             </div>
-
-            {/* 4. Rekomendasi Produk */}
-            <Suspense fallback={
-                <div className="h-96 w-full bg-[#111114] border border-zinc-800 rounded-2xl animate-pulse mt-8 flex items-center justify-center">
-                    <span className="text-zinc-600 font-bold uppercase tracking-widest text-xs">Memuat Rekomendasi...</span>
-                </div>
-            }>
-                <RecommendedFeed />
-            </Suspense>
 
             <style jsx>{`
                 .no-scrollbar::-webkit-scrollbar { display: none; }
