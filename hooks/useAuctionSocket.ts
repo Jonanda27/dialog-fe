@@ -1,37 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/store/authStore';
-
-// Mendefinisikan tipe data histori penawaran
-export interface BidderHistory {
-    userId: string;
-    amount: number;
-    timestamp: string;
-    isWinner?: boolean;
-}
+import { AuctionRealtimeState, BidderHistory } from '@/types/auction';
 
 interface UseAuctionSocketProps {
     auctionId: string;
     initialPrice: number;
 }
 
-interface AuctionState {
-    currentPrice: number;
-    highestBidders: BidderHistory[];
-    isFrozen: boolean;
-    isSyncing: boolean;
-    socketError: string | null;
-    isConnected: boolean;
-    isEnded: boolean; // ⚡ NEW: Indikator lelang selesai mutlak
-}
-
 export function useAuctionSocket({ auctionId, initialPrice }: UseAuctionSocketProps) {
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
-    const [auctionState, setAuctionState] = useState<AuctionState>({
+    const [auctionState, setAuctionState] = useState<AuctionRealtimeState>({
         currentPrice: initialPrice,
-        highestBidders: [],
+        topBidders: [],
+        recentHistory: [],
         isFrozen: true,
+        isOnCooldown: false,
         isSyncing: true,
         socketError: null,
         isConnected: false,
@@ -58,72 +43,77 @@ export function useAuctionSocket({ auctionId, initialPrice }: UseAuctionSocketPr
 
         // EVENT: Koneksi Berhasil
         socket.on('connect', () => {
-            setAuctionState(prev => ({ ...prev, isConnected: true }));
+            setAuctionState((prev: AuctionRealtimeState) => ({ ...prev, isConnected: true }));
             socket.emit('JOIN_AUCTION', { auctionId });
         });
 
         socket.on('disconnect', () => {
-            setAuctionState(prev => ({ ...prev, isConnected: false }));
+            setAuctionState((prev: AuctionRealtimeState) => ({ ...prev, isConnected: false }));
         });
 
-        // EVENT: Sinkronisasi awal
-        socket.on('SYNC_AUCTION_STATE', (payload: { currentPrice: number, winnerId: string, isFrozen: boolean }) => {
-            setAuctionState(prev => {
+        // EVENT: Sinkronisasi Awal
+        socket.on('SYNC_AUCTION_STATE', (payload: any) => {
+            setAuctionState((prev: AuctionRealtimeState) => {
                 const isUninitialized = payload.currentPrice === 0;
                 return {
                     ...prev,
                     currentPrice: isUninitialized ? prev.currentPrice : payload.currentPrice,
+                    topBidders: payload.topBidders || [],
+                    recentHistory: payload.recentHistory || [],
                     isFrozen: isUninitialized ? true : payload.isFrozen,
-                    isSyncing: isUninitialized
+                    isOnCooldown: payload.isOnCooldown || false,
+                    isSyncing: isUninitialized,
+                    socketError: null
                 };
             });
         });
 
-        // EVENT: Penawaran Tertinggi Baru
-        socket.on('NEW_HIGHEST_BID', (payload: { auctionId: string, newPrice: number, winnerId: string, timestamp: string }) => {
+        // EVENT: Update State Terkini (Broadcast)
+        socket.on('AUCTION_STATE_UPDATED', (payload: {
+            auctionId: string;
+            newPrice: number;
+            winnerId: string;
+            topBidders: BidderHistory[];
+            recentLog: BidderHistory;
+            timestamp: string;
+        }) => {
             if (payload.auctionId === auctionId) {
-                setAuctionState(prev => {
-                    const newBidder: BidderHistory = {
-                        userId: payload.winnerId,
-                        amount: payload.newPrice,
-                        timestamp: payload.timestamp
-                    };
-
-                    const updatedBidders = [newBidder, ...prev.highestBidders].slice(0, 10);
-
-                    return {
-                        ...prev,
-                        currentPrice: payload.newPrice,
-                        highestBidders: updatedBidders,
-                        isSyncing: false,
-                        isFrozen: false,
-                        socketError: null
-                    };
-                });
+                setAuctionState((prev: AuctionRealtimeState) => ({
+                    ...prev,
+                    currentPrice: payload.newPrice,
+                    topBidders: payload.topBidders,
+                    recentHistory: [payload.recentLog, ...prev.recentHistory].slice(0, 50),
+                    isSyncing: false,
+                    isFrozen: false,
+                    socketError: null
+                }));
             }
         });
 
-        // EVENT: Lelang Berakhir (Sinyal dari Worker Python / Backend Node)
+        // EVENT: Lelang Berakhir
         socket.on('AUCTION_ENDED', (payload: { auctionId: string, finalPrice: number, winnerId: string }) => {
             if (payload.auctionId === auctionId) {
-                setAuctionState(prev => ({
+                setAuctionState((prev: AuctionRealtimeState) => ({
                     ...prev,
                     isFrozen: true,
                     isEnded: true,
                     currentPrice: payload.finalPrice
                 }));
-                // Catatan: Redirect atau notifikasi pemenang bisa di-handle di komponen UI 
-                // dengan memonitor state isEnded ini.
             }
         });
 
-        // EVENT: Error / Penolakan Penawaran
+        // EVENT: Error Penawaran
         socket.on('BID_ERROR', (payload: { auctionId: string, message: string }) => {
             if (payload.auctionId === auctionId) {
-                setAuctionState(prev => ({ ...prev, socketError: payload.message }));
+                setAuctionState((prev: AuctionRealtimeState) => ({
+                    ...prev,
+                    socketError: payload.message,
+                    isOnCooldown: false
+                }));
+
                 setTimeout(() => {
-                    setAuctionState(prev => ({ ...prev, socketError: null }));
-                }, 3000);
+                    setAuctionState((prev: AuctionRealtimeState) => ({ ...prev, socketError: null }));
+                }, 3500);
             }
         });
 
@@ -135,26 +125,31 @@ export function useAuctionSocket({ auctionId, initialPrice }: UseAuctionSocketPr
         };
     }, [auctionId, isAuthenticated]);
 
-    // FUNGSI: Mengirim Penawaran
-    const submitBid = useCallback((expectedPrice: number, increment: number) => {
+    // FUNGSI: Mengirim Penawaran (Dynamic Bid)
+    const submitBid = useCallback((expectedPrice: number, minimumIncrement: number) => {
         if (!socketRef.current?.connected) {
-            setAuctionState(prev => ({ ...prev, socketError: 'Koneksi ke server terputus.' }));
+            setAuctionState((prev: AuctionRealtimeState) => ({ ...prev, socketError: 'Koneksi ke server terputus.' }));
             return;
         }
 
-        setAuctionState(prev => {
+        setAuctionState((prev: AuctionRealtimeState) => {
             if (prev.isSyncing) return { ...prev, socketError: 'Menunggu sinkronisasi node lelang...' };
             if (prev.isEnded) return { ...prev, socketError: 'Lelang telah ditutup permanen.' };
             if (prev.isFrozen) return { ...prev, socketError: 'Lelang memasuki masa tenang/evaluasi.' };
+            if (prev.isOnCooldown) return { ...prev, socketError: 'Anda menekan terlalu cepat. Tunggu sebentar.' };
 
             socketRef.current?.emit('SUBMIT_BID', {
                 auctionId,
                 expectedPrice,
-                increment
+                increment: minimumIncrement
             });
 
-            return prev;
+            return { ...prev, isOnCooldown: true };
         });
+
+        setTimeout(() => {
+            setAuctionState((prev: AuctionRealtimeState) => ({ ...prev, isOnCooldown: false }));
+        }, 5000);
 
     }, [auctionId]);
 

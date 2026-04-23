@@ -8,14 +8,14 @@ import {
     ShieldCheck,
     ChevronRight,
     Store as StoreIcon,
-    Activity, // Ditambahkan untuk icon lelang
+    Activity,
     Loader2
 } from 'lucide-react';
 import WishlistPreview from '@/components/dashboard/WishlistPreview';
 import RecommendedFeed from '@/components/dashboard/RecommendedFeed';
 import { StoreService } from "@/services/api/store.service";
-import { auctionService } from "@/services/api/auction.service"; // Service Lelang
-import AuctionCard from "@/components/ui/AuctionCard"; // Komponen Kartu Lelang
+import { auctionService } from "@/services/api/auction.service";
+import AuctionCard from "@/components/ui/AuctionCard";
 import { Auction } from "@/types/auction";
 import Link from 'next/link';
 
@@ -82,7 +82,7 @@ const VerifiedStores = () => {
     );
 };
 
-/** * COMPONENT: LIVE AUCTION HIGHLIGHT (NEW) */
+/** * COMPONENT: LIVE AUCTION HIGHLIGHT */
 const LiveAuctionHighlight = () => {
     const [auctions, setAuctions] = useState<Auction[]>([]);
     const [loading, setLoading] = useState(true);
@@ -90,15 +90,12 @@ const LiveAuctionHighlight = () => {
     useEffect(() => {
         const fetchAuctions = async () => {
             try {
-                // Fetch public auctions yang aktif atau dijadwalkan
-                const res: any = await auctionService.getPublicAuctions({
-                    limit: 4,
-                    status: 'ACTIVE' // Prioritaskan yang sedang live
-                });
+                const res: any = await auctionService.getMarketAuctions(1, 4);
 
-                // Gunakan robust extraction (handling Axios Interceptor)
-                const payload = res.success !== undefined ? res : res.data;
-                const auctionData = Array.isArray(payload?.data) ? payload.data : [];
+                // ⚡ PERBAIKAN LOGICAL: Robust Extraction Pattern
+                // Mengatasi inkonsistensi layer dari Axios Interceptors
+                // Cek apakah array lelang ada di res.data.auctions, res.auctions, atau res.data.data.auctions
+                const auctionData = res?.data?.auctions || res?.auctions || res?.data?.data?.auctions || [];
 
                 setAuctions(auctionData);
             } catch (error) {
@@ -119,7 +116,6 @@ const LiveAuctionHighlight = () => {
         );
     }
 
-    // Jika tidak ada lelang aktif, sembunyikan section ini atau tampilkan pesan kosong
     if (auctions.length === 0) return null;
 
     return (
@@ -128,7 +124,7 @@ const LiveAuctionHighlight = () => {
                 <div>
                     <div className="flex items-center gap-2 mb-2">
                         <Activity size={16} className="text-[#ef3333] animate-pulse" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ef3333]">Live Bidding</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ef3333]">Event Toko</span>
                     </div>
                     <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic">
                         Auction <span className="text-zinc-500">Arena</span>
@@ -139,7 +135,6 @@ const LiveAuctionHighlight = () => {
                 </Link>
             </div>
 
-            {/* Grid Kartu Lelang (Disesuaikan tinggi agar uniform) */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 auto-rows-fr">
                 {auctions.map((auction) => (
                     <div key={auction.id} className="h-[450px]">
@@ -164,7 +159,7 @@ export default function BuyerDashboard() {
                 {/* 1. VERIFIED STORES */}
                 <VerifiedStores />
 
-                {/* 2. LIVE AUCTIONS (NEW SECTION) */}
+                {/* 2. LIVE AUCTIONS */}
                 <LiveAuctionHighlight />
 
                 {/* 3. MAIN CONTENT AREA (Market Highlights) */}

@@ -1,5 +1,3 @@
-// Impor Product dihapus karena entitas Lelang kini berdiri secara independen (Decoupled)
-
 // Disesuaikan dengan ENUM di backend PostgreSQL
 export type AuctionStatus =
     | 'DRAFT'
@@ -12,7 +10,7 @@ export type AuctionStatus =
     | 'FAILED'
     | 'CANCELLED';
 
-// Interface baru untuk menangani relasi galeri media lelang
+// Interface untuk menangani relasi galeri media lelang
 export interface AuctionMedia {
     id?: string;
     auction_id?: string;
@@ -22,28 +20,58 @@ export interface AuctionMedia {
     updated_at?: string;
 }
 
+// ⚡ BARU: Kontrak untuk History Transaksi Bid (List Redis) & Leaderboard (ZSET Redis)
+export interface BidderHistory {
+    userId: string;
+    amount: number;
+    timestamp: string;
+    isWinner?: boolean;
+}
+
+// ⚡ BARU: Kontrak State Websocket Murni (Single Source of Truth)
+export interface AuctionRealtimeState {
+    currentPrice: number;
+    topBidders: BidderHistory[];
+    recentHistory: BidderHistory[];
+    isFrozen: boolean;
+    isOnCooldown: boolean;
+    isSyncing: boolean;
+    socketError: string | null;
+    isConnected: boolean;
+    isEnded: boolean;
+}
+
 export interface Auction {
     id: string;
-    store_id: string; // Menggantikan product_id dan merepresentasikan kepemilikan toko
+    store_id: string;
     item_name: string;
     description: string;
     condition: 'NEW' | 'USED';
 
-    // Atribut fisik & logistik (Krusial untuk worker/order kalkulasi ongkir)
+    // Atribut fisik & logistik
     weight: number;
     length: number;
     width: number;
     height: number;
 
     winner_id?: string;
-    start_price?: number; // Opsional di response, namun berguna untuk komputasi frontend
-    increment: number;
+    start_price?: number;
+    increment: number; // ⚡ SEMANTIK BARU: Bare Minimum Increment
     current_price: number;
     start_time: string;
     end_time: string;
     status: AuctionStatus;
 
-    media: AuctionMedia[]; // Inject relasi galeri media
+    media: AuctionMedia[];
+
+    // Eager loading data Toko (Opsional untuk Buyer Dashboard)
+    store?: {
+        id: string;
+        store_name: string;
+        city?: string;
+        province?: string;
+        description?: string;
+    };
 
     created_at?: string;
     updated_at?: string;
@@ -57,11 +85,6 @@ export interface AuctionBid {
     created_at: string;
 }
 
-/**
- * Interface ini mendeskripsikan state formulir pembuatan lelang di sisi Frontend.
- * Catatan: Saat mengirim ke API, objek ini HARUS dikonversi menjadi FormData 
- * karena properti 'photos' mengandung berkas fisik (File[]).
- */
 export interface CreateAuctionFormState {
     item_name: string;
     description: string;
@@ -74,5 +97,5 @@ export interface CreateAuctionFormState {
     increment: number;
     start_time: string;
     end_time: string;
-    photos: File[]; // Akan di-append ke dalam FormData
+    photos: File[];
 }

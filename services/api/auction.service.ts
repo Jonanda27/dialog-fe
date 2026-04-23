@@ -2,9 +2,17 @@ import axiosClient from './axiosClient';
 import { ApiResponse } from '@/types/api';
 import { Auction } from '@/types/auction';
 
+// Interface spesifik untuk respons paginasi dari market
+export interface MarketAuctionsResponse {
+    totalItems: number;
+    totalPages: number;
+    currentPage: number;
+    auctions: Auction[];
+}
+
 export const auctionService = {
     // ==========================================
-    // SELLER ENDPOINTS (RESTRICTED)
+    // SELLER ENDPOINTS (RESTRICTED TO STORE OWNER)
     // ==========================================
 
     /**
@@ -43,24 +51,29 @@ export const auctionService = {
 
 
     // ==========================================
-    // BUYER / PUBLIC ENDPOINTS (NEW)
+    // BUYER / PUBLIC ENDPOINTS (DECOUPLED)
     // ==========================================
 
     /**
-     * Mengambil daftar lelang untuk katalog publik pembeli.
-     * @param params Parameter query opsional (contoh: { status: 'ACTIVE', limit: 10 })
+     * ⚡ BARU: Mengambil daftar lelang aktif & terjadwal untuk Dashboard Buyer.
+     * Menembak endpoint publik /market dengan dukungan paginasi limit/offset.
+     * @param page Nomor halaman saat ini
+     * @param limit Batas data per halaman
      */
-    getPublicAuctions: async (params?: Record<string, any>): Promise<ApiResponse<Auction[]>> => {
-        const response = await axiosClient.get('/v1/auctions', { params });
+    getMarketAuctions: async (page: number = 1, limit: number = 12): Promise<ApiResponse<MarketAuctionsResponse>> => {
+        const response = await axiosClient.get('/v1/auctions/market', {
+            params: { page, limit }
+        });
         return response.data;
     },
 
     /**
-     * Mengambil detail spesifik dari sebuah lelang (digunakan pada halaman The Arena / Detail Lelang).
+     * ⚡ BARU: Mengambil meta-data statis spesifik dari sebuah lelang 
+     * (Digunakan untuk Server-Side Rendering (SSR) pada halaman Detail Lelang).
      * @param id UUID dari lelang
      */
-    getAuctionById: async (id: string): Promise<ApiResponse<Auction>> => {
-        const response = await axiosClient.get(`/v1/auctions/${id}`);
+    getPublicAuctionDetail: async (id: string): Promise<ApiResponse<Auction>> => {
+        const response = await axiosClient.get(`/v1/auctions/market/${id}`);
         return response.data;
     }
 };
