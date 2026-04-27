@@ -1,4 +1,4 @@
-// File: dialog-fe/types/dispute.ts
+// types/dispute.ts
 
 import { Order } from './order';
 import { User } from './auth';
@@ -6,12 +6,20 @@ import { Store } from './store';
 
 /**
  * Literal Type untuk status sengketa
- * Ditambahkan 'returning' untuk alur retur barang oleh buyer
+ * ⚡ PERBAIKAN: Disinkronkan penuh dengan ENUM PostgreSQL di Backend
+ * Termasuk penambahan status SLA dan kegagalan finansial.
  */
-export type DisputeStatus = 'open' | 'returning' | 'resolved';
+export type DisputeStatus =
+    | 'open'
+    | 'returning'
+    | 'arrived_at_seller'
+    | 'mediation'
+    | 'escalated'
+    | 'resolved'
+    | 'refund_failed';
 
 /**
- * Keputusan final dari Admin
+ * Keputusan final dari Admin atau Otomatisasi Sistem
  */
 export type ResolutionType = 'refund_full' | 'reject_buyer' | 'refund_partial';
 
@@ -30,14 +38,25 @@ export interface Dispute {
     store_id: string;
     reason: string;
     status: DisputeStatus;
-    return_tracking_number?: string | null; // ⚡ Kolom baru untuk resi retur
+
+    // ⚡ Pilar Data Logistik Retur
+    return_tracking_number?: string | null;
+    return_courier?: string | null; // Kolom baru untuk mencegah blindspot API Kurir
+
     admin_decision_notes?: string | null;
+
+    // ⚡ Pilar SLA Timestamps (Waktu Absolut untuk perhitungan Countdown UI)
+    accepted_at?: string | null;
+    resi_submitted_at?: string | null;
+    arrived_at?: string | null;
+    mediation_start_at?: string | null;
+
     createdAt: string;
     updated_at: string;
 
-    // Relasi Opsional
+    // Relasi Opsional (Eager Loading dari BE)
     order?: Order;
-    buyer?: Pick<User, 'id' | 'email'> & { name?: string; full_name?: string }; 
+    buyer?: Pick<User, 'id' | 'email'> & { name?: string; full_name?: string };
     store?: Pick<Store, 'id' | 'name'>;
     media?: DisputeMedia[];
 }
@@ -45,18 +64,20 @@ export interface Dispute {
 export interface OpenDisputePayload {
     order_id: string;
     reason: string;
-    evidences?: File[]; 
+    evidences?: File[];
 }
 
 /**
- * ⚡ Payload baru untuk alur pengembalian
+ * ⚡ Payload alur pengembalian
+ * Ditambahkan field courier agar sejalan dengan modifikasi di sisi backend
  */
 export interface SubmitReturnResiPayload {
     tracking_number: string;
+    courier: string;
 }
 
 export interface ResolveDisputePayload {
     resolution_type: ResolutionType;
     admin_notes: string;
-    refund_amount?: number; 
+    refund_amount?: number;
 }

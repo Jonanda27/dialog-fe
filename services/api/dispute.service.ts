@@ -32,7 +32,7 @@ export const DisputeService = {
 
     /**
      * ⚡ [SELLER] Menyetujui pengembalian barang.
-     * Mengubah status dispute menjadi 'returning'.
+     * Mengubah status dispute menjadi 'returning' dan mencatat accepted_at (SLA).
      */
     acceptReturn: async (disputeId: string): Promise<ApiResponse<Dispute>> => {
         return await axiosClient.patch<any, ApiResponse<Dispute>>(`/disputes/${disputeId}/accept-return`);
@@ -40,6 +40,7 @@ export const DisputeService = {
 
     /**
      * ⚡ [BUYER] Memasukkan nomor resi pengembalian barang ke Seller.
+     * Payload kini mewajibkan { tracking_number, courier } sesuai kontrak Fase 1.
      */
     submitReturnResi: async (disputeId: string, payload: SubmitReturnResiPayload): Promise<ApiResponse<Dispute>> => {
         return await axiosClient.patch<any, ApiResponse<Dispute>>(`/disputes/${disputeId}/submit-return-resi`, payload);
@@ -50,10 +51,16 @@ export const DisputeService = {
     },
 
     resolveDispute: async (disputeId: string, payload: ResolveDisputePayload): Promise<ApiResponse<Dispute>> => {
-        return await axiosClient.patch<any, ApiResponse<Dispute>>(`/api/auth/disputes/${disputeId}/resolve`, payload);
+        // ⚡ PERBAIKAN URL: Disesuaikan dengan standar routing backend 
+        // (Menghilangkan /api/auth/ yang berpotensi konflik dengan base URL instance Axios)
+        return await axiosClient.patch<any, ApiResponse<Dispute>>(`/disputes/${disputeId}/resolve`, payload);
     },
-    
+
+    /**
+     * ⚡ [SELLER / ADMIN] Konfirmasi barang retur sudah diterima.
+     * Akan memicu skenario refund penuh otomatis di sisi Backend.
+     */
     confirmReturnReceived: async (disputeId: string): Promise<ApiResponse<Dispute>> => {
-    return await axiosClient.patch<any, ApiResponse<Dispute>>(`/disputes/${disputeId}/confirm-return`);
-},
+        return await axiosClient.patch<any, ApiResponse<Dispute>>(`/disputes/${disputeId}/confirm-return`);
+    },
 };
