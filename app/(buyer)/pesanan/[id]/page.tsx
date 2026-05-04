@@ -3,24 +3,41 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { AlertCircle } from 'lucide-react';
+
 import { useOrderStore } from '@/store/orderStore';
+import { useDisputeStore } from '@/store/disputeStore'; // ⚡ BARU: Import store dispute
 import { OrderStatus } from '@/types/order';
+
+// ⚡ BARU: Import komponen UI/UX untuk SLA dan Logistik
+import DisputeSLATracker from '@/components/order/DisputeSLATracker';
+import SubmitResiModal from '@/components/order/SubmitResiModal';
 
 export default function DetailPesananPage() {
     const params = useParams();
     const router = useRouter();
     const orderId = params.id as string;
 
-    const { currentOrder: order, isLoading, isSubmitting, error, fetchOrderById, completeOrder } = useOrderStore();
+    const { currentOrder: order, isLoading: isOrderLoading, isSubmitting, error, fetchOrderById, completeOrder } = useOrderStore();
+
+    // ⚡ BARU: State dan Actions dari Dispute Store
+    const { myDisputes, fetchMyDisputes } = useDisputeStore();
+    const [isResiModalOpen, setIsResiModalOpen] = useState(false);
+
     const [actionError, setActionError] = useState<string | null>(null);
 
     useEffect(() => {
         if (orderId) {
             fetchOrderById(orderId);
+            // Fetch daftar komplain untuk menemukan apakah pesanan ini sedang disengketakan
+            fetchMyDisputes();
         }
-    }, [orderId, fetchOrderById]);
+    }, [orderId, fetchOrderById, fetchMyDisputes]);
 
-    if (isLoading || !order) {
+    // Cari data komplain aktif yang terkait dengan pesanan ini
+    const activeDispute = myDisputes.find(d => d.order_id === orderId);
+
+    if (isOrderLoading || !order) {
         return (
             <div className="min-h-screen bg-gray-50 flex justify-center items-center">
                 <span className="text-gray-500 font-semibold animate-pulse">Memuat detail pesanan...</span>
@@ -61,7 +78,7 @@ export default function DetailPesananPage() {
         }
     };
 
-    // Logika Status untuk Tracker
+    // Logika Status untuk Tracker Reguler
     const orderStatuses: OrderStatus[] = ['pending_payment', 'paid', 'processing', 'shipped', 'completed'];
     const currentStatusIndex = orderStatuses.indexOf(order.status === 'delivered' ? 'shipped' : order.status);
 
@@ -74,14 +91,14 @@ export default function DetailPesananPage() {
                     &larr; Kembali ke Daftar Pesanan
                 </Link>
 
-                <div className="bg-white border border-gray-200 p-6 md:p-8 mb-6">
+                <div className="bg-white border border-gray-200 p-6 md:p-8 mb-6 rounded-2xl shadow-sm">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-gray-200 pb-6 mb-6 gap-4">
                         <div>
                             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Detail Pesanan</h1>
                             <p className="text-sm text-gray-500 mt-1 font-mono">ID: {order.id}</p>
                         </div>
                         {order.status === 'pending_payment' && (
-                            <Link href={`/pembayaran/${order.id}`} className="bg-black text-white px-6 py-2 text-sm font-bold uppercase tracking-widest">
+                            <Link href={`/pembayaran/${order.id}`} className="bg-black text-white px-6 py-2 text-sm font-bold uppercase tracking-widest rounded-xl hover:bg-gray-800 transition-colors">
                                 Bayar Sekarang
                             </Link>
                         )}
@@ -91,7 +108,6 @@ export default function DetailPesananPage() {
                     <div className="mb-10">
                         <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-6">Status Pengiriman</h3>
                         <div className="relative">
-                            {/* Garis background tracker */}
                             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-gray-200 z-0 hidden sm:block"></div>
 
                             <div className="relative z-10 flex flex-col sm:flex-row justify-between gap-6 sm:gap-0">
@@ -116,12 +132,59 @@ export default function DetailPesananPage() {
 
                         {/* Info Resi */}
                         {order.tracking_number && (
-                            <div className="mt-8 bg-gray-50 border border-gray-200 p-4">
+                            <div className="mt-8 bg-gray-50 border border-gray-200 p-4 rounded-xl">
                                 <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Nomor Resi Pengiriman</span>
                                 <p className="text-lg font-mono font-bold text-gray-900 mt-1">{order.tracking_number}</p>
                             </div>
                         )}
                     </div>
+
+                    {/* ========================================================= */}
+                    {/* ⚡ INJEKSI FASE 4: TRACKER SLA & FORM RESI SENGKETA (DISPUTE) */}
+                    {/* ========================================================= */}
+                    {order.status === 'disputed' && activeDispute && (
+                        <div className="mb-10 p-6 bg-orange-50/50 border border-orange-200 rounded-2xl animate-in fade-in duration-500">
+                            <h3 className="text-sm font-black text-orange-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <AlertCircle size={18} /> Resolusi Sengketa Pesanan
+                            </h3>
+
+                            {/* Komponen Real-time Countdown Timer (FASE 3) */}
+                            <DisputeSLATracker dispute={activeDispute} />
+
+                            {/* Tombol Input Resi Muncul Jika Status "returning" dan Resi Belum Ada */}
+                            {activeDispute.status === 'returning' && !activeDispute.return_tracking_number && (
+                                <div className="mt-6 flex justify-end">
+                                    <button
+                                        onClick={() => setIsResiModalOpen(true)}
+                                        className="bg-black text-white px-8 py-4 text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-all rounded-xl shadow-[0_10px_20px_rgba(0,0,0,0.1)] hover:shadow-none hover:translate-y-1"
+                                    >
+                                        Kirim Bukti Resi Retur
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Tampilan Bukti Resi Retur Jika Sudah Diinput */}
+                            {activeDispute.return_tracking_number && (
+                                <div className="mt-6 bg-white border border-orange-200 p-5 rounded-xl shadow-sm">
+                                    <span className="text-[10px] text-orange-600 uppercase font-black tracking-widest">
+                                        Resi Pengembalian ({activeDispute.return_courier?.toUpperCase() || 'KURIR'})
+                                    </span>
+                                    <p className="text-xl font-mono font-bold text-gray-900 mt-1">{activeDispute.return_tracking_number}</p>
+                                    <p className="text-xs text-gray-500 mt-2 font-medium">
+                                        Paket retur sedang dilacak oleh sistem. Dana akan dicairkan setelah Penjual mengonfirmasi penerimaan barang.
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Modal Pilih Kurir & Input Resi (FASE 3) */}
+                            <SubmitResiModal
+                                isOpen={isResiModalOpen}
+                                onClose={() => setIsResiModalOpen(false)}
+                                disputeId={activeDispute.id}
+                            />
+                        </div>
+                    )}
+                    {/* ========================================================= */}
 
                     {/* Detail Barang */}
                     <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">Daftar Produk</h3>
@@ -132,7 +195,7 @@ export default function DetailPesananPage() {
                                     <h4 className="font-bold text-gray-900">{item.product?.name || 'Produk ID: ' + item.product_id}</h4>
                                     <div className="flex gap-2 items-center mt-1">
                                         <span className="text-xs text-gray-500">{item.qty} x {formatCurrency(Number(item.price_at_purchase))}</span>
-                                        <span className="bg-black text-white text-[10px] px-1.5 py-0.5 font-bold uppercase tracking-wider">
+                                        <span className="bg-black text-white text-[10px] px-1.5 py-0.5 font-bold uppercase tracking-wider rounded-sm">
                                             Cond: {item.grading_at_purchase || 'N/A'}
                                         </span>
                                     </div>
@@ -148,14 +211,14 @@ export default function DetailPesananPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-gray-200 pt-6">
                         <div>
                             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">Alamat Pengiriman</h3>
-                            <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap bg-gray-50 p-4 border border-gray-200 min-h-25">
+                            <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap bg-gray-50 p-4 border border-gray-200 rounded-xl min-h-[120px]">
                                 {order.shipping_address}
                             </p>
                         </div>
 
                         <div>
                             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">Rincian Pembayaran</h3>
-                            <div className="bg-gray-50 p-4 border border-gray-200 space-y-2 text-sm">
+                            <div className="bg-gray-50 p-5 border border-gray-200 space-y-3 text-sm rounded-xl">
                                 <div className="flex justify-between text-gray-600">
                                     <span>Subtotal Produk</span>
                                     <span>{formatCurrency(Number(order.subtotal))}</span>
@@ -170,7 +233,7 @@ export default function DetailPesananPage() {
                                         <span>{formatCurrency(Number(order.grading_fee))}</span>
                                     </div>
                                 )}
-                                <div className="flex justify-between border-t border-gray-300 mt-2 pt-2">
+                                <div className="flex justify-between border-t border-gray-300 mt-3 pt-3">
                                     <span className="font-bold text-gray-900">Total Transaksi</span>
                                     <span className="font-extrabold text-gray-900 text-base">{formatCurrency(Number(order.grand_total))}</span>
                                 </div>
@@ -181,7 +244,7 @@ export default function DetailPesananPage() {
                     {/* ACTION AREA: Penyelesaian Pesanan & Review */}
                     <div className="mt-10 border-t border-gray-200 pt-6 flex flex-col items-end">
                         {actionError && (
-                            <div className="mb-4 text-sm font-semibold text-red-600 bg-red-50 p-3 border border-red-200 w-full text-center">
+                            <div className="mb-4 text-sm font-semibold text-red-600 bg-red-50 p-3 border border-red-200 rounded-xl w-full text-center">
                                 {actionError}
                             </div>
                         )}
@@ -195,23 +258,23 @@ export default function DetailPesananPage() {
                                 <button
                                     onClick={handleSelesaikanPesanan}
                                     disabled={isSubmitting}
-                                    className="w-full md:w-auto bg-black text-white px-8 py-3 text-sm font-bold uppercase tracking-widest hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                                    className="w-full md:w-auto bg-black text-white px-8 py-3 text-sm font-bold uppercase tracking-widest rounded-xl hover:bg-gray-800 disabled:opacity-50 transition-colors"
                                 >
                                     {isSubmitting ? 'Memproses...' : 'Pesanan Diterima'}
                                 </button>
                             </div>
                         )}
 
-                        {/* Jika barang sudah selesai, berikan tombol untuk Ulasan (Persiapan Fase Review) */}
+                        {/* Jika barang sudah selesai, berikan tombol untuk Ulasan */}
                         {order.status === 'completed' && (
-                            <div className="w-full flex justify-between items-center bg-gray-50 p-4 border border-gray-200">
+                            <div className="w-full flex justify-between items-center bg-gray-50 p-5 border border-gray-200 rounded-xl">
                                 <div className="text-sm">
                                     <span className="font-bold text-gray-900 block">Transaksi Selesai</span>
                                     <span className="text-gray-500">Dana telah diteruskan ke penjual. Terima kasih!</span>
                                 </div>
                                 <button
                                     onClick={() => alert('Fitur Form Ulasan (Review) akan dibuka pada tahap selanjutnya.')}
-                                    className="border border-black bg-white text-black px-6 py-2 text-xs font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-colors"
+                                    className="border border-black bg-white text-black px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-lg hover:bg-black hover:text-white transition-colors"
                                 >
                                     Beri Ulasan
                                 </button>

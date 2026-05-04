@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Timer, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { Timer, AlertCircle, Clock } from 'lucide-react';
 import { Dispute } from '@/types/dispute';
 
 interface DisputeSLATrackerProps {
@@ -12,15 +12,21 @@ interface DisputeSLATrackerProps {
 export default function DisputeSLATracker({ dispute }: DisputeSLATrackerProps) {
     const [timeLeft, setTimeLeft] = useState<{ hours: number; minutes: number; seconds: number } | null>(null);
     const [isExpired, setIsExpired] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
 
-    // Menentukan Deadline berdasarkan status saat ini
+    // Mencegah Hydration Mismatch pada Next.js (karena waktu di server vs client bisa selisih ms)
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    // Menentukan Deadline berdasarkan status saat ini secara dinamis
     const slaConfig = useMemo(() => {
         // CASE 1: Pembeli harus input resi (3x24 jam dari accepted_at)
         if (dispute.status === 'returning' && !dispute.return_tracking_number && dispute.accepted_at) {
             return {
                 title: 'Batas Waktu Input Resi',
                 startTime: new Date(dispute.accepted_at).getTime(),
-                durationHours: 72, // 3 Hari
+                durationHours: 72, // SLA 3 Hari
                 description: 'Segera kirim barang dan masukkan nomor resi sebelum waktu habis, atau komplain akan dibatalkan otomatis.',
                 color: 'text-orange-500',
                 bgColor: 'bg-orange-500/10',
@@ -33,7 +39,7 @@ export default function DisputeSLATracker({ dispute }: DisputeSLATrackerProps) {
             return {
                 title: 'Batas Konfirmasi Penerimaan',
                 startTime: new Date(dispute.arrived_at).getTime(),
-                durationHours: 48, // 2 Hari
+                durationHours: 48, // SLA 2 Hari
                 description: 'Sistem akan melakukan refund otomatis jika penjual tidak melakukan konfirmasi dalam batas waktu ini.',
                 color: 'text-blue-500',
                 bgColor: 'bg-blue-500/10',
@@ -48,7 +54,7 @@ export default function DisputeSLATracker({ dispute }: DisputeSLATrackerProps) {
         if (!slaConfig) return;
 
         const calculateTimeLeft = () => {
-            const deadline = slaConfig.startTime + slaConfig.durationHours * 60 * 60 * 1000;
+            const deadline = slaConfig.startTime + (slaConfig.durationHours * 60 * 60 * 1000);
             const now = new Date().getTime();
             const difference = deadline - now;
 
@@ -65,15 +71,19 @@ export default function DisputeSLATracker({ dispute }: DisputeSLATrackerProps) {
             });
         };
 
+        // Eksekusi pertama kali langsung
         calculateTimeLeft();
+
+        // Interval setiap 1 detik
         const timer = setInterval(calculateTimeLeft, 1000);
 
         return () => clearInterval(timer);
     }, [slaConfig]);
 
-    if (!slaConfig) return null;
+    // Jangan render apa pun jika tidak ada SLA yang sedang aktif atau belum mounted
+    if (!isMounted || !slaConfig) return null;
 
-    // Hitung persentase progress bar
+    // Hitung persentase progress bar (0% - 100%)
     const progress = timeLeft ? Math.max(0, Math.min(100,
         ((timeLeft.hours * 3600 + timeLeft.minutes * 60 + timeLeft.seconds) / (slaConfig.durationHours * 3600)) * 100
     )) : 0;
@@ -83,21 +93,23 @@ export default function DisputeSLATracker({ dispute }: DisputeSLATrackerProps) {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-start gap-3">
                     <div className={`p-2 rounded-full bg-zinc-900/50 ${slaConfig.color}`}>
-                        {isExpired ? <AlertCircle size={20} /> : <Timer size={20} className="animate-pulse" />}
+                        {isExpired ? <AlertCircle size={20} /> : <Timer size={20} className={progress > 0 ? "animate-pulse" : ""} />}
                     </div>
                     <div>
                         <h4 className={`text-sm font-black uppercase tracking-widest ${slaConfig.color}`}>
                             {slaConfig.title}
                         </h4>
                         <p className="text-xs text-zinc-400 mt-1 max-w-md leading-relaxed font-medium">
-                            {slaConfig.description}
+                            {isExpired
+                                ? 'Waktu telah habis. Sistem (Worker) sedang memproses keputusan otomatis.'
+                                : slaConfig.description}
                         </p>
                     </div>
                 </div>
 
                 <div className="flex flex-col items-end">
                     {timeLeft && (
-                        <div className="flex items-center gap-2 font-mono text-xl font-black text-white tracking-tighter">
+                        <div className={`flex items-center gap-2 font-mono text-xl font-black tracking-tighter ${isExpired ? 'text-red-500' : 'text-white'}`}>
                             <div className="bg-zinc-900 px-2 py-1 rounded-lg border border-zinc-800">
                                 {String(timeLeft.hours).padStart(2, '0')}h
                             </div>
@@ -111,7 +123,9 @@ export default function DisputeSLATracker({ dispute }: DisputeSLATrackerProps) {
                             </div>
                         </div>
                     )}
-                    <span className="text-[10px] uppercase font-bold text-zinc-500 mt-2 tracking-widest">Waktu Tersisa</span>
+                    <span className="text-[10px] uppercase font-bold text-zinc-500 mt-2 tracking-widest">
+                        {isExpired ? 'Kedaluwarsa' : 'Waktu Tersisa'}
+                    </span>
                 </div>
             </div>
 

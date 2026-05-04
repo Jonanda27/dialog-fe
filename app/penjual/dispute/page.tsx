@@ -1,14 +1,15 @@
+// app/penjual/dispute/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { Dispute, DisputeStatus } from '@/types/dispute';
-import { 
-    AlertTriangle, 
-    Package, 
-    Calendar, 
-    User as UserIcon, 
-    ExternalLink, 
-    Eye, 
+import {
+    AlertTriangle,
+    Package,
+    Calendar,
+    User as UserIcon,
+    ExternalLink,
+    Eye,
     MessageSquare,
     CheckCircle2,
     Clock,
@@ -16,7 +17,8 @@ import {
     PlayCircle,
     ArrowRight,
     RefreshCcw,
-    CheckSquare // Icon tambahan untuk konfirmasi
+    CheckSquare,
+    Truck
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
@@ -25,12 +27,16 @@ import { DisputeService } from '@/services/api/dispute.service';
 import { useAuthStore } from "@/store/authStore";
 import { toast } from 'sonner';
 
+// ⚡ IMPORT SLA TRACKER (FASE 3)
+import DisputeSLATracker from '@/components/order/DisputeSLATracker';
+
 export default function SellerDisputePage() {
     const { user } = useAuthStore();
-    
+
     const [disputes, setDisputes] = useState<Dispute[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [processingId, setProcessingId] = useState<string | null>(null); // State untuk loading per item
+    const [processingId, setProcessingId] = useState<string | null>(null);
+    // ⚡ UPDATE FILTER: Tambahkan arrived_at_seller dan refund_failed
     const [filter, setFilter] = useState<DisputeStatus | 'all'>('all');
 
     const fetchDisputes = async () => {
@@ -54,7 +60,7 @@ export default function SellerDisputePage() {
         }
     }, [user?.id]);
 
-    const filteredDisputes = disputes.filter(d => 
+    const filteredDisputes = disputes.filter(d =>
         filter === 'all' ? true : d.status === filter
     );
 
@@ -63,18 +69,32 @@ export default function SellerDisputePage() {
         return /\.(mp4|webm|ogg|mov|avi)$/i.test(url);
     };
 
-    /**
-     * HANDLER: Memanggil Service acceptReturn
-     * Digunakan saat status masih 'open'
-     */
+    // Helper untuk Dynamic Styling Status (Ditingkatkan)
+    const getStatusUI = (status: string) => {
+        switch (status) {
+            case 'open':
+                return { label: 'Investigasi Berlangsung', color: 'orange', icon: <Clock size={24} /> };
+            case 'returning':
+                return { label: 'Menunggu Retur Pembeli', color: 'blue', icon: <Truck size={24} /> };
+            case 'arrived_at_seller':
+                return { label: 'Barang Tiba (Cek & Konfirmasi)', color: 'purple', icon: <Package size={24} /> };
+            case 'resolved':
+                return { label: 'Sengketa Selesai', color: 'green', icon: <CheckCircle2 size={24} /> };
+            case 'refund_failed':
+                return { label: 'Refund Gagal (Butuh Manual)', color: 'red', icon: <AlertTriangle size={24} /> };
+            default:
+                return { label: status, color: 'zinc', icon: <Clock size={24} /> };
+        }
+    };
+
     const handleLanjutkanProses = async (disputeId: string) => {
         setProcessingId(disputeId);
         try {
             const response = await DisputeService.acceptReturn(disputeId);
-            
+
             if (response.success) {
                 toast.success("Permintaan retur disetujui. Menunggu pembeli mengirim barang.");
-                await fetchDisputes(); // Refresh data dari server
+                await fetchDisputes();
             }
         } catch (error: any) {
             console.error("Gagal menyetujui retur:", error);
@@ -84,10 +104,6 @@ export default function SellerDisputePage() {
         }
     };
 
-    /**
-     * ⚡ HANDLER BARU: Memanggil Service confirmReturnReceived
-     * Digunakan saat status 'returning' dan resi sudah ada
-     */
     const handleKonfirmasiPenerimaan = async (disputeId: string) => {
         const confirmed = window.confirm(
             "Apakah Anda yakin sudah menerima barang retur dengan baik? \n\nAksi ini akan memicu pengembalian dana (Refund) otomatis ke pembeli."
@@ -98,10 +114,10 @@ export default function SellerDisputePage() {
         setProcessingId(disputeId);
         try {
             const response = await DisputeService.confirmReturnReceived(disputeId);
-            
+
             if (response.success) {
                 toast.success("Barang diterima. Dana telah dikembalikan ke pembeli dan pesanan dibatalkan.");
-                await fetchDisputes(); // Refresh data
+                await fetchDisputes();
             }
         } catch (error: any) {
             console.error("Gagal konfirmasi penerimaan:", error);
@@ -133,19 +149,21 @@ export default function SellerDisputePage() {
                     </p>
                 </div>
 
-                {/* Filter Tabs */}
+                {/* Filter Tabs (Diperbarui) */}
                 <div className="flex gap-2 mb-8 border-b border-zinc-800 pb-4 overflow-x-auto no-scrollbar">
-                    {(['all', 'open', 'returning', 'resolved'] as const).map((s) => (
+                    {(['all', 'open', 'returning', 'arrived_at_seller', 'resolved'] as const).map((s) => (
                         <button
                             key={s}
                             onClick={() => setFilter(s)}
-                            className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap ${
-                                filter === s
+                            className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap ${filter === s
                                     ? 'bg-[#ef3333] text-white shadow-[0_0_15px_rgba(239,51,51,0.3)]'
                                     : 'bg-zinc-900 text-zinc-500 hover:text-white border border-zinc-800'
-                            }`}
+                                }`}
                         >
-                            {s === 'all' ? 'Semua' : s === 'open' ? 'Berjalan' : s === 'returning' ? 'Proses Retur' : 'Selesai'}
+                            {s === 'all' ? 'Semua' :
+                                s === 'open' ? 'Berjalan' :
+                                    s === 'returning' ? 'Dikirim Pembeli' :
+                                        s === 'arrived_at_seller' ? 'Tiba di Toko' : 'Selesai'}
                         </button>
                     ))}
                 </div>
@@ -154,186 +172,185 @@ export default function SellerDisputePage() {
                 {isLoading ? (
                     <div className="space-y-4">
                         {[1, 2, 3].map((i) => (
-                            <div key={i} className="h-44 bg-zinc-900/50 rounded-[2rem] animate-pulse border border-zinc-800" />
+                            <div key={i} className="h-44 bg-zinc-900/50 rounded-4xl animate-pulse border border-zinc-800" />
                         ))}
                     </div>
                 ) : filteredDisputes.length > 0 ? (
                     <div className="grid gap-6">
-                        {filteredDisputes.map((item) => (
-                            <div 
-                                key={item.id} 
-                                className="bg-[#111114] border border-zinc-800 rounded-[2.5rem] p-8 hover:border-zinc-700 transition-all group"
-                            >
-                                <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className={`p-3 rounded-2xl ${
-                                            item.status === 'open' ? 'bg-orange-500/10 text-orange-500' : 
-                                            item.status === 'returning' ? 'bg-blue-500/10 text-blue-500' :
-                                            'bg-green-500/10 text-green-500'
-                                        }`}>
-                                            {item.status === 'open' ? <Clock size={24} /> : <CheckCircle2 size={24} />}
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">ID Sengketa</span>
-                                                <span className="text-xs font-mono text-zinc-300">#{item.id.substring(0, 8).toUpperCase()}</span>
-                                            </div>
-                                            <h3 className="text-lg font-black text-white uppercase tracking-tight mt-0.5">
-                                                {item.status === 'open' ? 'Investigasi Berlangsung' : 
-                                                 item.status === 'returning' ? 'Menunggu Pengembalian Barang' :
-                                                 'Sengketa Selesai'}
-                                            </h3>
-                                        </div>
-                                    </div>
-                                    <div className={`px-4 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest ${
-                                        item.status === 'open' 
-                                        ? 'border-orange-500/30 text-orange-500 bg-orange-500/5' 
-                                        : item.status === 'returning'
-                                        ? 'border-blue-500/30 text-blue-500 bg-blue-500/5'
-                                        : 'border-green-500/30 text-green-500 bg-green-500/5'
-                                    }`}>
-                                        {item.status}
-                                    </div>
-                                </div>
+                        {filteredDisputes.map((item) => {
+                            const uiConfig = getStatusUI(item.status);
 
-                                <div className="grid md:grid-cols-3 gap-8">
-                                    <div className="space-y-4">
-                                        <div className="flex items-center gap-3 text-zinc-400">
-                                            <Package size={16} className="text-[#ef3333]" />
-                                            <div className="text-sm">
-                                                <p className="text-[10px] font-bold uppercase text-zinc-500 tracking-tighter">Order ID</p>
-                                                <Link href={`/penjual/orders/${item.order_id}`} className="hover:text-white transition-colors flex items-center gap-1">
-                                                    #{item.order_id.substring(0, 8).toUpperCase()} <ExternalLink size={12} />
-                                                </Link>
+                            return (
+                                <div
+                                    key={item.id}
+                                    className="bg-[#111114] border border-zinc-800 rounded-[2.5rem] p-8 hover:border-zinc-700 transition-all group"
+                                >
+                                    <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
+                                        <div className="flex items-center gap-4">
+                                            <div className={`p-3 rounded-2xl bg-${uiConfig.color}-500/10 text-${uiConfig.color}-500`}>
+                                                {uiConfig.icon}
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">ID Sengketa</span>
+                                                    <span className="text-xs font-mono text-zinc-300">#{item.id.substring(0, 8).toUpperCase()}</span>
+                                                </div>
+                                                <h3 className="text-lg font-black text-white uppercase tracking-tight mt-0.5">
+                                                    {uiConfig.label}
+                                                </h3>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-3 text-zinc-400">
-                                            <UserIcon size={16} className="text-[#ef3333]" />
-                                            <div className="text-sm">
-                                                <p className="text-[10px] font-bold uppercase text-zinc-500 tracking-tighter">Pembeli</p>
-                                                <p className="text-white font-bold">{item.buyer?.full_name || 'Buyer'}</p>
-                                            </div>
+                                        <div className={`px-4 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest border-${uiConfig.color}-500/30 text-${uiConfig.color}-500 bg-${uiConfig.color}-500/5`}>
+                                            {item.status}
                                         </div>
                                     </div>
 
-                                    <div className="md:col-span-2 bg-zinc-900/50 rounded-3xl p-6 border border-zinc-800/50">
-                                        <div className="flex items-start gap-3">
-                                            <MessageSquare size={18} className="text-zinc-500 mt-1 shrink-0" />
-                                            <div className="w-full">
-                                                <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-1">Alasan Komplain:</p>
-                                                <p className="text-zinc-300 text-sm italic leading-relaxed">
-                                                    "{item.reason}"
-                                                </p>
-                                                
-                                                {item.media && item.media.length > 0 && (
-                                                    <div className="mt-6 flex flex-wrap gap-3">
-                                                        {item.media.map((m) => {
-                                                            const isVideo = isVideoUrl(m.media_url);
-                                                            return (
-                                                                <div 
-                                                                    key={m.id} 
-                                                                    className="relative w-20 h-20 rounded-xl overflow-hidden border border-zinc-700 bg-black group/img flex items-center justify-center shrink-0"
-                                                                >
-                                                                    {isVideo ? (
-                                                                        <video 
-                                                                            src={m.media_url} 
-                                                                            className="w-full h-full object-cover opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
-                                                                            preload="metadata"
-                                                                            onClick={() => window.open(m.media_url, '_blank')}
-                                                                        />
-                                                                    ) : (
-                                                                        <img 
-                                                                            src={m.media_url} 
-                                                                            alt="Bukti Sengketa" 
-                                                                            className="w-full h-full object-cover opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
-                                                                            onClick={() => window.open(m.media_url, '_blank')}
-                                                                        />
-                                                                    )}
-                                                                    
-                                                                    {isVideo && (
-                                                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                                            <PlayCircle size={24} className="text-white/80 group-hover/img:scale-110 transition-transform" />
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        })}
-                                                        <div className="w-20 h-20 rounded-xl border border-dashed border-zinc-700 flex flex-col items-center justify-center text-zinc-600 shrink-0">
-                                                            <Eye size={16} className="mb-1" />
-                                                            <span className="text-[8px] font-bold uppercase tracking-widest">Detail</span>
+                                    <div className="grid md:grid-cols-3 gap-8">
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-3 text-zinc-400">
+                                                <Package size={16} className="text-[#ef3333]" />
+                                                <div className="text-sm">
+                                                    <p className="text-[10px] font-bold uppercase text-zinc-500 tracking-tighter">Order ID</p>
+                                                    <Link href={`/penjual/orders/${item.order_id}`} className="hover:text-white transition-colors flex items-center gap-1">
+                                                        #{item.order_id.substring(0, 8).toUpperCase()} <ExternalLink size={12} />
+                                                    </Link>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3 text-zinc-400">
+                                                <UserIcon size={16} className="text-[#ef3333]" />
+                                                <div className="text-sm">
+                                                    <p className="text-[10px] font-bold uppercase text-zinc-500 tracking-tighter">Pembeli</p>
+                                                    <p className="text-white font-bold">{item.buyer?.full_name || 'Buyer'}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="md:col-span-2 bg-zinc-900/50 rounded-3xl p-6 border border-zinc-800/50">
+                                            <div className="flex items-start gap-3">
+                                                <MessageSquare size={18} className="text-zinc-500 mt-1 shrink-0" />
+                                                <div className="w-full">
+                                                    <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-1">Alasan Komplain:</p>
+                                                    <p className="text-zinc-300 text-sm italic leading-relaxed">
+                                                        "{item.reason}"
+                                                    </p>
+
+                                                    {item.media && item.media.length > 0 && (
+                                                        <div className="mt-6 flex flex-wrap gap-3">
+                                                            {item.media.map((m) => {
+                                                                const isVideo = isVideoUrl(m.media_url);
+                                                                return (
+                                                                    <div
+                                                                        key={m.id}
+                                                                        className="relative w-20 h-20 rounded-xl overflow-hidden border border-zinc-700 bg-black group/img flex items-center justify-center shrink-0"
+                                                                    >
+                                                                        {isVideo ? (
+                                                                            <video
+                                                                                src={m.media_url}
+                                                                                className="w-full h-full object-cover opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
+                                                                                preload="metadata"
+                                                                                onClick={() => window.open(m.media_url, '_blank')}
+                                                                            />
+                                                                        ) : (
+                                                                            <img
+                                                                                src={m.media_url}
+                                                                                alt="Bukti Sengketa"
+                                                                                className="w-full h-full object-cover opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
+                                                                                onClick={() => window.open(m.media_url, '_blank')}
+                                                                            />
+                                                                        )}
+
+                                                                        {isVideo && (
+                                                                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                                                <PlayCircle size={24} className="text-white/80 group-hover/img:scale-110 transition-transform" />
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                            <div className="w-20 h-20 rounded-xl border border-dashed border-zinc-700 flex flex-col items-center justify-center text-zinc-600 shrink-0">
+                                                                <Eye size={16} className="mb-1" />
+                                                                <span className="text-[8px] font-bold uppercase tracking-widest">Detail</span>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                )}
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div className="mt-8 pt-6 border-t border-zinc-800 flex flex-wrap justify-between items-center gap-4">
-                                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
-                                        <div className="flex items-center gap-2 text-zinc-500 text-[10px] font-bold uppercase tracking-widest">
-                                            <Calendar size={14} />
-                                            Diajukan pada: {isValid(new Date(item.createdAt)) ? format(new Date(item.createdAt), 'dd MMMM yyyy', { locale: localeId }) : '-'}
+                                    {/* ⚡ INJEKSI SLA TRACKER (Muncul saat returning & arrived_at_seller) */}
+                                    {(item.status === 'returning' || item.status === 'arrived_at_seller') && (
+                                        <div className="mt-6">
+                                            <DisputeSLATracker dispute={item} />
                                         </div>
-                                        
-                                        {item.status === 'resolved' && item.admin_decision_notes && (
-                                            <div className="bg-green-500/10 text-green-500 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest border border-green-500/20">
-                                                Catatan Admin: <span className="normal-case font-medium">{item.admin_decision_notes}</span>
+                                    )}
+
+                                    <div className="mt-8 pt-6 border-t border-zinc-800 flex flex-wrap justify-between items-center gap-4">
+                                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
+                                            <div className="flex items-center gap-2 text-zinc-500 text-[10px] font-bold uppercase tracking-widest">
+                                                <Calendar size={14} />
+                                                Diajukan pada: {isValid(new Date(item.createdAt)) ? format(new Date(item.createdAt), 'dd MMMM yyyy', { locale: localeId }) : '-'}
                                             </div>
-                                        )}
 
-                                        {/* Menampilkan Resi Retur jika sudah ada */}
-                                        {item.return_tracking_number && (
-                                            <div className="bg-blue-500/10 text-blue-500 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest border border-blue-500/20 flex items-center gap-2">
-                                                <RefreshCcw size={12} />
-                                                Resi Retur: <span className="normal-case font-mono">{item.return_tracking_number}</span>
-                                            </div>
-                                        )}
-                                    </div>
+                                            {item.status === 'resolved' && item.admin_decision_notes && (
+                                                <div className="bg-green-500/10 text-green-500 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest border border-green-500/20">
+                                                    Catatan Admin: <span className="normal-case font-medium">{item.admin_decision_notes}</span>
+                                                </div>
+                                            )}
 
-                                    {/* AREA TOMBOL AKSI */}
-                                    <div className="flex gap-3">
-                                        {/* TOMBOL 1: Setujui Retur (Hanya muncul jika status OPEN) */}
-                                        {item.status === 'open' && (
-                                            <button 
-                                                onClick={() => handleLanjutkanProses(item.id)}
-                                                disabled={processingId === item.id}
-                                                className="bg-[#ef3333] hover:bg-red-700 disabled:bg-zinc-800 disabled:text-zinc-500 text-white px-6 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-red-900/20 flex items-center gap-2 active:scale-95"
-                                            >
-                                                {processingId === item.id ? (
-                                                    <>
-                                                        Memproses... <RefreshCcw size={14} className="animate-spin" />
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        Setujui Retur & Lanjutkan <ArrowRight size={14} />
-                                                    </>
-                                                )}
-                                            </button>
-                                        )}
+                                            {/* Menampilkan Resi Retur jika sudah ada */}
+                                            {item.return_tracking_number && (
+                                                <div className="bg-blue-500/10 text-blue-500 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest border border-blue-500/20 flex items-center gap-2">
+                                                    <RefreshCcw size={12} />
+                                                    Resi Retur: <span className="normal-case font-mono">{item.return_tracking_number}</span>
+                                                </div>
+                                            )}
+                                        </div>
 
-                                        {/* TOMBOL 2: Konfirmasi Terima Barang (Muncul jika status RETURNING & Resi sudah ada) */}
-                                        {item.status === 'returning' && item.return_tracking_number && (
-                                            <button 
-                                                onClick={() => handleKonfirmasiPenerimaan(item.id)}
-                                                disabled={processingId === item.id}
-                                                className="bg-green-600 hover:bg-green-700 disabled:bg-zinc-800 disabled:text-zinc-500 text-white px-6 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-green-900/20 flex items-center gap-2 active:scale-95"
-                                            >
-                                                {processingId === item.id ? (
-                                                    <>
-                                                        Sedang Refund... <RefreshCcw size={14} className="animate-spin" />
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        Konfirmasi Barang Diterima & Refund <CheckSquare size={14} />
-                                                    </>
-                                                )}
-                                            </button>
-                                        )}
+                                        {/* AREA TOMBOL AKSI */}
+                                        <div className="flex gap-3">
+                                            {/* TOMBOL 1: Setujui Retur (Hanya muncul jika status OPEN) */}
+                                            {item.status === 'open' && (
+                                                <button
+                                                    onClick={() => handleLanjutkanProses(item.id)}
+                                                    disabled={processingId === item.id}
+                                                    className="bg-[#ef3333] hover:bg-red-700 disabled:bg-zinc-800 disabled:text-zinc-500 text-white px-6 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-red-900/20 flex items-center gap-2 active:scale-95"
+                                                >
+                                                    {processingId === item.id ? (
+                                                        <>
+                                                            Memproses... <RefreshCcw size={14} className="animate-spin" />
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            Setujui Retur & Lanjutkan <ArrowRight size={14} />
+                                                        </>
+                                                    )}
+                                                </button>
+                                            )}
+
+                                            {/* ⚡ TOMBOL 2: Konfirmasi Terima Barang (Muncul jika status ARRIVED_AT_SELLER atau RETURNING) */}
+                                            {(item.status === 'arrived_at_seller' || item.status === 'returning') && item.return_tracking_number && (
+                                                <button
+                                                    onClick={() => handleKonfirmasiPenerimaan(item.id)}
+                                                    disabled={processingId === item.id}
+                                                    className={`${item.status === 'arrived_at_seller' ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-900/20' : 'bg-green-600 hover:bg-green-700 shadow-green-900/20'} disabled:bg-zinc-800 disabled:text-zinc-500 text-white px-6 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-2 active:scale-95`}
+                                                >
+                                                    {processingId === item.id ? (
+                                                        <>
+                                                            Sedang Refund... <RefreshCcw size={14} className="animate-spin" />
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            Konfirmasi Barang Diterima & Refund <CheckSquare size={14} />
+                                                        </>
+                                                    )}
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 ) : (
                     <div className="py-32 text-center bg-[#111114] border border-zinc-800 rounded-[3rem]">

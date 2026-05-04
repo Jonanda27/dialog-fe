@@ -1,7 +1,7 @@
-// app/(buyer)/dashboard/orders/[id]/page.tsx
+// app/(buyer)/riwayat_pesanan/[id]/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { OrderService } from '@/services/api/order.service';
 import { Order } from '@/types/order';
@@ -9,25 +9,35 @@ import { getStatusColor, formatStatus } from '@/utils/order-helper';
 import { ArrowLeft, Package, MapPin, Truck, CreditCard, ExternalLink, Info, Hash, Calendar, Box } from 'lucide-react';
 import Link from 'next/link';
 
+// ⚡ IMPORT KOMPONEN INTEGRASI FASE 2
+import DisputeSLATracker from '@/components/order/DisputeSLATracker';
+import SubmitResiModal from '@/components/order/SubmitResiModal';
+
 export default function OrderDetailPage() {
     const { id } = useParams();
     const router = useRouter();
     const [order, setOrder] = useState<Order | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchDetail = async () => {
-            try {
-                const response = await OrderService.getById(id as string);
-                setOrder(response.data);
-            } catch (error) {
-                console.error(error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchDetail();
+    // ⚡ STATE UNTUK MODAL RESI
+    const [showResiModal, setShowResiModal] = useState(false);
+
+    // ⚡ EKSTRAKSI FUNGSI FETCH AGAR BISA DIPANGGIL ULANG SETELAH INPUT RESI
+    const fetchDetail = useCallback(async (showLoading = true) => {
+        if (showLoading) setIsLoading(true);
+        try {
+            const response = await OrderService.getById(id as string);
+            setOrder(response.data);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            if (showLoading) setIsLoading(false);
+        }
     }, [id]);
+
+    useEffect(() => {
+        fetchDetail();
+    }, [fetchDetail]);
 
     if (isLoading) {
         return (
@@ -39,26 +49,30 @@ export default function OrderDetailPage() {
 
     if (!order) return null;
 
+    // ⚡ CEK STATUS SENGKETA
+    const activeDispute = (order as any).dispute;
+    const isReturning = order.status === 'disputed' && activeDispute?.status === 'returning';
+
     return (
         <main className="min-h-screen bg-[#0a0a0b] text-zinc-300 pb-20 selection:bg-[#ef3333] selection:text-white">
             <div className="max-w-5xl mx-auto px-4 pt-8">
                 {/* Navigation */}
-                <button 
-                    onClick={() => router.back()} 
+                <button
+                    onClick={() => router.back()}
                     className="group flex items-center gap-2 text-zinc-500 hover:text-white transition-all mb-8 text-xs font-bold uppercase tracking-[0.2em]"
                 >
-                    <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" /> 
+                    <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />
                     Kembali ke Pesanan
                 </button>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     {/* Kiri: Info Produk & Status */}
                     <div className="lg:col-span-8 space-y-6">
-                        <section className="bg-[#111114] border border-zinc-800/50 rounded-[2rem] p-6 md:p-8 relative overflow-hidden">
+                        <section className="bg-[#111114] border border-zinc-800/50 rounded-4xl p-6 md:p-8 relative overflow-hidden">
                             {/* Decorative Background Accent */}
                             <div className="absolute top-0 right-0 w-32 h-32 bg-[#ef3333]/5 blur-[60px] rounded-full -mr-16 -mt-16" />
-                            
-                            <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-10 relative">
+
+                            <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-8 relative">
                                 <div>
                                     <div className="flex items-center gap-2 text-zinc-500 mb-2">
                                         <Hash size={14} />
@@ -72,6 +86,24 @@ export default function OrderDetailPage() {
                                     {formatStatus(order.status)}
                                 </div>
                             </div>
+
+                            {/* ⚡ INJEKSI SLA TRACKER DAN TOMBOL INPUT RESI */}
+                            {isReturning && activeDispute && (
+                                <div className="mb-8 space-y-4">
+                                    <DisputeSLATracker dispute={activeDispute} />
+
+                                    {/* Tombol hanya muncul jika resi belum diinput oleh pembeli */}
+                                    {!activeDispute.return_tracking_number && (
+                                        <button
+                                            onClick={() => setShowResiModal(true)}
+                                            className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-[0_10px_20px_rgba(37,99,235,0.2)] active:scale-[0.98]"
+                                        >
+                                            <Truck size={16} />
+                                            Input Resi Pengembalian
+                                        </button>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="space-y-4">
                                 {order.items?.map((item) => (
@@ -101,7 +133,8 @@ export default function OrderDetailPage() {
                             </div>
                         </section>
 
-                        <section className="bg-[#111114] border border-zinc-800/50 rounded-[2rem] p-8">
+                        {/* SECTION INFO PENGIRIMAN */}
+                        <section className="bg-[#111114] border border-zinc-800/50 rounded-4xl p-8">
                             <h3 className="text-white font-black uppercase tracking-[0.2em] text-xs mb-8 flex items-center gap-3">
                                 <div className="p-2 bg-[#ef3333]/10 rounded-lg">
                                     <Truck size={18} className="text-[#ef3333]" />
@@ -118,7 +151,7 @@ export default function OrderDetailPage() {
                                         <p className="text-zinc-200 text-sm leading-relaxed font-medium">{order.shipping_address}</p>
                                     </div>
                                 </div>
-                                
+
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-6 border-t border-zinc-800/50">
                                     <div className="flex gap-4">
                                         <div className="mt-1 p-2 bg-zinc-900 rounded-xl h-fit">
@@ -136,13 +169,31 @@ export default function OrderDetailPage() {
                                             <Info size={16} className="text-zinc-500" />
                                         </div>
                                         <div>
-                                            <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-1">No. Resi</p>
+                                            <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-1">No. Resi Pesanan</p>
                                             <p className="text-white text-sm font-mono font-bold">
                                                 {order.tracking_number || <span className="text-zinc-600 font-normal">Belum tersedia</span>}
                                             </p>
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* ⚡ TAMPILKAN RESI RETUR JIKA ADA */}
+                                {activeDispute?.return_tracking_number && (
+                                    <div className="pt-6 border-t border-zinc-800/50">
+                                        <div className="flex gap-4">
+                                            <div className="mt-1 p-2 bg-blue-500/10 border border-blue-500/20 rounded-xl h-fit">
+                                                <Truck size={16} className="text-blue-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-1">No. Resi Pengembalian (Retur)</p>
+                                                <p className="text-blue-400 text-sm font-mono font-bold">
+                                                    {activeDispute.return_tracking_number}
+                                                    <span className="text-zinc-500 font-sans text-xs ml-2">({activeDispute.return_courier?.toUpperCase()})</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </section>
                     </div>
@@ -156,7 +207,7 @@ export default function OrderDetailPage() {
                                 </div>
                                 Ringkasan Biaya
                             </h3>
-                            
+
                             <div className="space-y-4 mb-8">
                                 <div className="flex justify-between text-sm">
                                     <span className="text-zinc-500 font-medium">Subtotal Produk</span>
@@ -180,9 +231,8 @@ export default function OrderDetailPage() {
                                 </div>
                             </div>
 
-                            {/* ⚡ PERBAIKAN LOGIKA REDIRECT: Menggunakan billing_id untuk redirect ke halaman pembayaran yang sudah ada */}
                             {order.status === 'pending_payment' && (
-                                <Link 
+                                <Link
                                     href={`/pembayaran/${order.billing_id}`}
                                     className="group relative block w-full bg-[#ef3333] text-white text-center py-5 rounded-2xl font-black uppercase tracking-widest text-xs overflow-hidden transition-all hover:scale-[1.02] active:scale-95 shadow-[0_20px_40px_rgba(239,51,51,0.2)]"
                                 >
@@ -192,7 +242,7 @@ export default function OrderDetailPage() {
                                     <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                                 </Link>
                             )}
-                            
+
                             <div className="mt-6 p-4 bg-zinc-900/50 rounded-2xl border border-zinc-800/50">
                                 <p className="text-[9px] text-zinc-500 leading-relaxed text-center uppercase font-bold tracking-wider">
                                     Pesanan ini dilindungi oleh sistem keamanan kami. Simpan bukti pembayaran untuk keperluan klaim.
@@ -202,6 +252,16 @@ export default function OrderDetailPage() {
                     </div>
                 </div>
             </div>
+
+            {/* ⚡ DELEGASI MODAL INPUT RESI */}
+            {activeDispute && (
+                <SubmitResiModal
+                    isOpen={showResiModal}
+                    onClose={() => setShowResiModal(false)}
+                    disputeId={activeDispute.id}
+                    onSuccess={() => fetchDetail(false)} // Refresh data tanpa layar loading penuh
+                />
+            )}
         </main>
     );
 }

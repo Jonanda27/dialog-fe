@@ -1,5 +1,4 @@
-// File: dialog-fe/store/disputeStore.ts
-
+// store/disputeStore.ts
 import { create } from 'zustand';
 import { Dispute, OpenDisputePayload, SubmitReturnResiPayload } from '../types/dispute';
 import { DisputeService } from '../services/api/dispute.service';
@@ -17,7 +16,7 @@ interface DisputeState {
     // ⚡ Actions untuk Alur Pengembalian (SLA Lifecycle)
     acceptReturn: (disputeId: string) => Promise<void>;
     submitReturnResi: (disputeId: string, payload: SubmitReturnResiPayload) => Promise<void>;
-    confirmReturnReceived: (disputeId: string) => Promise<void>; // ⚡ BARU: Konfirmasi retur sampai
+    confirmReturnReceived: (disputeId: string) => Promise<void>;
 
     clearError: () => void;
 }
@@ -72,11 +71,12 @@ export const useDisputeStore = create<DisputeState>((set, get) => ({
 
     /**
      * ⚡ [BUYER] Action untuk memasukkan resi retur
-     * Payload kini membawa { tracking_number, courier }
+     * Payload kini WAJIB membawa { tracking_number, courier }
      */
     submitReturnResi: async (disputeId, payload) => {
         set({ isLoading: true, error: null });
         try {
+            // Memastikan payload sudah dikirim lengkap ke DisputeService
             const response = await DisputeService.submitReturnResi(disputeId, payload);
 
             // Perbarui list lokal agar 'return_tracking_number', 'return_courier', 
