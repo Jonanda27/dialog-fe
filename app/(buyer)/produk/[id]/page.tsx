@@ -1,3 +1,5 @@
+// File: dialog-id-fe/app/(buyer)/produk/[id]/page.tsx
+
 "use client";
 
 import React, { useState, useEffect, useCallback, Suspense } from "react";
@@ -12,6 +14,7 @@ import { gradingService } from "@/services/api/grading.service";
 import { Product } from "@/types/product";
 import { Review } from "@/types/review";
 import { useCartStore } from "@/store/cartStore";
+import { useAuthStore } from "@/store/authStore"; // Proteksi Login [cite: 3506]
 
 // COMPONENTS
 import ProductGallery from "@/components/product/ProductGallery";
@@ -41,16 +44,18 @@ export default function ProductDetailPage() {
   const router = useRouter();
   const productId = params.id as string;
 
+  // Integrasi Store
   const addItem = useCartStore((state) => state.addItem);
   const openCart = useCartStore((state) => state.openCart);
+  const { isAuthenticated } = useAuthStore(); // Check login status [cite: 3541]
 
   // STATE
-  // Menggunakan 'any' sementara untuk mengakomodasi field 'auction' dan 'is_locked'
   const [product, setProduct] = useState<any | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingReviews, setIsLoadingReviews] = useState(true);
   const [isRequestingGrading, setIsRequestingGrading] = useState(false);
+  const [isAddingToCart, setIsAddingToCart] = useState(false); // Loading state untuk tombol keranjang
 
   const fetchData = useCallback(async () => {
     try {
@@ -81,51 +86,53 @@ export default function ProductDetailPage() {
       ? (reviews.reduce((acc, r) => acc + r.rating, 0) / totalReviews).toFixed(1)
       : "5.0";
 
-  const handleAddToCart = () => {
-    if (!product) return;
-    const primaryMedia = product.media?.find((m: any) => m.is_primary)?.media_url || "";
-    try {
-      addItem({
-        id: product.id,
-        name: product.name,
-        artist: product.metadata.artist || "Unknown Artist",
-        price: Number(product.price),
-        mediaUrl: getImageUrl(primaryMedia),
-        store_id: product.store_id,
-        store_name: product.store?.name || "Toko Analog",
-        stock: product.stock,
+  // ⚡ INTEGRASI DATABASE CART (ASYNC)
+  const handleAddToCart = async () => {
+    // Cek apakah user sudah masuk ke sistem
+    if (!isAuthenticated) {
+      toast.error("Silakan login terlebih dahulu untuk menambah keranjang", {
+        position: "bottom-center"
       });
+      return router.push("/auth/login");
+    }
 
+    if (!product) return;
+
+    try {
+      setIsAddingToCart(true);
+      
+      /**
+       * Memanggil fungsi addItem dari cartStore.
+       * Karena store sudah diperbarui, ini akan melakukan HTTP POST ke backend.
+       */
+      await addItem(product, 1);
+      
+      // Memberikan feedback visual sukses
       toast.success(`${product.name} ditambahkan ke koleksi`, {
-        description: "Lihat di keranjang untuk checkout",
+        description: "Barang tersimpan aman di database keranjang Anda.",
         position: "bottom-center",
       });
-    } catch (error) {
-      toast.error("Gagal menambahkan ke keranjang");
+
+    } catch (error: any) {
+        // Error handling sudah dicakup oleh toast di dalam store, 
+        // namun bisa ditambahkan logic spesifik di sini jika perlu.
+    } finally {
+      setIsAddingToCart(false);
     }
   };
 
-  // ⚡ INTEGRASI SERVICE REQUEST GRADING DENGAN DEBUGGING
+  // ⚡ INTEGRASI SERVICE REQUEST GRADING
   const handleRequestGrading = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
-    console.log("Tombol Request Grading diklik");
-
-    if (!product) {
-      console.error("Error: Data produk tidak ditemukan");
-      return;
-    }
+    if (!product) return;
 
     try {
       setIsRequestingGrading(true);
-      console.log("Mengirim request untuk product_id:", product.id);
-
       const res = await gradingService.requestGrading({
         product_id: product.id,
       });
-
-      console.log("Respon Server:", res);
 
       if (res.success) {
         toast.success("Request Grading Berhasil", {
@@ -135,12 +142,10 @@ export default function ProductDetailPage() {
         toast.error(res.message || "Gagal melakukan request grading");
       }
     } catch (error: any) {
-      console.error("Catch Error Request Grading:", error);
       const errorDetail = error.response?.data?.message || "Terjadi kesalahan server";
       toast.error(errorDetail);
     } finally {
       setIsRequestingGrading(false);
-      console.log("Proses Request Grading Selesai");
     }
   };
 
@@ -154,7 +159,7 @@ export default function ProductDetailPage() {
   if (!product) return null;
 
   // Evaluasi apakah produk ini sedang dalam mode Lelang Aktif / Terjadwal
-  const isAuctionMode = product.is_locked && product.auction;
+  const isAuctionMode = product.is_locked && product.auction; 
 
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 font-sans pb-20 pt-10">
@@ -270,7 +275,7 @@ export default function ProductDetailPage() {
             {/* CONDITIONAL RENDERING ACTION */}
             <div className="pt-4">
               {isAuctionMode ? (
-                // MODE LELANG AKTIF
+                // MODE LELANG AKTIF [cite: 2176]
                 <div className="bg-[#111114] border border-zinc-800 rounded-2xl overflow-hidden">
                   <AuctionBidPanel
                     auctionId={product.auction.id}
@@ -280,21 +285,26 @@ export default function ProductDetailPage() {
                   />
                 </div>
               ) : (
-                // MODE E-COMMERCE REGULER
+                // MODE E-COMMERCE REGULER [cite: 2177]
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <button
                     onClick={handleAddToCart}
-                    disabled={product.stock < 1}
+                    disabled={product.stock < 1 || isAddingToCart}
                     className="flex items-center justify-center gap-3 bg-white text-black font-black text-xs uppercase tracking-widest py-5 rounded-2xl hover:bg-[#ef3333] hover:text-white transition-all transform active:scale-95 shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ShoppingCart size={18} /> Add to Cart
+                    {isAddingToCart ? (
+                        <Loader2 className="animate-spin" size={18} />
+                    ) : (
+                        <ShoppingCart size={18} />
+                    )}
+                    {isAddingToCart ? "SINKRONISASI..." : "ADD TO CART"}
                   </button>
 
                   <button
                     disabled={product.stock < 1}
                     className="flex items-center justify-center gap-3 bg-[#ef3333] text-white font-black text-xs uppercase tracking-widest py-5 rounded-2xl hover:bg-red-700 transition-all transform active:scale-95 shadow-xl shadow-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Buy Now
+                    BUY NOW
                   </button>
                 </div>
               )}

@@ -20,6 +20,12 @@ export interface User {
     id: string;
     email: string;
     full_name: string; // ⚡ SESUAI BACKEND 
+    profile_picture_url?: string; // Tambahkan ini
+    profile?: {                   // Tambahkan ini
+        profile_picture_url?: string;
+        username?: string;
+    };
+    store_id?: string;
     role: UserRole;
     status: UserStatus;
     avatar_url?: string | null;

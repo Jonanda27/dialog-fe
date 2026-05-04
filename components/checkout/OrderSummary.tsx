@@ -1,3 +1,4 @@
+// File: components/checkout/OrderSummary.tsx
 'use client';
 
 import { CartItem } from '@/types/cart';
@@ -63,10 +64,11 @@ export default function OrderSummary({
                 </div>
             )}
 
-            {/* Item Preview (Estetika dari branch UI bd2214c dengan fallback safe quantity HEAD) */}
+            {/* Item Preview */}
             <div className="mb-6 space-y-5 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
                 {items.map((item) => (
-                    <div key={item.cart_item_id} className="flex justify-between items-start gap-4">
+                    // ⚡ FIX: Menggunakan item.id (UUID Database) sebagai key unik
+                    <div key={item.id} className="flex justify-between items-start gap-4">
                         <div className="flex-1">
                             <p className="text-xs font-bold text-white line-clamp-2 leading-tight uppercase tracking-tight">
                                 {item.product.name}
@@ -82,7 +84,7 @@ export default function OrderSummary({
                 ))}
             </div>
 
-            {/* Calculations (Estetika tipografi tajam dari branch bd2214c) */}
+            {/* Calculations */}
             <div className="space-y-4 mb-8 pt-6 border-t border-dashed border-zinc-800">
                 <div className="flex justify-between items-center">
                     <span className="text-zinc-500 uppercase font-bold text-[10px] tracking-widest">Subtotal Produk</span>
@@ -100,7 +102,7 @@ export default function OrderSummary({
                     </span>
                 </div>
 
-                {/* Grading Fee dynamic render dari HEAD */}
+                {/* Grading Fee dynamic render */}
                 {gradingFee > 0 && (
                     <div className="flex justify-between items-center">
                         <span className="text-blue-500 uppercase font-bold text-[10px] tracking-widest">Biaya Request Grading</span>
@@ -117,7 +119,7 @@ export default function OrderSummary({
                 </div>
             </div>
 
-            {/* Checkout Button (Integrasi full logic multi-state HEAD ke dalam style button modern bd2214c) */}
+            {/* Checkout Button */}
             <button
                 onClick={onConfirm}
                 disabled={isSubmitting || !isReadyToPay || !!gradingError || isValidatingGrading}
@@ -150,7 +152,7 @@ export default function OrderSummary({
                 )}
             </button>
 
-            {/* Trust Badges & Error Messages (Sinkronisasi error eksplisit HEAD dengan layout bd2214c) */}
+            {/* Trust Badges & Error Messages */}
             <div className="mt-6 flex flex-col gap-3">
                 {!isReadyToPay && (
                     <p className="text-[10px] text-center text-[#ef3333] font-bold uppercase tracking-widest">
@@ -169,11 +171,11 @@ export default function OrderSummary({
                 </div>
             </div>
 
-            {/* Custom Scrollbar Styling */}
             <style jsx>{`
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
             `}</style>
         </div>
     );

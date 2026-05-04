@@ -108,7 +108,7 @@ export const productService = {
      * Mengambil daftar produk spesifik milik seller yang sedang login
      */
     getMyProducts: async (params?: Record<string, any>): Promise<ApiResponse<Product[]>> => {
-        return await axiosClient.get<any, ApiResponse<Product[]>>('/v1/products/my-products', { params });
+        return await axiosClient.get<any, ApiResponse<Product[]>>('/v1/products/my-store', { params });
     },
 
     /**

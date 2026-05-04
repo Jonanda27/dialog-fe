@@ -9,7 +9,8 @@ import {
   LayoutDashboard, Package, PlusCircle, UploadCloud,
   Inbox, History, Wallet, Star, Settings, LogOut, X,
   Disc, FileBarChart, Gavel, Receipt, UserCog, ClipboardCheck,
-  Loader2, MessageSquare, // Menambahkan MessageSquare
+  Loader2, MessageSquare,
+  AlertTriangle, // Menambahkan MessageSquare
 } from "lucide-react";
 import Navbar from "./navbar";
 
@@ -49,6 +50,7 @@ export default function Sidebar({ children }: SidebarProps) {
         { name: "Transaksi Masuk", icon: Inbox, href: "/penjual/transaksi" },
         { name: "Chat Masuk", icon: MessageSquare, href: "/penjual/chat" }, // Menu baru ditambahkan di sini
         { name: "Permintaan Grading", icon: ClipboardCheck, href: "/penjual/grading" },
+        { name: "Dispute", icon: AlertTriangle, href: "/penjual/dispute" },
       ]
     },
     {

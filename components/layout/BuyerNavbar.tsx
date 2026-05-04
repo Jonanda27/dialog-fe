@@ -1,3 +1,5 @@
+// File: dialog-id-fe/components/layout/BuyerNavbar.tsx
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -8,7 +10,7 @@ import {
   LogOut,
   Heart,
   Bell,
-  MessageCircle, // Tambahan Icon Chat
+  MessageCircle,
   ChevronDown,
   Zap,
   HelpCircle,
@@ -28,6 +30,7 @@ import { useCartStore } from "@/store/cartStore";
 import { useAuthStore } from "@/store/authStore";
 import { StoreService } from "@/services/api/store.service";
 import { CategoryService } from "@/services/api/category.service";
+import { UserProfileService } from "@/services/api/profile.service";
 
 const formatImageUrl = (path: string | undefined) => {
   if (!path) return "https://placehold.co/400x400?text=No+Image";
@@ -42,8 +45,10 @@ export default function BuyerNavbar() {
   const [isLoadingWallet, setIsLoadingWallet] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
 
-  const { items, isAnimate } = useCartStore();
+  // ⚡ Integrasi Zustand Store untuk Database Cart
+  const { items, isAnimate, fetchCart, isLoading: isLoadingCart } = useCartStore();
   const { user, isAuthenticated, isInitialized, logout } = useAuthStore();
 
   useEffect(() => {
@@ -66,6 +71,28 @@ export default function BuyerNavbar() {
     fetchCategories();
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // ⚡ LOGIKA SINKRONISASI DATA (Keranjang & Profil)
+  useEffect(() => {
+    const syncUserData = async () => {
+      if (isAuthenticated && isInitialized) {
+        try {
+          // 1. Ambil data keranjang dari database 
+          await fetchCart();
+
+          // 2. Ambil data profil untuk foto navbar [cite: 3214]
+          const profileRes = await UserProfileService.getMyProfile();
+          if (profileRes.success) {
+            setUserProfile(profileRes.data);
+          }
+        } catch (error) {
+          console.error("Gagal sinkronisasi data Navbar:", error);
+        }
+      }
+    };
+
+    syncUserData();
+  }, [isAuthenticated, isInitialized, fetchCart]);
 
   useEffect(() => {
     const fetchWallet = async () => {
@@ -90,8 +117,16 @@ export default function BuyerNavbar() {
     fetchWallet();
   }, [user, isInitialized]);
 
+  // ⚡ Hitung jumlah item berdasarkan kuantitas total di database
   const cartCount = items.reduce((acc, item) => acc + item.quantity, 0);
   const recentItems = items.slice(0, 3);
+
+  const getAvatarImage = () => {
+    if (userProfile?.profile_picture_url) {
+      return formatImageUrl(userProfile.profile_picture_url);
+    }
+    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.full_name}&backgroundColor=ef3333`;
+  };
 
   return (
     <header className="fixed top-0 w-full z-[100] transition-all duration-500">
@@ -99,9 +134,7 @@ export default function BuyerNavbar() {
       <div className="bg-[#0a0a0b] border-b border-zinc-900/50 py-2.5 px-6 hidden lg:block">
         <div className="w-full flex justify-between items-center text-[10px] font-black uppercase tracking-[0.15em]">
           <div className="flex items-center gap-8">
-            <Link href="/deals" className="text-zinc-500 hover:text-white transition-colors">
-              Daily Deals
-            </Link>
+            <Link href="/deals" className="text-zinc-500 hover:text-white transition-colors">Daily Deals</Link>
             <Link href="/sell" className="text-[#ef3333] hover:text-red-400 transition-colors flex items-center gap-1.5">
               <Zap size={12} fill="currentColor" /> Sell on Analog
             </Link>
@@ -110,15 +143,9 @@ export default function BuyerNavbar() {
             </Link>
           </div>
           <div className="flex items-center gap-8 text-zinc-500">
-            <Link href="/orders" className="hover:text-white transition-colors">
-              Shipment Tracking
-            </Link>
-            <button className="hover:text-white transition-colors flex items-center gap-1.5">
-              Watchlist <Heart size={12} />
-            </button>
-            <div className="flex items-center gap-1.5 cursor-pointer hover:text-white transition-colors">
-              ID <Globe size={12} />
-            </div>
+            <Link href="/orders" className="hover:text-white transition-colors">Shipment Tracking</Link>
+            <button className="hover:text-white transition-colors flex items-center gap-1.5">Watchlist <Heart size={12} /></button>
+            <div className="flex items-center gap-1.5 cursor-pointer hover:text-white transition-colors">ID <Globe size={12} /></div>
           </div>
         </div>
       </div>
@@ -128,55 +155,33 @@ export default function BuyerNavbar() {
         <div className="w-full flex items-center justify-between gap-12">
           {/* LOGO SECTION */}
           <Link href="/dashboard" className="shrink-0 flex items-center transition-transform hover:scale-105 active:scale-95">
-            <img 
-              src="/logo.png" 
-              alt="Analog.id Logo" 
-              className="h-10 w-auto object-contain" 
-            />
+            <img src="/logo.png" alt="Analog.id Logo" className="h-10 w-auto object-contain" />
           </Link>
 
           <div className="hidden md:flex flex-1 relative group">
             <div className="w-full flex items-center bg-[#1a1a1e] border border-zinc-800 rounded-full overflow-hidden focus-within:border-[#ef3333]/50 focus-within:ring-4 focus-within:ring-[#ef3333]/5 transition-all">
-              <div className="pl-6 pr-3 text-zinc-600">
-                <Search size={18} strokeWidth={3} />
-              </div>
-              <input
-                type="text"
-                placeholder="Cari vinyl, kaset, audio gear..."
-                className="flex-1 bg-transparent px-2 py-4 text-xs font-bold text-zinc-200 placeholder:text-zinc-600 outline-none"
-              />
-              <button className="bg-[#ef3333] hover:bg-red-700 text-white px-12 py-4 text-[11px] font-black uppercase tracking-widest transition-all">
-                Search
-              </button>
+              <div className="pl-6 pr-3 text-zinc-600"><Search size={18} strokeWidth={3} /></div>
+              <input type="text" placeholder="Cari vinyl, kaset, audio gear..." className="flex-1 bg-transparent px-2 py-4 text-xs font-bold text-zinc-200 placeholder:text-zinc-600 outline-none" />
+              <button className="bg-[#ef3333] hover:bg-red-700 text-white px-12 py-4 text-[11px] font-black uppercase tracking-widest transition-all">Search</button>
             </div>
           </div>
 
           <div className="flex items-center gap-8 shrink-0">
             {/* NOTIFIKASI */}
             <button className="relative text-zinc-400 hover:text-white transition-colors hidden sm:block">
-              <Bell size={24} />
-              <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-[#ef3333] rounded-full border-2 border-[#0a0a0b]"></span>
+              <Bell size={24} /><span className="absolute top-0 right-0 w-2.5 h-2.5 bg-[#ef3333] rounded-full border-2 border-[#0a0a0b]"></span>
             </button>
 
-            {/* CHAT ICON (NEW) */}
-            <Link 
-              href="/chat" 
-              className="relative text-zinc-400 hover:text-[#ef3333] transition-colors hidden sm:block"
-              title="Messages"
-            >
-              <MessageCircle size={24} />
-              {/* Opsional: Indikator pesan baru */}
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#ef3333] rounded-full border-2 border-[#0a0a0b] animate-pulse"></span>
+            {/* CHAT ICON */}
+            <Link href="/chat" className="relative text-zinc-400 hover:text-[#ef3333] transition-colors hidden sm:block" title="Messages">
+              <MessageCircle size={24} /><span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#ef3333] rounded-full border-2 border-[#0a0a0b] animate-pulse"></span>
             </Link>
 
-            {/* KERANJANG DENGAN DROPDOWN */}
+            {/* KERANJANG DENGAN DROPDOWN - SINKRON DATABASE */}
             <div className="relative group/cart py-2">
-              <Link
-                href="/cart"
-                className={`relative flex items-center justify-center text-zinc-400 hover:text-[#ef3333] transition-all p-2 rounded-full hover:bg-white/5 ${isAnimate ? "animate-cart-bounce text-[#ef3333]" : ""}`}
-              >
+              <Link href="/cart" className={`relative flex items-center justify-center text-zinc-400 hover:text-[#ef3333] transition-all p-2 rounded-full hover:bg-white/5 ${isAnimate ? "animate-cart-bounce text-[#ef3333]" : ""}`}>
                 <ShoppingBag size={24} />
-                {isMounted && cartCount > 0 && (
+                {isMounted && isAuthenticated && cartCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-[#ef3333] text-white text-[9px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-[#0a0a0b]">
                     {cartCount}
                   </span>
@@ -187,20 +192,22 @@ export default function BuyerNavbar() {
                 <div className="space-y-5">
                   <div className="flex items-center justify-between border-b border-zinc-900 pb-3">
                     <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Recent Crate</span>
-                    <span className="text-[10px] font-black text-[#ef3333] uppercase">{cartCount} Items</span>
+                    <span className="text-[10px] font-black text-[#ef3333] uppercase">
+                      {isLoadingCart ? <Loader2 size={10} className="animate-spin" /> : `${cartCount} Total Units`}
+                    </span>
                   </div>
 
                   {items.length > 0 ? (
                     <>
                       <div className="space-y-4">
                         {recentItems.map((item) => (
-                          <div key={item.cart_item_id} className="flex items-center gap-4 group/item">
+                          <div key={item.id} className="flex items-center gap-4 group/item">
                             <div className="w-16 h-16 rounded-xl overflow-hidden bg-zinc-900 shrink-0 border border-zinc-800 transition-transform group-hover/item:scale-105">
                               <img
-                                src={formatImageUrl(item.product.media?.find((m) => m.is_primary)?.media_url)}
+                                src={formatImageUrl(item.product.media?.find((m: any) => m.is_primary)?.media_url)}
                                 className="w-full h-full object-cover"
                                 alt={item.product.name}
-                                onError={(e) => { (e.target as HTMLImageElement).src = "https://placehold.co/400x400?text=Error+Load"; }}
+                                onError={(e) => { (e.target as HTMLImageElement).src = "https://placehold.co/400x400?text=No+Image"; }}
                               />
                             </div>
                             <div className="flex-1 min-w-0 pr-4">
@@ -234,13 +241,9 @@ export default function BuyerNavbar() {
             {/* PROFILE DROPDOWN */}
             {isMounted && isAuthenticated && user ? (
               <div className="relative group/profile py-2">
-                <Link href="/dashboard" className="flex items-center gap-4 group/avatar">
+                <div className="flex items-center gap-4 group/avatar cursor-pointer">
                   <div className="relative">
-                    <img
-                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.full_name}&backgroundColor=ef3333`}
-                      className="w-11 h-11 rounded-full border-2 border-zinc-800 group-hover/avatar:border-[#ef3333] transition-all"
-                      alt="Avatar"
-                    />
+                    <img src={getAvatarImage()} className="w-11 h-11 rounded-full border-2 border-zinc-800 group-hover/avatar:border-[#ef3333] transition-all object-cover" alt="Avatar" />
                     <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-[#111114] rounded-full"></div>
                   </div>
                   <div className="hidden xl:flex flex-col text-left leading-none">
@@ -250,7 +253,7 @@ export default function BuyerNavbar() {
                     </span>
                     <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mt-1">Collector</span>
                   </div>
-                </Link>
+                </div>
 
                 <div className="absolute top-full right-0 w-64 bg-[#111114] border border-zinc-800 shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-2xl p-2 opacity-0 translate-y-4 pointer-events-none group-hover/profile:opacity-100 group-hover/profile:translate-y-0 group-hover/profile:pointer-events-auto transition-all duration-300 z-[150]">
                   <div className="p-3 border-b border-zinc-900 mb-2">
@@ -258,7 +261,7 @@ export default function BuyerNavbar() {
                     <p className="text-[12px] font-black text-white truncate uppercase tracking-tight">{user.full_name}</p>
                   </div>
                   <div className="space-y-1">
-                    <Link href="/dashboard" className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-zinc-900 group/link transition-colors">
+                    <Link href={`/akun/${user.id}`} className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-zinc-900 group/link transition-colors">
                       <UserIcon size={16} className="text-zinc-600 group-hover/link:text-[#ef3333]" />
                       <span className="text-[11px] font-bold text-zinc-400 group-hover/link:text-white uppercase tracking-widest">Akun Saya</span>
                     </Link>
@@ -269,10 +272,6 @@ export default function BuyerNavbar() {
                     <Link href="/grading" className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-zinc-900 group/link transition-colors">
                       <Star size={16} className="text-zinc-600 group-hover/link:text-[#ef3333]" />
                       <span className="text-[11px] font-bold text-zinc-400 group-hover/link:text-white uppercase tracking-widest">Grading</span>
-                    </Link>
-                    <Link href="/settings" className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-zinc-900 group/link transition-colors border-t border-zinc-900 pt-3">
-                      <Settings size={16} className="text-zinc-600 group-hover/link:text-[#ef3333]" />
-                      <span className="text-[11px] font-bold text-zinc-400 group-hover/link:text-white uppercase tracking-widest">Settings</span>
                     </Link>
                     <button onClick={() => logout()} className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-red-500/10 group/logout transition-colors">
                       <LogOut size={16} className="text-zinc-600 group-hover/logout:text-[#ef3333]" />
@@ -291,7 +290,7 @@ export default function BuyerNavbar() {
         </div>
       </div>
 
-      {/* TIER 3 (CATEGORIES) */}
+      {/* TIER 3: CATEGORIES */}
       {!scrolled && (
         <div className="bg-[#0a0a0b] border-t border-zinc-900 px-6 hidden lg:block relative">
           <div className="w-full flex items-center justify-center gap-10">
@@ -309,11 +308,7 @@ export default function BuyerNavbar() {
                         </h4>
                         <div className="flex flex-col gap-2">
                           {cat.subCategories?.map((sub: any) => (
-                            <Link 
-                                key={sub.id} 
-                                href={`/katalog?sub_category_id=${sub.id}`} 
-                                className="text-[10px] font-bold text-zinc-500 hover:text-[#ef3333] transition-colors"
-                            >
+                            <Link key={sub.id} href={`/katalog?sub_category_id=${sub.id}`} className="text-[10px] font-bold text-zinc-500 hover:text-[#ef3333] transition-colors">
                               {sub.name}
                             </Link>
                           ))}
@@ -347,11 +342,7 @@ export default function BuyerNavbar() {
                         <h4 className="text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em] mb-6">Top categories</h4>
                         <div className="flex flex-col gap-4">
                           {cat.subCategories?.slice(0, 8).map((sub: any) => (
-                            <Link 
-                                key={sub.id} 
-                                href={`/katalog?sub_category_id=${sub.id}`} 
-                                className="text-sm font-bold text-zinc-200 hover:text-[#ef3333] transition-colors"
-                            >
+                            <Link key={sub.id} href={`/katalog?sub_category_id=${sub.id}`} className="text-sm font-bold text-zinc-200 hover:text-[#ef3333] transition-colors">
                                 {sub.name}
                             </Link>
                           ))}
@@ -361,11 +352,7 @@ export default function BuyerNavbar() {
                         <h4 className="text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em] mb-6">Featured</h4>
                         <div className="flex flex-col gap-4">
                           {cat.subCategories?.slice(0, 5).map((sub: any) => (
-                            <Link 
-                                key={sub.id} 
-                                href={`/katalog?sub_category_id=${sub.id}`} 
-                                className="text-sm font-bold text-zinc-500 hover:text-white transition-colors"
-                            >
+                            <Link key={sub.id} href={`/katalog?sub_category_id=${sub.id}`} className="text-sm font-bold text-zinc-500 hover:text-white transition-colors">
                                 {sub.name} Selection
                             </Link>
                           ))}

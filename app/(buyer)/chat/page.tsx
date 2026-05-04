@@ -15,6 +15,10 @@ export default function ChatPage() {
     const searchParams = useSearchParams();
     const initialStoreId = searchParams.get('storeId') || "";
     
+    // --- State Prefill Message dari Dispute ---
+    const prefillMsg = searchParams.get('prefillMsg');
+    const hasSentPrefill = useRef(false); // Memastikan pesan hanya dikirim 1x
+
     const { user } = useAuthStore();
     
     // --- State Baru untuk Sidebar Toggle ---
@@ -99,6 +103,27 @@ export default function ChatPage() {
         
         setSocket(newSocket);
 
+        // --- LOGIKA PENGIRIMAN PESAN OTOMATIS (DISPUTE PREFILL) ---
+        newSocket.on('connect', () => {
+            if (prefillMsg && activeStoreId && !hasSentPrefill.current) {
+                newSocket.emit('SEND_MESSAGE', {
+                    storeId: activeStoreId,
+                    message: decodeURIComponent(prefillMsg),
+                    receiverId: null,
+                    messageType: 'text',
+                    fileUrl: null
+                });
+                
+                hasSentPrefill.current = true;
+
+                // Bersihkan URL agar tidak terkirim ulang saat refresh
+                const params = new URLSearchParams(window.location.search);
+                params.delete('prefillMsg');
+                const newRelativePathQuery = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+                window.history.replaceState(null, '', newRelativePathQuery);
+            }
+        });
+
         if (activeStoreId) {
             setIsLoading(true);
             ChatService.getHistory(activeStoreId)
@@ -120,7 +145,7 @@ export default function ChatPage() {
             newSocket.off('RECEIVE_MESSAGE');
             newSocket.disconnect(); 
         };
-    }, [activeStoreId, setMessages, addMessage]);
+    }, [activeStoreId, setMessages, addMessage, prefillMsg]);
 
     const selectChat = (storeId: string) => {
         setActiveStoreId(storeId);
@@ -203,7 +228,6 @@ export default function ChatPage() {
         <div className="flex h-screen bg-[#020202] text-zinc-100 selection:bg-[#ef3333]/30 overflow-hidden">
             
             {/* SIDEBAR: Daftar Toko yang Pernah di-Chat */}
-            {/* Kondisional Render Sidebar atau styling lebar & absolute untuk Mobile */}
             {isSidebarOpen && (
                 <div className="absolute md:relative z-20 w-full md:w-1/3 lg:w-1/4 h-full border-r border-zinc-800/60 bg-[#09090b] flex flex-col shrink-0 shadow-2xl md:shadow-none">
                     <div className="p-4 border-b border-zinc-800/60 flex items-center justify-between">
@@ -213,7 +237,6 @@ export default function ChatPage() {
                             </button>
                             <h2 className="font-bold text-zinc-200">Pesan Saya</h2>
                         </div>
-                        {/* Tombol Close Sidebar Khusus Layar Mobile */}
                         <button 
                             onClick={() => setIsSidebarOpen(false)} 
                             className="p-2 text-zinc-400 hover:bg-zinc-800 rounded-full md:hidden transition-colors"
@@ -253,7 +276,6 @@ export default function ChatPage() {
                         <header className="sticky top-0 z-10 border-b border-zinc-800/60 bg-[#09090b]/80 backdrop-blur-md">
                             <div className="flex items-center justify-between px-4 md:px-6 py-4 w-full">
                                 <div className="flex items-center gap-3">
-                                    {/* Tombol Toggle Sidebar */}
                                     <button 
                                         onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
                                         className="p-2 -ml-2 transition-colors rounded-full hover:bg-zinc-800 text-zinc-400"
@@ -409,9 +431,7 @@ export default function ChatPage() {
                         </footer>
                     </>
                 ) : (
-                    /* Tampilan Default saat belum memilih toko */
                     <div className="flex-1 flex flex-col items-center justify-center text-zinc-600 italic bg-[#020202] gap-3 relative">
-                        {/* Tombol Toggle Sidebar saat belum memilih chat */}
                         {!isSidebarOpen && (
                             <button 
                                 onClick={() => setIsSidebarOpen(true)} 

@@ -1,203 +1,176 @@
+// File: dialog-id-fe/store/cartStore.ts
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { Product } from '../types/product';
-import { CartItem } from '../types/cart';
+import { CartItem, AddToCartPayload } from '../types/cart';
 import { GradingStatus } from '../types/grading';
+import { CartService } from '@/services/api/cart.service';
 import { productService } from '@/services/api/product.service';
+import { toast } from 'sonner';
 
 interface CartState {
     items: CartItem[];
     isOpen: boolean;
-    isAnimate: boolean; // ⚡ TAMBAHAN: Untuk trigger animasi di Navbar
+    isAnimate: boolean;
+    isLoading: boolean; // ⚡ NEW: Status loading saat sinkronisasi DB
+    
+    // UI Actions
     openCart: () => void;
     closeCart: () => void;
-    addItem: (product: Product, quantity?: number) => void;
-    removeItem: (cartItemId: string) => void;
-    updateQuantity: (cartItemId: string, quantity: number) => void;
-    clearCart: () => void;
-    clearCartAfterCheckout: () => void;
-    syncCartItems: () => Promise<boolean>;
 
-    // ⚡ NEW: Grading tracking methods
+    // Database Actions
+    fetchCart: () => Promise<void>; // ⚡ NEW: Ambil data dari DB
+    addItem: (product: Product, quantity?: number) => Promise<void>;
+    removeItem: (cartItemId: string) => Promise<void>;
+    updateQuantity: (cartItemId: string, quantity: number) => Promise<void>;
+    clearCart: () => Promise<void>;
+    
+    // Logistics & Sync
+    syncCartItems: () => Promise<boolean>;
+    
+    // Grading tracking methods
     updateGradingInfo: (cartItemId: string, gradingRequestId: string, status: GradingStatus, requiresGrading: boolean) => void;
-    getItemsByGradingRequirement: () => CartItem[]; // Get items yang require grading
+    getItemsByGradingRequirement: () => CartItem[];
 }
 
-export const useCartStore = create<CartState>()(
-    persist(
-        (set, get) => ({
-            items: [],
-            isOpen: false,
-            isAnimate: false, // Initial state animasi
+export const useCartStore = create<CartState>((set, get) => ({
+    items: [],
+    isOpen: false,
+    isAnimate: false,
+    isLoading: false,
 
-            openCart: () => set({ isOpen: true }),
+    openCart: () => set({ isOpen: true }),
+    closeCart: () => set({ isOpen: false }),
 
-            closeCart: () => set({ isOpen: false }),
-
-            addItem: (product, quantity = 1) => {
-                const { items } = get();
-
-                // Trigger Animasi Navbar
-                set({ isAnimate: true });
-                
-                // Reset animasi setelah 500ms agar bisa dipicu kembali nanti
-                setTimeout(() => set({ isAnimate: false }), 500);
-
-                const existingItem = items.find((item) => item.product.id === product.id);
-
-                if (existingItem) {
-                    const newQuantity = existingItem.quantity + quantity;
-
-                    if (newQuantity > product.stock) {
-                        throw new Error(`Stok tidak mencukupi. Tersisa ${product.stock} pcs.`);
-                    }
-
-                    set({
-                        items: items.map((item) =>
-                            item.product.id === product.id
-                                ? { ...item, quantity: newQuantity }
-                                : item
-                        ),
-                        // ⚡ PERBAIKAN: isOpen diatur ke false agar tidak muncul drawer otomatis
-                        isOpen: false, 
-                    });
-                } else {
-                    if (quantity > product.stock) {
-                        throw new Error(`Stok tidak mencukupi. Tersisa ${product.stock} pcs.`);
-                    }
-
-                    const newItem: CartItem = {
-                        cart_item_id: product.id,
-                        product,
-                        quantity,
-                    };
-
-                    set({
-                        items: [newItem, ...items],
-                        // ⚡ PERBAIKAN: isOpen diatur ke false agar tidak muncul drawer otomatis
-                        isOpen: false,
-                    });
-                }
-            },
-
-            removeItem: (cartItemId) => {
-                set((state) => ({
-                    items: state.items.filter((item) => item.cart_item_id !== cartItemId),
-                }));
-            },
-
-            updateQuantity: (cartItemId, quantity) => {
-                const { items } = get();
-                const itemToUpdate = items.find((item) => item.cart_item_id === cartItemId);
-
-                if (itemToUpdate && quantity > itemToUpdate.product.stock) {
-                    return;
-                }
-
-                if (quantity <= 0) {
-                    get().removeItem(cartItemId);
-                    return;
-                }
-
-                set((state) => ({
-                    items: state.items.map((item) =>
-                        item.cart_item_id === cartItemId
-                            ? { ...item, quantity }
-                            : item
-                    ),
-                }));
-            },
-
-            clearCart: () => set({ items: [] }),
-
-            clearCartAfterCheckout: () => set({ items: [] }),
-
-            syncCartItems: async () => {
-                const { items } = get();
-                if (items.length === 0) return false;
-
-                const productIds = items.map((item) => item.product.id);
-
-                try {
-                    const response = await productService.syncProducts(productIds);
-                    const latestData = response.data;
-
-                    let hasChanges = false;
-
-                    const updatedItems = items.map((item) => {
-                        const serverInfo = latestData.find((p: any) => p.id === item.product.id);
-
-                        if (!serverInfo) {
-                            hasChanges = true;
-                            return {
-                                ...item,
-                                product: { ...item.product, is_active: false, stock: 0 }
-                            };
-                        }
-
-                        const isPriceChanged = Number(serverInfo.price) !== Number(item.product.price);
-                        const isOutOfStock = serverInfo.stock < item.quantity || !serverInfo.is_active;
-
-                        if (isPriceChanged || isOutOfStock) {
-                            hasChanges = true;
-                        }
-
-                        return {
-                            ...item,
-                            quantity: serverInfo.stock < item.quantity ? serverInfo.stock : item.quantity,
-                            product: {
-                                ...item.product,
-                                price: serverInfo.price,
-                                stock: serverInfo.stock,
-                                is_active: serverInfo.is_active,
-                                product_weight: serverInfo.product_weight
-                            }
-                        };
-                    });
-
-                    const cleanItems = updatedItems.filter(item => item.quantity > 0);
-
-                    if (cleanItems.length !== updatedItems.length) {
-                        hasChanges = true;
-                    }
-
-                    if (hasChanges) {
-                        set({ items: cleanItems });
-                    }
-
-                    return hasChanges;
-                } catch (error) {
-                    console.error('[Cart Auto-Healing] Gagal menyinkronkan data:', error);
-                    return false;
-                }
-            },
-
-            // ⚡ NEW: Update grading link untuk cart item
-            updateGradingInfo: (cartItemId: string, gradingRequestId: string, status: GradingStatus, requiresGrading: boolean) => {
-                set((state) => ({
-                    items: state.items.map((item) =>
-                        item.cart_item_id === cartItemId
-                            ? {
-                                ...item,
-                                grading_request_id: gradingRequestId,
-                                grading_status: status,
-                                requires_grading: requiresGrading,
-                            }
-                            : item
-                    ),
-                }));
-            },
-
-            // ⚡ NEW: Get items yang memerlukan grading validation sebelum checkout
-            getItemsByGradingRequirement: () => {
-                const { items } = get();
-                return items.filter((item) => item.requires_grading === true);
-            },
-        }),
-        {
-            name: 'analog-cart-storage',
-            // Kita tidak mem-persist 'isAnimate' atau 'isOpen' agar tidak aneh saat page refresh
-            partialize: (state) => ({ items: state.items }),
+    /**
+     * Mengambil data keranjang terbaru dari database
+     */
+    fetchCart: async () => {
+        try {
+            set({ isLoading: true });
+            const response = await CartService.getMyCart();
+            set({ items: response.data || [] });
+        } catch (error) {
+            console.error('[CartStore] Gagal mengambil keranjang:', error);
+        } finally {
+            set({ isLoading: false });
         }
-    )
-);
+    },
+
+    /**
+     * Menambahkan item ke database dan memperbarui state lokal
+     */
+    addItem: async (product, quantity = 1) => {
+        try {
+            set({ isAnimate: true });
+            
+            const payload: AddToCartPayload = {
+                product_id: product.id,
+                quantity: quantity
+            };
+
+            await CartService.addToCart(payload);
+            
+            // Re-fetch data dari server agar state lokal sama persis dengan DB
+            await get().fetchCart();
+            
+            setTimeout(() => set({ isAnimate: false }), 500);
+            toast.success(`${product.name} berhasil ditambahkan ke keranjang`);
+        } catch (error: any) {
+            const msg = error.response?.data?.message || 'Gagal menambahkan ke keranjang';
+            toast.error(msg);
+            set({ isAnimate: false });
+        }
+    },
+
+    /**
+     * Memperbarui kuantitas di database (berdasarkan Cart ID)
+     */
+    updateQuantity: async (cartItemId, quantity) => {
+        if (quantity <= 0) {
+            return get().removeItem(cartItemId);
+        }
+
+        try {
+            await CartService.updateQty(cartItemId, quantity);
+            // Update lokal secara optimis atau re-fetch
+            await get().fetchCart();
+        } catch (error: any) {
+            const msg = error.response?.data?.message || 'Gagal memperbarui kuantitas';
+            toast.error(msg);
+        }
+    },
+
+    /**
+     * Menghapus item dari database (berdasarkan Cart ID)
+     */
+    removeItem: async (cartItemId) => {
+        try {
+            await CartService.removeItem(cartItemId);
+            // Filter lokal agar UI terasa instan
+            set((state) => ({
+                items: state.items.filter((item) => item.id !== cartItemId),
+            }));
+        } catch (error) {
+            toast.error('Gagal menghapus item');
+        }
+    },
+
+    /**
+     * Mengosongkan keranjang di database
+     */
+    clearCart: async () => {
+        try {
+            await CartService.clearCart();
+            set({ items: [] });
+        } catch (error) {
+            console.error('Gagal membersihkan keranjang');
+        }
+    },
+
+    /**
+     * Tetap diperlukan untuk pengecekan harga/stok terbaru sebelum checkout
+     */
+    syncCartItems: async () => {
+        const { items } = get();
+        if (items.length === 0) return false;
+
+        const productIds = items.map((item) => item.product.id);
+
+        try {
+            const response = await productService.syncProducts(productIds);
+            const latestData = response.data;
+
+            let hasChanges = false;
+            // Jika ada perubahan drastis di stok/harga pada server, fetch ulang keranjang
+            if (latestData) {
+                await get().fetchCart();
+                hasChanges = true;
+            }
+
+            return hasChanges;
+        } catch (error) {
+            console.error('[Cart Auto-Healing] Gagal menyinkronkan data:', error);
+            return false;
+        }
+    },
+
+    updateGradingInfo: (cartItemId, gradingRequestId, status, requiresGrading) => {
+        set((state) => ({
+            items: state.items.map((item) =>
+                item.id === cartItemId
+                    ? {
+                        ...item,
+                        grading_request_id: gradingRequestId,
+                        grading_status: status,
+                        requires_grading: requiresGrading,
+                    }
+                    : item
+            ),
+        }));
+    },
+
+    getItemsByGradingRequirement: () => {
+        const { items } = get();
+        return items.filter((item) => item.requires_grading === true);
+    },
+}));

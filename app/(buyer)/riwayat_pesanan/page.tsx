@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { OrderService } from '@/services/api/order.service';
 import { Order, OrderStatus } from '@/types/order';
 import { getStatusColor, formatStatus } from '@/utils/order-helper';
@@ -48,6 +49,7 @@ export default function MyOrdersPage() {
 
     // Integrasi User Bank Store
     const { banks, fetchBanks, addBank, isLoading: isBankLoading } = useUserBankStore();
+    const router = useRouter();
 
     const fetchOrders = async (status?: string) => {
         setIsLoading(true);
@@ -101,50 +103,66 @@ export default function MyOrdersPage() {
     };
 
     const handleSubmitDispute = async () => {
-        if (!selectedOrderId || !disputeReason) {
-            toast.error('Mohon isi alasan dispute.');
-            return;
-        }
-        if (evidenceFiles.length === 0) {
-            toast.error('Mohon unggah setidaknya satu bukti foto/video.');
-            return;
-        }
+    if (!selectedOrderId || !disputeReason) {
+        toast.error('Mohon isi alasan dispute.');
+        return;
+    }
+    if (evidenceFiles.length === 0) {
+        toast.error('Mohon unggah setidaknya satu bukti foto/video.');
+        return;
+    }
 
-        setIsDisputing(true);
-        try {
-            if (banks.length === 0) {
-                if (!bankName || !accountNumber || !accountName) {
-                    toast.error('Mohon lengkapi data rekening bank untuk pengembalian dana.');
-                    setIsDisputing(false);
-                    return;
-                }
-                await addBank({
-                    bank_name: bankName,
-                    bank_account_number: accountNumber,
-                    bank_account_name: accountName
-                });
+    setIsDisputing(true);
+    try {
+        const targetOrder = orders.find(o => o.id === selectedOrderId);
+        const storeId = targetOrder?.store_id || targetOrder?.store?.id;
+
+        if (banks.length === 0) {
+            if (!bankName || !accountNumber || !accountName) {
+                toast.error('Mohon lengkapi data rekening bank untuk pengembalian dana.');
+                setIsDisputing(false);
+                return;
             }
-
-            await DisputeService.openDispute({
-                order_id: selectedOrderId,
-                reason: disputeReason,
-                evidences: evidenceFiles 
+            await addBank({
+                bank_name: bankName,
+                bank_account_number: accountNumber,
+                bank_account_name: accountName
             });
-            
-            toast.success('Dispute berhasil diajukan. Dana Escrow telah dibekukan sementara.');
-            setShowDisputeModal(false);
-            setDisputeReason('');
-            setEvidenceFiles([]);
-            setBankName('');
-            setAccountNumber('');
-            setAccountName('');
-            fetchOrders(activeFilter);
-        } catch (error: any) {
-            toast.error(error.response?.data?.message || 'Gagal mengajukan dispute.');
-        } finally {
-            setIsDisputing(false);
         }
-    };
+
+        // 1. Hit API Dispute
+        await DisputeService.openDispute({
+            order_id: selectedOrderId,
+            reason: disputeReason,
+            evidences: evidenceFiles 
+        });
+        
+        toast.success('Dispute berhasil diajukan. Dana Escrow telah dibekukan sementara.');
+        
+        // 2. Siapkan pesan otomatis
+        // Menggunakan encodeURIComponent agar karakter spesial dan baris baru aman di URL
+        const autoMessage = encodeURIComponent(
+            `[SISTEM DISPUTE]\nSaya mengajukan komplain untuk pesanan #${selectedOrderId?.substring(0, 8)}.\n\nAlasan: ${disputeReason}\n\nMohon segera ditinjau bukti foto yang telah saya unggah di menu Pesanan.`
+        );
+
+        // Reset State Modal
+        setShowDisputeModal(false);
+        setDisputeReason('');
+        setEvidenceFiles([]);
+        
+        // 3. REDIRECT KE HALAMAN CHAT dengan membawa pesan dispute
+        if (storeId) {
+            router.push(`/chat?storeId=${storeId}&prefillMsg=${autoMessage}`);
+        } else {
+            router.push('/chat');
+        }
+
+    } catch (error: any) {
+        toast.error(error.response?.data?.message || 'Gagal mengajukan dispute.');
+    } finally {
+        setIsDisputing(false);
+    }
+};
 
     const handleSubmitReturnResi = async () => {
         if (!selectedDisputeId || !returnResi) {
