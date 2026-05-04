@@ -193,13 +193,13 @@ export default function PembayaranPage() {
 
     if (isPaid) {
         return (
-            <main className="min-h-screen bg-[#0a0a0b] pt-16 pb-24 flex items-center justify-center px-4">
+            <main className="min-h-screen bg-[#0a0a0b]  pb-24 flex items-center justify-center px-4">
                 <div className="bg-[#111114] border border-zinc-800 p-12 text-center max-w-lg w-full rounded-[2rem] shadow-2xl relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-1 bg-green-500"></div>
                     <div className="w-24 h-24 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-8 border border-green-500/20">
                         <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                     </div>
-                    <h1 className="text-3xl font-black text-white tracking-tighter mb-3 uppercase italic">Pembayaran Berhasil!</h1>
+                    <h1 className="text-3xl font-black text-white tracking-tighter mb-3 uppercase ">Pembayaran Berhasil!</h1>
                     <p className="text-zinc-400 text-sm mb-10 leading-relaxed">Tagihan <span className="text-white font-bold">#{billing.id.substring(0,8)}</span> telah lunas. Dana telah diamankan dan penjual akan segera memproses pesanan Anda.</p>
                     <button onClick={() => router.push(`/riwayat_pesanan`)} className="w-full bg-white text-black py-5 text-xs font-black tracking-widest uppercase hover:bg-zinc-200 transition-all shadow-xl">Lihat Riwayat Pesanan</button>
                 </div>
@@ -213,7 +213,7 @@ export default function PembayaranPage() {
     const expiryTimeIso = expiryDate.toISOString();
 
     return (
-        <main className="min-h-screen bg-[#0a0a0b] pt-24 pb-32">
+        <main className="min-h-screen bg-[#0a0a0b]  pb-32">
             <div className="container mx-auto px-4 max-w-5xl text-zinc-200">
                 <div className="mb-10 text-center">
                     <h1 className="text-3xl md:text-4xl font-black text-white tracking-tighter uppercase italic mb-2">Finalisasi Pembayaran</h1>

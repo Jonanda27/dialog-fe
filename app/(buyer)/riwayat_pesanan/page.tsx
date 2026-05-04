@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { OrderService } from '@/services/api/order.service';
 import { Order, OrderStatus } from '@/types/order';
 import { getStatusColor, formatStatus } from '@/utils/order-helper';
@@ -36,6 +37,8 @@ export default function MyOrdersPage() {
 
     const [showResiModal, setShowResiModal] = useState(false);
     const [selectedDisputeId, setSelectedDisputeId] = useState<string | null>(null);
+
+    const router = useRouter();
 
     const fetchOrders = async (status?: string) => {
         setIsLoading(true);
@@ -89,8 +92,12 @@ export default function MyOrdersPage() {
     };
 
     // Callback untuk me-refresh data ketika modal selesai melakukan aksinya
-    const onModalSuccess = () => {
+    // ⚡ Kita modifikasi sedikit agar bisa menerima instruksi redirect dari Modal
+    const onModalSuccess = (redirectUrl?: string) => {
         fetchOrders(activeFilter);
+        if (redirectUrl) {
+            router.push(redirectUrl);
+        }
     };
 
     return (
@@ -245,6 +252,8 @@ export default function MyOrdersPage() {
                         setSelectedOrderId(null);
                     }}
                     orderId={selectedOrderId}
+                    // Kita bisa meneruskan Order utuh jika Modal butuh store_id untuk fitur chat rekan Anda
+                    order={orders.find(o => o.id === selectedOrderId)}
                     onSuccess={onModalSuccess}
                 />
             )}
@@ -257,7 +266,7 @@ export default function MyOrdersPage() {
                         setSelectedDisputeId(null);
                     }}
                     disputeId={selectedDisputeId}
-                // Komponen ini akan memuat fungsi onSuccess jika diperlukan
+                    onSuccess={() => onModalSuccess()}
                 />
             )}
         </main>

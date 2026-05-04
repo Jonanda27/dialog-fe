@@ -40,6 +40,13 @@ const formatJoinDate = (dateString: string | null | undefined) => {
   return date.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
 };
 
+// --- TAMBAHKAN URL TEMPLATE DI SINI ---
+const BANNER_TEMPLATES = [
+  "https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=1600&auto=format&fit=crop", // Template 1: Toko Klasik/Retail
+  "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?q=80&w=1600&auto=format&fit=crop", // Template 2: Etalase
+  "https://images.unsplash.com/photo-1528698827591-e19ccd7bc23d?q=80&w=1600&auto=format&fit=crop"  // Template 3: Lifestyle/Minimalis
+];
+
 const CustomIcons = {
   Instagram: ({ className }: { className?: string }) => (
     <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
@@ -83,6 +90,9 @@ export default function PengaturanToko() {
     website: "",
     banner_preview: null,
     logo_preview: null,
+    banner_file: null,
+    logo_file: null,
+    selected_template: null, // Menyimpan URL template jika user memilih dari daftar
     createdAt: null
   });
 
@@ -131,6 +141,7 @@ export default function PengaturanToko() {
               logo_preview: getImageUrl(data.logo_url),
               banner_file: null,
               logo_file: null,
+              selected_template: null,
               startDay: daysPart[0],
               endDay: daysPart[1] || daysPart[0],
               startTime: hoursPart[0],
@@ -139,7 +150,7 @@ export default function PengaturanToko() {
               facebook: data.social_links?.facebook || "",
               youtube: data.social_links?.youtube || "",
               website: data.social_links?.website || "",
-              createdAt: data.created_at // Menggunakan format CamelCase sesuai response API Anda
+              createdAt: data.created_at
           });
       }
       if (productRes.success) {
@@ -167,11 +178,26 @@ export default function PengaturanToko() {
       const file = files[0];
       const previewUrl = URL.createObjectURL(file);
       if (name === "banner_file") {
-          setStoreData((prev: any) => ({ ...prev, banner_preview: previewUrl, banner_file: file }));
+          setStoreData((prev: any) => ({ 
+            ...prev, 
+            banner_preview: previewUrl, 
+            banner_file: file,
+            selected_template: null // Reset template jika user upload gambar sendiri
+          }));
       } else if (name === "logo_file") {
           setStoreData((prev: any) => ({ ...prev, logo_preview: previewUrl, logo_file: file }));
       }
     }
+  };
+
+  // Fungsi khusus untuk memilih template
+  const handleSelectTemplate = (templateUrl: string) => {
+    setStoreData((prev: any) => ({
+      ...prev,
+      banner_preview: templateUrl,
+      banner_file: null, // Hapus file lokal jika ada
+      selected_template: templateUrl // Tandai template mana yang dipilih
+    }));
   };
 
   const handleSave = async () => {
@@ -186,7 +212,8 @@ export default function PengaturanToko() {
         facebook: storeData.facebook || undefined,
         youtube: storeData.youtube || undefined,
         website: storeData.website || undefined,
-        banner_url: storeData.banner_file || undefined, 
+        // Kirim banner_file jika ada upload manual, atau selected_template jika pilih template
+        banner_url: storeData.banner_file || storeData.selected_template || undefined, 
         logo_url: storeData.logo_file || undefined,
       };
 
@@ -244,6 +271,7 @@ export default function PengaturanToko() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           <div className="lg:col-span-12 space-y-12">
             
+            {/* --- TAB TAMPILAN --- */}
             {activeTab === "tampilan" && (
               <div className="animate-fade-in space-y-12">
                 {/* BANNER PREVIEW */}
@@ -256,7 +284,6 @@ export default function PengaturanToko() {
                     
                     <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(0,0,0,0.8)_0%,rgba(0,0,0,0.4)_30%,transparent_60%)] z-[1]" />
                     <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80 z-[2]" />
-                    
                     <div className="absolute bottom-0 left-0 w-full h-full bg-[radial-gradient(circle_at_bottom_left,rgba(0,0,0,0.85)_0%,rgba(0,0,0,0.4)_25%,transparent_50%)] z-[3] pointer-events-none" />
 
                     <div className="absolute inset-0 z-10 p-10 lg:p-14 flex flex-col justify-between">
@@ -489,17 +516,48 @@ export default function PengaturanToko() {
               </div>
             )}
 
+            {/* --- TAB PROFIL TOKO --- */}
             {activeTab === "profil" && (
               <div className="space-y-8 animate-fade-in max-w-5xl mx-auto">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-2 relative h-[280px] rounded-[2.5rem] overflow-hidden border border-zinc-900 group">
-                        <img src={storeData.banner_preview || "https://images.unsplash.com/photo-1535992165812-68d1863aa354?q=80&w=1600&auto=format&fit=crop"} className="w-full h-full object-cover opacity-40" alt="Banner Preview" />
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <button disabled={!isEditing} onClick={() => bannerInputRef.current?.click()} className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-8 py-4 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#ef3333] transition-all disabled:opacity-30">
-                                <Camera size={18}/> Ganti Banner
-                            </button>
+                    
+                    {/* BAGIAN BANNER + PILIH TEMPLATE */}
+                    <div className="md:col-span-2 flex flex-col gap-4">
+                      {/* Tampilan Utama Banner */}
+                      <div className="relative h-[280px] w-full rounded-[2.5rem] overflow-hidden border border-zinc-900 group">
+                          <img src={storeData.banner_preview || "https://images.unsplash.com/photo-1535992165812-68d1863aa354?q=80&w=1600&auto=format&fit=crop"} className="w-full h-full object-cover opacity-40" alt="Banner Preview" />
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                              <button disabled={!isEditing} onClick={() => bannerInputRef.current?.click()} className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-8 py-4 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#ef3333] transition-all disabled:opacity-30">
+                                  <Camera size={18}/> {storeData.banner_file ? "Ganti Gambar" : "Upload Gambar Sendiri"}
+                              </button>
+                          </div>
+                      </div>
+
+                      {/* Baris Pilihan Template (Hanya Tampil Saat Edit) */}
+                      {isEditing && (
+                        <div className="flex flex-col gap-3 bg-[#111114] p-5 rounded-[2rem] border border-zinc-900 animate-fade-in">
+                           <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest ml-2">Atau Pilih Template Banner:</span>
+                           <div className="flex gap-4 overflow-x-auto no-scrollbar">
+                              {BANNER_TEMPLATES.map((tpl, idx) => (
+                                 <button 
+                                   key={idx} 
+                                   onClick={() => handleSelectTemplate(tpl)}
+                                   className={`relative h-20 w-36 flex-shrink-0 rounded-2xl overflow-hidden border-2 transition-all duration-300 ${storeData.selected_template === tpl ? 'border-[#ef3333] shadow-[0_0_15px_rgba(239,51,51,0.3)]' : 'border-transparent hover:border-zinc-700 opacity-60 hover:opacity-100'}`}
+                                 >
+                                    <img src={tpl} className="w-full h-full object-cover" alt={`Template ${idx+1}`} />
+                                    {storeData.selected_template === tpl && (
+                                      <div className="absolute top-1 right-1 bg-[#ef3333] rounded-full p-0.5">
+                                        <ShieldCheck size={12} className="text-white" />
+                                      </div>
+                                    )}
+                                 </button>
+                              ))}
+                           </div>
                         </div>
+                      )}
                     </div>
+
+                    {/* LOGO */}
                     <div className="relative h-[280px] bg-[#111114] border border-zinc-900 rounded-[2.5rem] flex flex-col items-center justify-center gap-6">
                         <div className="w-24 h-24 rounded-full border-4 border-emerald-500/50 overflow-hidden bg-zinc-900 relative">
                             {storeData.logo_preview && <img src={storeData.logo_preview} className="w-full h-full object-cover" alt="Logo Preview" />}
