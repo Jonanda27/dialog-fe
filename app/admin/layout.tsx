@@ -1,46 +1,49 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "@/app/globals.css";
-import ToastProvider from "@/components/ui/ToastProvider";
+"use client";
 
-const geistSans = Geist({
-    variable: "--font-geist-sans",
-    subsets: ["latin"],
-});
+import React, { ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
+import AuthGuard from '@/components/layout/AuthGuard';
+import Sidebar from '@/components/layout/sidebar';
+import { Toaster } from 'sonner';
 
-const geistMono = Geist_Mono({
-    variable: "--font-geist-mono",
-    subsets: ["latin"],
-});
+/**
+ * ADMIN LAYOUT
+ * Layout utama untuk area Admin Command Center.
+ * Dilengkapi dengan Sidebar dan perlindungan peran (RBAC).
+ */
+export default function AdminLayout({ children }: { children: ReactNode }) {
+    const pathname = usePathname();
+    
+    // Anda bisa menambahkan pengecualian sidebar di sini jika ada halaman admin tertentu yang fullscreen
+    const noSidebarPages: string[] = []; 
+    const isNoSidebarPage = noSidebarPages.includes(pathname);
 
-export const metadata: Metadata = {
-    title: "Analog.id | Marketplace Analog Photography",
-    description: "Platform jual beli kamera dan film analog terpercaya",
-};
-
-export default function RootLayout({
-    children,
-}: Readonly<{
-    children: React.ReactNode;
-}>) {
     return (
-        <html
-            lang="id"
-            className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-            suppressHydrationWarning
-        >
-            <body className="min-h-full flex flex-col bg-white text-slate-900">
+        <AuthGuard allowedRoles={['admin']}>
+            <div className="min-h-screen bg-[#0a0a0b] text-white">
+                {isNoSidebarPage ? (
+                    // Tampilan Fullscreen (Jika diperlukan di masa depan)
+                    <main className="w-full">
+                        {children}
+                    </main>
+                ) : (
+                    // Tampilan Standar Admin dengan Sidebar
+                    <Sidebar>
+                        <main className="animate-in fade-in slide-in-from-bottom-2 duration-700 max-w-7xl mx-auto p-4 md:p-8">
+                            {children}
+                        </main>
+                    </Sidebar>
+                )}
 
-                {/* Konten Halaman Utama */}
-                {children}
-
-                {/* ToastProvider dipanggil sebagai komponen yang sejajar (sibling).
-          Ia tidak memerlukan 'children' karena hanya bertugas menyuntikkan 
-          logika notifikasi global ke dalam DOM aplikasi.
-        */}
-                <ToastProvider />
-
-            </body>
-        </html>
+                {/* Notifikasi Sistem (Sonner) */}
+                <Toaster
+                    theme="dark"
+                    position="bottom-right"
+                    toastOptions={{
+                        className: 'bg-[#0a0a0b] border border-zinc-800 text-zinc-100 rounded-2xl shadow-2xl font-medium tracking-wide',
+                    }}
+                />
+            </div>
+        </AuthGuard>
     );
 }

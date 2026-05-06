@@ -2,13 +2,13 @@
 
 import React, { Suspense, useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
+import { useWishlistStore } from '@/store/wishlistStore';
 import {
     Heart,
     Bell,
     ShieldCheck,
     ChevronRight,
     Store as StoreIcon,
-    Activity,
     Loader2
 } from 'lucide-react';
 import WishlistPreview from '@/components/dashboard/WishlistPreview';
@@ -115,29 +115,22 @@ const LiveAuctionHighlight = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-900 pb-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-900 pb-6">
                 <div>
-                    <div className="flex items-center gap-2 mb-2">
-                        <Activity size={16} className="text-[#ef3333] animate-pulse" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ef3333]">Event Toko</span>
-                    </div>
-                    <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic">
-                        Auction <span className="text-zinc-500">Arena</span>
+                    <h2 className="text-xl md:text-2xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
+                        <span className="w-1.5 h-6 md:h-8 bg-[#ef3333] rounded-full" /> 
+                        Auction Arena 
                     </h2>
                 </div>
-                <Link href="/katalog/lelang" className="text-xs font-black bg-zinc-900 hover:bg-white hover:text-black text-zinc-400 uppercase tracking-widest px-6 py-3 rounded-full transition-colors flex items-center gap-2 border border-zinc-800 w-max">
+                <Link href="/katalog/lelang" className="text-xs font-black bg-zinc-900 hover:bg-white hover:text-black text-zinc-400 uppercase tracking-widest px-6 py-3 rounded-full transition-colors flex items-center gap-2 border border-zinc-800 w-max h-max">
                     Semua Lelang <ChevronRight size={14} />
                 </Link>
             </div>
 
-            {/* ⚡ PERBAIKAN GRID & TINGGI KARTU: 
-                Menghapus w-full dan h-[450px]. Kita biarkan Tailwind Grid yang menarik tingginya (stretch). 
-                Disesuaikan juga untuk responsive layout (1 kolom di mobile, 2 di tablet, 4 di desktop besar) 
-            */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch">
+            {/* ⚡ MODIFIED: Horizontal Scroll for Mobile, Grid for Desktop */}
+            <div className="flex md:grid md:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch overflow-x-auto md:overflow-x-visible no-scrollbar snap-x snap-mandatory px-2 md:px-0">
                 {auctions.map((auction) => (
-                    // ⚡ KUNCI PENYELESAIAN: div pembungkus ini sekarang hanya sebagai flex container yang fluid
-                    <div key={auction.id} className="flex flex-col h-full w-full">
+                    <div key={auction.id} className="flex flex-col h-full min-w-[85vw] sm:min-w-[45vw] md:min-w-0 snap-center snap-always">
                         <AuctionCard auction={auction} />
                     </div>
                 ))}
@@ -148,9 +141,16 @@ const LiveAuctionHighlight = () => {
 
 export default function BuyerDashboard() {
     const { user } = useAuthStore();
+    const { fetchWishlist, wishlistItems } = useWishlistStore();
     const [activeCategory, setActiveCategory] = useState('SEMUA');
 
     const categories = ['SEMUA', 'LASERDISC', 'REEL VIDEO 8MM', 'VCD & DVD', 'VHS & BETAMAX'];
+
+    useEffect(() => {
+        if (user) {
+            fetchWishlist();
+        }
+    }, [user, fetchWishlist]);
 
     return (
         <div className="w-full pb-20 space-y-12 md:space-y-16 mt-6 md:mt-8">
@@ -213,7 +213,9 @@ export default function BuyerDashboard() {
                                         <Heart size={24} className="text-[#ef3333] w-5 h-5 md:w-6 md:h-6" fill="#ef3333" />
                                         <h4 className="text-xs md:text-sm font-black text-white uppercase tracking-[0.2em]">Wishlist</h4>
                                     </div>
-                                    <span className="text-[9px] md:text-[10px] font-black text-zinc-500 bg-zinc-900 px-3 md:px-4 py-1 md:py-1.5 rounded-full border border-zinc-800 w-max">Your Picks</span>
+                                    <span className="text-[9px] md:text-[10px] font-black text-zinc-500 bg-zinc-900 px-3 md:px-4 py-1 md:py-1.5 rounded-full border border-zinc-800 w-max">
+                                        {wishlistItems.length} Items
+                                    </span>
                                 </div>
                                 <WishlistPreview />
                             </div>

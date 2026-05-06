@@ -4,6 +4,7 @@ import axiosClient from './axiosClient';
 import { ApiResponse } from '../../types/api';
 import { Store } from '../../types/store';
 import { OrderRefundInfo } from '../../types/order';
+import { DashboardData } from '../../types/admin';
 
 export const AdminService = {
     /**
@@ -59,5 +60,12 @@ export const AdminService = {
      */
     getRefunds: async (): Promise<ApiResponse<OrderRefundInfo[]>> => {
         return await axiosClient.get<any, ApiResponse<OrderRefundInfo[]>>('/admin/refunds');
-    }
+    },
+
+    /**
+     * Mendapatkan data lengkap untuk Admin Command Center
+     */
+    getDashboardData: async (): Promise<ApiResponse<DashboardData>> => {
+        return await axiosClient.get<any, ApiResponse<DashboardData>>('/admin/dashboard');
+    },
 };

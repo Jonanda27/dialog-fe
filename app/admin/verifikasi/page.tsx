@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Sidebar from "@/components/layout/sidebar";
 import { 
   Store, 
   CheckCircle2, 
@@ -98,7 +97,6 @@ export default function AdminVerificationPage() {
   };
 
   return (
-    <Sidebar>
       <div className="max-w-7xl mx-auto pb-20">
         {/* HEADER */}
         <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -295,6 +293,5 @@ export default function AdminVerificationPage() {
           </div>
         )}
       </div>
-    </Sidebar>
   );
 }

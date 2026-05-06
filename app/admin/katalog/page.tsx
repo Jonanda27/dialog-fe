@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Sidebar from "@/components/layout/sidebar";
 import {
   Search,
   Plus,
@@ -81,7 +80,6 @@ export default function KatalogRilisanPage() {
   };
 
   return (
-    <Sidebar>
       <div className="max-w-7xl mx-auto pb-20 animate-in fade-in duration-500">
 
         {/* HEADER */}
@@ -282,6 +280,5 @@ export default function KatalogRilisanPage() {
         )}
 
       </div>
-    </Sidebar>
   );
 }

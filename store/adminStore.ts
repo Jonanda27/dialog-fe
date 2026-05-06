@@ -7,8 +7,10 @@ import { AdminService } from '../services/api/admin.service';
 import { DisputeService } from '../services/api/dispute.service';
 import { ApiError } from '../types/api';
 import { OrderRefundInfo } from '../types/order';
+import { DashboardData } from '../types/admin';
 
 interface AdminState {
+    dashboardData: DashboardData | null;
     pendingStores: Store[];
     allDisputes: Dispute[];
     refundOrders: OrderRefundInfo[];
@@ -17,6 +19,7 @@ interface AdminState {
     
 
     // Actions
+    fetchDashboardData: () => Promise<void>;
     fetchPendingStores: () => Promise<void>;
     approveStore: (storeId: string) => Promise<void>;
     rejectStore: (storeId: string, reason?: string) => Promise<void>; // Menambahkan rejectStore ke state
@@ -32,11 +35,25 @@ interface AdminState {
 }
 
 export const useAdminStore = create<AdminState>((set, get) => ({
+    dashboardData: null,
     pendingStores: [],
     allDisputes: [],
     refundOrders: [],
     isLoading: false,
     error: null,
+
+    fetchDashboardData: async () => {
+        set({ isLoading: true, error: null });
+        try {
+            const response = await AdminService.getDashboardData();
+            set({ dashboardData: response.data, isLoading: false });
+        } catch (error: any) {
+            set({ 
+                error: error.message || 'Gagal memuat data dashboard', 
+                isLoading: false 
+            });
+        }
+    },
 
     fetchPendingStores: async () => {
         set({ isLoading: true, error: null });

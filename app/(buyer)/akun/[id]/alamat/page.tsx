@@ -37,7 +37,6 @@ export default function AlamatPage() {
     const [isSearchingArea, setIsSearchingArea] = useState(false);
     const [showAreaResults, setShowAreaResults] = useState(false);
 
-    // 1. Ambil daftar alamat saat mount
     const fetchAddresses = async () => {
         try {
             setIsFetching(true);
@@ -54,7 +53,6 @@ export default function AlamatPage() {
         fetchAddresses();
     }, []);
 
-    // 2. Logika Pencarian Wilayah (Debounced effect)
     useEffect(() => {
         const timer = setTimeout(async () => {
             if (areaQuery.length >= 3) {
@@ -76,7 +74,6 @@ export default function AlamatPage() {
         return () => clearTimeout(timer);
     }, [areaQuery]);
 
-    // 3. Handler Pilih Wilayah
     const handleSelectArea = (area: BiteshipArea) => {
         setFormData({
             ...formData,
@@ -90,10 +87,8 @@ export default function AlamatPage() {
         setShowAreaResults(false);
     };
 
-    // 4. Handler Simpan (Create / Update)
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
         if (!formData.biteship_area_id) {
             return toast.error("Silakan pilih wilayah dari hasil pencarian");
         }
@@ -116,9 +111,8 @@ export default function AlamatPage() {
         }
     };
 
-    // 5. Handler Hapus
     const handleDelete = async (id: string | undefined) => {
-        if (!id) return; // Proteksi jika id undefined
+        if (!id) return;
         if (!confirm("Hapus alamat ini?")) return;
         try {
             await addressService.deleteAddress(id);
@@ -129,10 +123,8 @@ export default function AlamatPage() {
         }
     };
 
-    // 6. Reset & Close Modal
     const handleOpenModal = (addr?: Address) => {
         if (addr && addr.id) {
-            // FIX ERROR 1: Memberikan fallback null jika id undefined
             setEditingId(addr.id || null);
             setFormData({
                 label: addr.label,
@@ -166,16 +158,16 @@ export default function AlamatPage() {
     };
 
     return (
-        <>
+        <div className="w-full max-w-6xl mx-auto px-1 md:px-0">
             {/* HEADER SECTION */}
-            <div className="mb-10 border-b border-zinc-900 pb-6 flex justify-between items-end">
+            <div className="mb-8 border-b border-zinc-900 pb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                 <div>
-                    <h2 className="text-2xl font-black text-white uppercase tracking-tight">Daftar Alamat</h2>
-                    <p className="text-xs text-zinc-500 mt-1 uppercase tracking-widest font-bold">Atur alamat pengiriman untuk mempermudah checkout</p>
+                    <h2 className="text-xl md:text-2xl font-black text-white uppercase tracking-tight">Daftar Alamat</h2>
+                    <p className="text-[10px] md:text-xs text-zinc-500 mt-1 uppercase tracking-widest font-bold">Atur alamat pengiriman untuk mempermudah checkout</p>
                 </div>
                 <button 
                     onClick={() => handleOpenModal()}
-                    className="px-6 py-3 bg-[#ef3333] text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-red-700 transition-all flex items-center gap-2 active:scale-95 shadow-lg shadow-red-900/20"
+                    className="w-full md:w-auto px-6 py-3.5 bg-[#ef3333] text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-red-700 transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-red-900/20"
                 >
                     <Plus size={14} /> Tambah Alamat
                 </button>
@@ -187,17 +179,17 @@ export default function AlamatPage() {
                     <Loader2 className="animate-spin text-[#ef3333]" size={32} />
                 </div>
             ) : addresses.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {addresses.map((addr) => (
-                        <div key={addr.id} className={`group relative bg-[#0a0a0b] border ${addr.is_primary ? 'border-[#ef3333]/50 bg-[#ef3333]/5' : 'border-zinc-800'} p-6 rounded-[1.5rem] transition-all hover:border-[#ef3333]/30`}>
-                            <div className="flex justify-between items-start">
-                                <div className="space-y-3">
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-[10px] font-black text-white uppercase tracking-widest bg-zinc-800 px-3 py-1 rounded-full border border-zinc-700">
+                        <div key={addr.id} className={`group relative bg-[#0a0a0b] border ${addr.is_primary ? 'border-[#ef3333]/50 bg-[#ef3333]/5' : 'border-zinc-800'} p-5 md:p-6 rounded-[1.5rem] transition-all hover:border-[#ef3333]/30`}>
+                            <div className="flex justify-between items-start gap-4">
+                                <div className="space-y-3 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                                        <span className="text-[9px] md:text-[10px] font-black text-white uppercase tracking-widest bg-zinc-800 px-3 py-1 rounded-full border border-zinc-700">
                                             {addr.label}
                                         </span>
                                         {addr.is_primary && (
-                                            <span className="text-[9px] font-black text-[#ef3333] uppercase tracking-[0.2em] flex items-center gap-1">
+                                            <span className="text-[8px] md:text-[9px] font-black text-[#ef3333] uppercase tracking-[0.2em] flex items-center gap-1">
                                                 <CheckCircle2 size={12} /> Utama
                                             </span>
                                         )}
@@ -205,27 +197,26 @@ export default function AlamatPage() {
                                     
                                     <div>
                                         <h4 className="text-sm font-black text-white uppercase">{addr.recipient_name}</h4>
-                                        <p className="text-xs text-zinc-400 font-bold">{addr.phone_number}</p>
+                                        <p className="text-[11px] md:text-xs text-zinc-400 font-bold">{addr.phone_number}</p>
                                     </div>
 
-                                    <p className="text-xs text-zinc-500 max-w-md leading-relaxed">
+                                    <p className="text-[11px] md:text-xs text-zinc-500 max-w-md leading-relaxed">
                                         {addr.address_detail}, {addr.district}, {addr.city}, {addr.province}, {addr.postal_code}
                                     </p>
                                 </div>
 
-                                <div className="flex flex-col gap-2">
+                                <div className="flex flex-col gap-1 md:gap-2 shrink-0">
                                     <button 
                                         onClick={() => handleOpenModal(addr)}
-                                        className="p-3 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-xl transition-all"
+                                        className="p-2.5 md:p-3 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-xl transition-all"
                                         title="Edit Alamat"
                                     >
                                         <Edit3 size={16} />
                                     </button>
                                     {!addr.is_primary && (
                                         <button 
-                                            // FIX ERROR 2: addr.id dipastikan diproses sebagai string | undefined
                                             onClick={() => handleDelete(addr.id)}
-                                            className="p-3 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+                                            className="p-2.5 md:p-3 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
                                             title="Hapus Alamat"
                                         >
                                             <Trash2 size={16} />
@@ -237,7 +228,7 @@ export default function AlamatPage() {
                     ))}
                 </div>
             ) : (
-                <div className="py-20 border-2 border-dashed border-zinc-800 rounded-[2rem] flex flex-col items-center justify-center text-zinc-600">
+                <div className="py-20 border-2 border-dashed border-zinc-800 rounded-[1.5rem] md:rounded-[2rem] flex flex-col items-center justify-center text-zinc-600 px-4 text-center">
                     <MapPin size={48} className="mb-4 opacity-20" />
                     <p className="text-[11px] font-black uppercase tracking-widest italic text-zinc-500">Belum ada alamat tersimpan</p>
                 </div>
@@ -245,30 +236,30 @@ export default function AlamatPage() {
 
             {/* MODAL FORM ALAMAT */}
             {showModal && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 md:p-6 overflow-hidden">
                     <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={handleCloseModal}></div>
                     
-                    <div className="relative w-full max-w-2xl bg-[#111114] border border-zinc-800 rounded-[2.5rem] p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
-                        <div className="flex justify-between items-center mb-8">
+                    <div className="relative w-full h-full md:h-auto md:max-h-[90vh] md:max-w-2xl bg-[#111114] md:border md:border-zinc-800 md:rounded-[2.5rem] p-6 md:p-8 shadow-2xl overflow-y-auto no-scrollbar">
+                        <div className="flex justify-between items-center mb-8 sticky top-0 bg-[#111114] py-2 z-10">
                             <div>
                                 <h3 className="text-xl font-black text-white uppercase tracking-tight">
                                     {editingId ? "Edit Alamat" : "Tambah Alamat Baru"}
                                 </h3>
-                                <p className="text-[10px] text-zinc-500 font-bold uppercase mt-1 tracking-widest">Gunakan data wilayah resmi untuk akurasi pengiriman</p>
+                                <p className="text-[9px] md:text-[10px] text-zinc-500 font-bold uppercase mt-1 tracking-widest leading-tight">Gunakan data wilayah resmi untuk akurasi pengiriman</p>
                             </div>
-                            <button onClick={handleCloseModal} className="p-2 text-zinc-500 hover:text-white bg-zinc-900 rounded-full">
+                            <button onClick={handleCloseModal} className="p-2 text-zinc-500 hover:text-white bg-zinc-900 rounded-full shrink-0">
                                 <X size={20} />
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-5 pb-10 md:pb-0">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Label Alamat</label>
                                 <input 
                                     type="text" required placeholder="Contoh: Rumah, Kantor, Kosan"
                                     value={formData.label}
                                     onChange={(e) => setFormData({...formData, label: e.target.value})}
-                                    className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-xl px-5 py-3.5 text-sm text-white focus:border-[#ef3333] outline-none"
+                                    className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-xl px-4 md:px-5 py-3.5 text-sm text-white focus:border-[#ef3333] outline-none"
                                 />
                             </div>
                             <div className="space-y-2">
@@ -277,7 +268,7 @@ export default function AlamatPage() {
                                     type="text" required placeholder="Masukkan Nama Lengkap"
                                     value={formData.recipient_name}
                                     onChange={(e) => setFormData({...formData, recipient_name: e.target.value})}
-                                    className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-xl px-5 py-3.5 text-sm text-white focus:border-[#ef3333] outline-none"
+                                    className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-xl px-4 md:px-5 py-3.5 text-sm text-white focus:border-[#ef3333] outline-none"
                                 />
                             </div>
 
@@ -287,7 +278,7 @@ export default function AlamatPage() {
                                     type="tel" required placeholder="08xxxxxxxx"
                                     value={formData.phone_number}
                                     onChange={(e) => setFormData({...formData, phone_number: e.target.value})}
-                                    className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-xl px-5 py-3.5 text-sm text-white focus:border-[#ef3333] outline-none"
+                                    className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-xl px-4 md:px-5 py-3.5 text-sm text-white focus:border-[#ef3333] outline-none"
                                 />
                             </div>
                             
@@ -301,7 +292,7 @@ export default function AlamatPage() {
                                             setAreaQuery(e.target.value);
                                             if (e.target.value === "") setFormData({...formData, biteship_area_id: ""});
                                         }}
-                                        className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-xl px-5 py-3.5 pl-11 text-sm text-white focus:border-[#ef3333] outline-none"
+                                        className="w-full bg-[#0a0a0b] border border-zinc-800 rounded-xl px-4 md:px-5 py-3.5 pl-11 text-sm text-white focus:border-[#ef3333] outline-none"
                                     />
                                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={16} />
                                     {isSearchingArea && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-[#ef3333]" size={16} />}
@@ -340,9 +331,9 @@ export default function AlamatPage() {
                             </div>
 
                             {formData.biteship_area_id && (
-                                <div className="col-span-full flex items-center gap-3 px-5 py-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
-                                    <CheckCircle2 size={14} className="text-emerald-500" />
-                                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Wilayah Teridentifikasi oleh Kurir</p>
+                                <div className="col-span-full flex items-center gap-3 px-4 md:px-5 py-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+                                    <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
+                                    <p className="text-[9px] md:text-[10px] font-black text-emerald-500 uppercase tracking-widest leading-tight">Wilayah Teridentifikasi oleh Sistem Pengiriman</p>
                                 </div>
                             )}
 
@@ -351,18 +342,17 @@ export default function AlamatPage() {
                                     type="checkbox" id="is_primary"
                                     checked={formData.is_primary}
                                     onChange={(e) => setFormData({...formData, is_primary: e.target.checked})}
-                                    className="w-4 h-4 accent-[#ef3333] rounded"
-                                    // FIX ERROR 3: Coerce hasil logika menjadi boolean murni dengan !!
+                                    className="w-4.5 h-4.5 accent-[#ef3333] rounded"
                                     disabled={!!(editingId && editingId === addresses.find(a => a.is_primary)?.id)}
                                 />
-                                <label htmlFor="is_primary" className="text-[10px] font-black text-zinc-400 uppercase tracking-widest cursor-pointer">Jadikan Alamat Utama</label>
+                                <label htmlFor="is_primary" className="text-[10px] font-black text-zinc-400 uppercase tracking-widest cursor-pointer select-none">Jadikan Alamat Utama</label>
                             </div>
 
-                            <div className="col-span-full pt-4">
+                            <div className="col-span-full pt-4 sticky bottom-0 bg-[#111114] py-4 md:relative">
                                 <button 
                                     type="submit" 
                                     disabled={isSubmitting}
-                                    className="w-full py-5 bg-[#ef3333] text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-red-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                                    className="w-full py-4 md:py-5 bg-[#ef3333] text-white text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-red-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50 shadow-xl shadow-red-900/10"
                                 >
                                     {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
                                     {editingId ? "Simpan Perubahan" : "Konfirmasi Alamat"}
@@ -372,6 +362,6 @@ export default function AlamatPage() {
                     </div>
                 </div>
             )}
-        </>
+        </div>
     );
 }

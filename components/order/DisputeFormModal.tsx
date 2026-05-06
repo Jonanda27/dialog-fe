@@ -11,7 +11,8 @@ interface DisputeFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     orderId: string;
-    onSuccess: () => void;
+    onSuccess: (reason: string) => void;
+    
 }
 
 export default function DisputeFormModal({ isOpen, onClose, orderId, onSuccess }: DisputeFormModalProps) {
@@ -67,7 +68,7 @@ export default function DisputeFormModal({ isOpen, onClose, orderId, onSuccess }
             });
 
             toast.success('Dispute berhasil diajukan. Dana Escrow telah dibekukan sementara.');
-            onSuccess();
+           onSuccess(disputeReason);
             onClose();
         } catch (error: any) {
             toast.error(error.message || 'Gagal mengajukan dispute.');

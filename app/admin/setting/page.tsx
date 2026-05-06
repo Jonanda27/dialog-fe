@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Sidebar from "@/components/layout/sidebar";
 import { 
   ShieldCheck, 
   Settings, 
@@ -37,7 +36,6 @@ export default function PlatformSettingPage() {
   };
 
   return (
-    <Sidebar>
       <div className="max-w-7xl mx-auto pb-20 animate-in fade-in duration-500">
         
         {/* HEADER */}
@@ -190,6 +188,5 @@ export default function PlatformSettingPage() {
 
         </div>
       </div>
-    </Sidebar>
   );
 }
